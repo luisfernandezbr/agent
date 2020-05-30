@@ -18,9 +18,9 @@ func (m *devManager) GraphQLManager() sdk.GraphQLClientManager {
 }
 
 // CreateWebHook is used by the integration to create a webhook on behalf of the integration for a given customer and refid
-func (m *devManager) CreateWebHook(customerID string, refID string) error {
+func (m *devManager) CreateWebHook(customerID string, refType string, refID string) (string, error) {
 	log.Error(m.logger, "cannot create a webhook in dev mode")
-	return nil
+	return "", nil
 }
 
 // New will create a new dev sdk.Manager
