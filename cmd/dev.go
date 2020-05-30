@@ -12,6 +12,7 @@ import (
 	"github.com/pinpt/agent.next/internal/export"
 	"github.com/pinpt/agent.next/internal/manager/dev"
 	"github.com/pinpt/agent.next/internal/pipe/console"
+	"github.com/pinpt/agent.next/internal/pipe/file"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/fileutil"
 	"github.com/pinpt/go-common/log"
@@ -74,11 +75,18 @@ var devCmd = &cobra.Command{
 		if err := instance.Start(logger, config, mgr); err != nil {
 			log.Fatal(logger, "failed to start", "err", err)
 		}
-		conPipe := console.New(logger)
+		var pipe sdk.Pipe
+		outdir, _ := cmd.Flags().GetString("dir")
+		if outdir != "" {
+			os.MkdirAll(outdir, 0700)
+			pipe = file.New(logger, outdir)
+		} else {
+			pipe = console.New(logger)
+		}
 		jobid, _ := cmd.Flags().GetString("jobid")
 		customerid, _ := cmd.Flags().GetString("customerid")
 		completion := make(chan export.Completion, 1)
-		export, err := export.New(logger, config, jobid, customerid, conPipe, completion)
+		export, err := export.New(logger, config, jobid, customerid, pipe, completion)
 		if err != nil {
 			log.Fatal(logger, "export failed", "err", err)
 		}
@@ -104,4 +112,5 @@ func init() {
 	devCmd.Flags().StringSlice("config", []string{}, "a config key/value pair such as a=b")
 	devCmd.Flags().String("jobid", "999", "job id")
 	devCmd.Flags().String("customerid", "000", "customer id")
+	devCmd.Flags().String("dir", "", "the directory to output pipe contents")
 }
