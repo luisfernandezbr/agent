@@ -3,7 +3,6 @@ package file
 import (
 	"compress/gzip"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -13,12 +12,26 @@ import (
 	"github.com/pinpt/go-common/log"
 )
 
+type wrapperFile struct {
+	gz *gzip.Writer
+	of *os.File
+}
+
+func (f *wrapperFile) Write(buf []byte) (int, error) {
+	return f.gz.Write(buf)
+}
+
+func (f *wrapperFile) Close() error {
+	f.gz.Close()
+	return f.of.Close()
+}
+
 type filePipe struct {
 	logger log.Logger
 	dir    string
 	closed bool
 	mu     sync.Mutex
-	files  map[string]io.WriteCloser
+	files  map[string]*wrapperFile
 }
 
 var _ sdk.Pipe = (*filePipe)(nil)
@@ -45,7 +58,7 @@ func (p *filePipe) Write(object datamodel.Model) error {
 			p.mu.Unlock()
 			return err
 		}
-		f = gz
+		f = &wrapperFile{gz, of}
 		p.files[model] = f
 	}
 	f.Write([]byte(object.Stringify()))
@@ -69,6 +82,6 @@ func New(logger log.Logger, dir string) sdk.Pipe {
 	return &filePipe{
 		logger: logger,
 		dir:    dir,
-		files:  make(map[string]io.WriteCloser),
+		files:  make(map[string]*wrapperFile),
 	}
 }
