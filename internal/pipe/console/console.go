@@ -24,6 +24,10 @@ func (p *consolePipe) Write(object datamodel.Model) error {
 	return nil
 }
 
+func (p *consolePipe) Flush() error {
+	return nil
+}
+
 // Close is called when the integration has completed and no more data will be sent
 func (p *consolePipe) Close() error {
 	p.closed = true

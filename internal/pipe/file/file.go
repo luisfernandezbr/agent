@@ -67,6 +67,14 @@ func (p *filePipe) Write(object datamodel.Model) error {
 	return nil
 }
 
+// Flush will tell the pipe to flush any data
+func (p *filePipe) Flush() error {
+	for _, f := range p.files {
+		f.gz.Flush()
+	}
+	return nil
+}
+
 // Close is called when the integration has completed and no more data will be sent
 func (p *filePipe) Close() error {
 	p.closed = true
@@ -74,6 +82,7 @@ func (p *filePipe) Close() error {
 		of.Close()
 		delete(p.files, model)
 	}
+	p.files = nil
 	return nil
 }
 
