@@ -6,6 +6,12 @@ type WebHook interface {
 	Config() Config
 	// CustomerID will return the customer id for the web hook
 	CustomerID() string
-	// Pipe returns a pipe for sending data back to pinpoint from the webhook data
+	// RefID will return the ref id from when the hook was created
+	RefID() string
+	// Pipe returns a pipe for sending data back to pinpoint from the web hook data
 	Pipe() (Pipe, error)
+	// Data is the data payload for the web hook
+	Data() map[string]interface{}
+	// Headers are the headers that came from the web hook
+	Headers() map[string]string
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/pinpt/go-common/log"
 )
 
-// GithubIntegration is an integratino for GitHub
+// GithubIntegration is an integration for GitHub
 type GithubIntegration struct {
 	logger  log.Logger
 	config  sdk.Config
