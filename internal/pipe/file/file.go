@@ -1,7 +1,9 @@
 package file
 
 import (
+	"compress/gzip"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -16,10 +18,12 @@ type filePipe struct {
 	dir    string
 	closed bool
 	mu     sync.Mutex
-	files  map[string]*os.File
+	files  map[string]io.WriteCloser
 }
 
 var _ sdk.Pipe = (*filePipe)(nil)
+
+var eol = []byte("\n")
 
 // Write a model back to the output system
 func (p *filePipe) Write(object datamodel.Model) error {
@@ -30,18 +34,23 @@ func (p *filePipe) Write(object datamodel.Model) error {
 	p.mu.Lock()
 	f := p.files[model]
 	if f == nil {
-		fp := filepath.Join(p.dir, model+".json")
-		of, err := os.OpenFile(fp, os.O_APPEND|os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+		fp := filepath.Join(p.dir, model+".json.gz")
+		of, err := os.OpenFile(fp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 		if err != nil {
 			p.mu.Unlock()
 			return err
 		}
-		f = of
+		gz, err := gzip.NewWriterLevel(of, gzip.BestCompression)
+		if err != nil {
+			p.mu.Unlock()
+			return err
+		}
+		f = gz
 		p.files[model] = f
 	}
+	f.Write([]byte(object.Stringify()))
+	f.Write(eol)
 	p.mu.Unlock()
-	f.WriteString(object.Stringify())
-	f.WriteString("\n")
 	return nil
 }
 
@@ -60,6 +69,6 @@ func New(logger log.Logger, dir string) sdk.Pipe {
 	return &filePipe{
 		logger: logger,
 		dir:    dir,
-		files:  make(map[string]*os.File),
+		files:  make(map[string]io.WriteCloser),
 	}
 }
