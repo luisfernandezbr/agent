@@ -1,7 +1,10 @@
 package internal
 
 import (
+	"math/rand"
+	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pinpt/agent.next/sdk"
@@ -11,6 +14,24 @@ import (
 const defaultPageSize = 100
 
 type job func(export sdk.Export, pipe sdk.Pipe) error
+
+func (g *GithubIntegration) checkForAbuseDetection(export sdk.Export, err error) bool {
+	// first check our retry-after since we get better resolution on how much to slow down
+	if ok, retry := sdk.IsRateLimitError(err); ok {
+		export.Paused(time.Now().Add(retry))
+		time.Sleep(retry)
+		export.Resumed()
+		return true
+	}
+	if strings.Contains(err.Error(), "You have triggered an abuse detection mechanism") {
+		// we need to try and back off at least 1min + some randomized number of additional ms
+		export.Paused(time.Now().Add(time.Minute))
+		time.Sleep(time.Minute + time.Millisecond*time.Duration(rand.Int63n(500)))
+		export.Resumed()
+		return true
+	}
+	return false
+}
 
 func (g *GithubIntegration) checkForRateLimit(export sdk.Export, rateLimit rateLimit) error {
 	// check for rate limit
@@ -42,9 +63,15 @@ func (g *GithubIntegration) queuePullRequestJob(repoOwner string, repoName strin
 		}
 		for {
 			var result repositoryPullrequests
+			g.lock.Lock() // just to prevent too many GH requests
 			if err := g.client.Query(pullrequestPageQuery, variables, &result); err != nil {
+				g.lock.Unlock()
+				if g.checkForAbuseDetection(export, err) {
+					continue
+				}
 				return err
 			}
+			g.lock.Unlock()
 			for _, prnode := range result.Repository.Pullrequests.Nodes {
 				pullrequest := prnode.ToModel(export.CustomerID(), repoOwner+"/"+repoName, repoID)
 				if err := pipe.Write(pullrequest); err != nil {
@@ -85,13 +112,19 @@ func (g *GithubIntegration) Export(export sdk.Export) error {
 		"first": 10,
 	}
 	jobs := make([]job, 0)
+	started := time.Now()
+	var repoCount, prCount, reviewCount int
 	for {
 		var result allQueryResult
 		if err := g.client.Query(allDataQuery, variables, &result); err != nil {
+			if g.checkForAbuseDetection(export, err) {
+				continue
+			}
 			export.Completed(err)
 			return nil
 		}
 		for _, node := range result.Organization.Repositories.Nodes {
+			repoCount++
 			repo := node.ToModel(export.CustomerID())
 			if err := pipe.Write(repo); err != nil {
 				return err
@@ -101,11 +134,13 @@ func (g *GithubIntegration) Export(export sdk.Export) error {
 				if err := pipe.Write(pullrequest); err != nil {
 					return err
 				}
+				prCount++
 				for _, reviewnode := range prnode.Reviews.Nodes {
 					prreview := reviewnode.ToModel(export.CustomerID(), repo.GetID(), pullrequest.GetID())
 					if err := pipe.Write(prreview); err != nil {
 						return err
 					}
+					reviewCount++
 				}
 				if prnode.Reviews.PageInfo.HasNextPage {
 					// TODO: queue
@@ -128,14 +163,43 @@ func (g *GithubIntegration) Export(export sdk.Export) error {
 		}
 		variables["after"] = result.Organization.Repositories.PageInfo.EndCursor
 	}
+	log.Info(g.logger, "initial export completed", "duration", time.Since(started), "repoCount", repoCount, "prCount", prCount, "reviewCount", reviewCount)
 
 	// now cycle through any pending jobs after the first pass
+	var wg sync.WaitGroup
+	var maxSize = runtime.NumCPU()
+	jobch := make(chan job, maxSize*5)
+	errors := make(chan error, maxSize)
+	// run our jobs in parallel but we're going to run the graphql request in single threaded mode to try
+	// and reduce abuse from GitHub but at least the processing can be done parallel on our side
+	for i := 0; i < maxSize; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for job := range jobch {
+				if err := job(export, pipe); err != nil {
+					errors <- err
+					return
+				}
+				// docs say a min of one second between requests
+				// https://developer.github.com/v3/guides/best-practices-for-integrators/#dealing-with-abuse-rate-limits
+				time.Sleep(time.Second)
+			}
+		}()
+	}
 	for _, job := range jobs {
-		if err := job(export, pipe); err != nil {
-			pipe.Close()
-			export.Completed(err)
-			return nil
-		}
+		jobch <- job
+	}
+	// close and wait for all our jobs to complete
+	close(jobch)
+	wg.Wait()
+	// check to see if we had an early exit
+	select {
+	case err := <-errors:
+		pipe.Close()
+		export.Completed(err)
+		return nil
+	default:
 	}
 
 	// finish it up

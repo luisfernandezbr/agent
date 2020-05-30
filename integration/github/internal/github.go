@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/log"
@@ -13,6 +14,7 @@ type GithubIntegration struct {
 	config  sdk.Config
 	manager sdk.Manager
 	client  sdk.GraphQLClient
+	lock    sync.Mutex
 }
 
 var _ sdk.Integration = (*GithubIntegration)(nil)

@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/pinpt/agent.next/sdk"
 )
@@ -46,7 +49,18 @@ func (g *client) Query(query string, variables map[string]interface{}, out inter
 	}
 	defer resp.Body.Close()
 
+	// check to see if we've been rate limited with the Retry-After header
+	val := resp.Header.Get("Retry-After")
+	if val != "" {
+		io.Copy(ioutil.Discard, resp.Body)
+		secs, _ := strconv.ParseInt(val, 10, 32)
+		return &sdk.RateLimitError{
+			RetryAfter: time.Second * time.Duration(secs),
+		}
+	}
+
 	body, err := ioutil.ReadAll(resp.Body)
+
 	if err != nil {
 		return err
 	}

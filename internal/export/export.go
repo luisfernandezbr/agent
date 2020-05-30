@@ -45,12 +45,13 @@ func (e *export) Start() (sdk.Pipe, error) {
 
 // Paused must be called when the integration is paused for any reason such as rate limiting
 func (e *export) Paused(resetAt time.Time) error {
-	log.Info(e.logger, "paused", "reset", resetAt)
+	log.Info(e.logger, "paused", "reset", resetAt, "duration", time.Until(resetAt))
 	return nil
 }
 
 // Resumed must be called when a paused integration is resumed
 func (e *export) Resumed() error {
+	log.Info(e.logger, "pause resumed")
 	return nil
 }
 
