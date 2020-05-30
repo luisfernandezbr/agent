@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,26 +20,39 @@ import (
 
 // devCmd represents the dev command
 var devCmd = &cobra.Command{
-	Use:  "dev",
-	Args: cobra.ExactArgs(1),
+	Use:   "dev",
+	Short: "run an integration in development mode",
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		integration := args[0]
+		integrationDir := args[0]
 		_logger := log.NewCommandLogger(cmd)
 		defer _logger.Close()
-		logger := log.With(_logger, "pkg", integration)
-		cwd, _ := os.Getwd()
-		fp := filepath.Join(cwd, "integration", integration, "integration.go")
+		integrationDir, _ = filepath.Abs(integrationDir)
+		integration := strings.Replace(filepath.Base(integrationDir), "agent.next.", "", -1)
+		fp := filepath.Join(integrationDir, "integration.go")
 		if !fileutil.FileExists(fp) {
-			log.Fatal(logger, "couldn't find the integration at "+fp)
+			log.Fatal(_logger, "couldn't find the integration at "+fp)
 		}
-		os.MkdirAll(filepath.Join(cwd, "dist"), 0655)
-		dist := filepath.Join(cwd, "dist", integration+".so")
+		distDir := filepath.Join(os.TempDir(), "agent.next")
+		os.MkdirAll(distDir, 0700)
+		dist := filepath.Join(distDir, integration+".so")
+		logger := log.With(_logger, "pkg", integration)
+		// local dev issue with plugins: https://github.com/golang/go/issues/31354
+		modfp := filepath.Join(integrationDir, "go.mod")
+		mod, err := ioutil.ReadFile(modfp)
+		if err != nil {
+			log.Fatal(_logger, "error reading plugin go.mod", "err", err)
+		}
+		ioutil.WriteFile(modfp, []byte(string(mod)+"\nreplace github.com/pinpt/agent.next => ../agent.next"), 0644)
 		c := exec.Command("go", "build", "-buildmode=plugin", "-o", dist, fp)
 		c.Stderr = os.Stderr
 		c.Stdout = os.Stdout
+		c.Dir = integrationDir
 		if err := c.Run(); err != nil {
+			ioutil.WriteFile(modfp, mod, 0644) // restore original
 			os.Exit(1)
 		}
+		ioutil.WriteFile(modfp, mod, 0644) // restore original
 
 		plug, err := plugin.Open(dist)
 		if err != nil {

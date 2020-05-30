@@ -11,12 +11,32 @@
 
 This is a working concept prototype for the next generation of the Agent.  It's meant to experiment with some different design choices and to validate some potential architectural decisions.
 
+## Building
+
+You can build like this:
+
+```
+go install
+```
+
+This will build the agent.next binary and install it in your `$GOPATH/bin` folder. Make this this folder is on your `$PATH`.
+
+Make sure and setup your `$GOPRIVATE` env to read any pinpoint modules from our repo:
+
+```
+go env -w GOPRIVATE=github.com/pinpt
+```
+
 ## Running
 
-You can run like this:
+Clone the GitHub repo integration:
 
 ```
-go run . dev github --log-level=debug --config apikey=$PP_GITHUB_TOKEN --config organization=pinpt
+git clone git@github.com:pinpt/agent.next.github
 ```
 
-This will run an export for GitHub and print all the JSON objects to the console.
+Then run:
+
+```
+go run . dev ../agent.next.github --log-level=debug --config apikey=$PP_GITHUB_TOKEN --config organization=pinpt
+```
