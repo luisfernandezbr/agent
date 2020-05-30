@@ -31,7 +31,7 @@ func (p *filePipe) Write(object datamodel.Model) error {
 	f := p.files[model]
 	if f == nil {
 		fp := filepath.Join(p.dir, model+".json")
-		of, err := os.OpenFile(fp, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		of, err := os.OpenFile(fp, os.O_APPEND|os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
 		if err != nil {
 			p.mu.Unlock()
 			return err
