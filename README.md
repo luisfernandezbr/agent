@@ -27,7 +27,7 @@ Make sure and setup your `$GOPRIVATE` env to read any pinpoint modules from our 
 go env -w GOPRIVATE=github.com/pinpt
 ```
 
-## Running
+## Running for local dev
 
 Clone the GitHub repo integration:
 
@@ -50,3 +50,45 @@ go run . dev ../agent.next.github --log-level=debug --config apikey=$PP_GITHUB_T
 ```
 
 The `--dir` takes a folder to place the exported models (all data per model goes into one file JSON new line delimited).
+
+## Running for server
+
+The server mode can either run in standalone or multi agent mode.  Standalone mode is currently how agent's work today.  Each customer has one instance of an agent.  Multi agent mode is where the agent can act in a multi-tenant fashion and can process requests for multiple customers and these agents can be horizontally scaled.
+
+### Requirements
+
+You must first build integrations:
+
+```
+go run . build ../agent.next.github
+```
+
+This will be placed in your `dist` folder as a file named `github.so`.
+
+### Standalone
+
+```
+go run . server --log-level debug --config agent.json
+```
+
+Currently, the agent.config format matches the current (legacy) agent config.
+
+### Multi
+
+```
+go run . server --log-level debug
+```
+
+By default in this mode, will only talk with the local dev event-api. You can set `--channel` and `--secret` to point at another environment.
+
+To place an event, use the event-api `produce` command such as:
+
+```
+go run . produce --log-level debug --channel dev agent.ExportRequest --input '{"customer_id":"1234","integrations":[{"name":"github","authorization":{"api_key":"XYZ"}}]}' --secret 'fa0s8f09a8sd09f8iasdlkfjalsfm,.m,xf'
+```
+
+Make sure you update the `api_key` with the value of your `PP_GITHUB_TOKEN`.  Also, make sure you're running event-api server locally such as:
+
+```
+PP_CUSTOMER_ID=1234 PP_INTERNAL=1 make local
+```

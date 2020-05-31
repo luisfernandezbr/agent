@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pinpt/agent.next/internal/export"
-	"github.com/pinpt/agent.next/internal/manager/dev"
+	export "github.com/pinpt/agent.next/internal/export/dev"
+	manager "github.com/pinpt/agent.next/internal/manager/dev"
 	"github.com/pinpt/agent.next/internal/pipe/console"
 	"github.com/pinpt/agent.next/internal/pipe/file"
 	"github.com/pinpt/agent.next/sdk"
@@ -38,22 +37,14 @@ var devCmd = &cobra.Command{
 		os.MkdirAll(distDir, 0700)
 		dist := filepath.Join(distDir, integration+".so")
 		logger := log.With(_logger, "pkg", integration)
-		// local dev issue with plugins: https://github.com/golang/go/issues/31354
-		modfp := filepath.Join(integrationDir, "go.mod")
-		mod, err := ioutil.ReadFile(modfp)
-		if err != nil {
-			log.Fatal(_logger, "error reading plugin go.mod", "err", err)
-		}
-		ioutil.WriteFile(modfp, []byte(string(mod)+"\nreplace github.com/pinpt/agent.next => ../agent.next"), 0644)
-		c := exec.Command("go", "build", "-buildmode=plugin", "-o", dist, fp)
+
+		// build our integration
+		c := exec.Command(os.Args[0], "build", "--dir", distDir, integrationDir)
 		c.Stderr = os.Stderr
 		c.Stdout = os.Stdout
-		c.Dir = integrationDir
 		if err := c.Run(); err != nil {
-			ioutil.WriteFile(modfp, mod, 0644) // restore original
 			os.Exit(1)
 		}
-		ioutil.WriteFile(modfp, mod, 0644) // restore original
 
 		plug, err := plugin.Open(dist)
 		if err != nil {
@@ -71,7 +62,7 @@ var devCmd = &cobra.Command{
 			config[strings.TrimSpace(tok[0])] = strings.TrimSpace(tok[1])
 		}
 		log.Info(_logger, "starting")
-		mgr := dev.New(logger)
+		mgr := manager.New(logger)
 		if err := instance.Start(logger, config, mgr); err != nil {
 			log.Fatal(logger, "failed to start", "err", err)
 		}
@@ -86,12 +77,12 @@ var devCmd = &cobra.Command{
 		jobid, _ := cmd.Flags().GetString("jobid")
 		customerid, _ := cmd.Flags().GetString("customerid")
 		completion := make(chan export.Completion, 1)
-		export, err := export.New(logger, config, jobid, customerid, pipe, completion)
+		exp, err := export.New(logger, config, jobid, customerid, pipe, completion)
 		if err != nil {
 			log.Fatal(logger, "export failed", "err", err)
 		}
 		started := time.Now()
-		if err := instance.Export(export); err != nil {
+		if err := instance.Export(exp); err != nil {
 			log.Fatal(logger, "export failed", "err", err)
 		}
 		done := <-completion

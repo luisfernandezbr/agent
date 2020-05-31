@@ -6,6 +6,8 @@ import (
 
 // Integration is the interface that integrations implement
 type Integration interface {
+	// RefType should return the integration ref_type (the short, unique identifier of the integration)
+	RefType() string
 	// Start is called when the integration is starting up
 	Start(logger log.Logger, config Config, manager Manager) error
 	// Export is called to tell the integration to run an export

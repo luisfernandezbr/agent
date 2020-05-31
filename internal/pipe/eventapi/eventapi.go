@@ -103,18 +103,20 @@ func (p *eventAPIPipe) Flush() error {
 
 // Close is called when the integration has completed and no more data will be sent
 func (p *eventAPIPipe) Close() error {
+	log.Debug(p.logger, "pipe closing")
 	p.closed = true
 	p.Flush()
 	p.cancel()
 	p.wg.Wait() // wait for our flush to finish
 	p.files = nil
+	log.Debug(p.logger, "pipe closed")
 	return nil
 }
 
 // if any of these limits are exceeded, we will transmit the data to the server
 const (
-	maxRecords  = 250              // max number of total records in the file before we want to transmit
-	maxBytes    = 1024 * 1024 * 3  // max size (~3mb) in bytes in the file before we want to transmit
+	maxRecords  = 500              // max number of total records in the file before we want to transmit
+	maxBytes    = 1024 * 1024 * 5  // max size (~5mb) in bytes in the file before we want to transmit
 	maxDuration = 30 * time.Second // amount of time we have an idle file before we transmit
 )
 
@@ -124,7 +126,7 @@ type sendRecord struct {
 }
 
 func (p *eventAPIPipe) send(model string, f *wrapperFile) error {
-	log.Debug(p.logger, "sending to event-api", "model", model, "size", f.bytes, "count", f.count)
+	log.Debug(p.logger, "sending to event-api", "model", model, "size", f.bytes, "count", f.count, "last_event", time.Since(f.ts))
 	object := &agent.ExportResponse{} // FIXME - need a new batch type object
 	evt := event.PublishEvent{
 		Logger: p.logger,
@@ -135,13 +137,13 @@ func (p *eventAPIPipe) send(model string, f *wrapperFile) error {
 			"jobid":       p.jobid,
 		},
 	}
-	var opts event.Option
+	opts := make([]event.Option, 0)
 	if p.apikey != "" {
-		opts = event.WithHeaders(map[string]string{"x-api-key": p.apikey})
+		opts = append(opts, event.WithHeaders(map[string]string{"x-api-key": p.apikey}))
 	}
 	// publish our data to the event-api
 	ts := time.Now()
-	if err := event.Publish(p.ctx, evt, p.channel, p.apikey, opts); err != nil {
+	if err := event.Publish(p.ctx, evt, p.channel, p.apikey, opts...); err != nil {
 		return err
 	}
 	log.Debug(p.logger, "sent to event-api", "model", model, "duration", time.Since(ts))
@@ -154,13 +156,16 @@ func (p *eventAPIPipe) run() {
 	ticker := time.NewTicker(5 * time.Second)
 	ch := make(chan sendRecord, 3)
 	// create a background sender
+	var lock sync.Mutex
+	p.wg.Add(1)
 	go func() {
 		defer p.wg.Done()
-		p.wg.Add(1)
 		for record := range ch {
+			lock.Lock()
 			if err := p.send(record.model, record.file); err != nil {
 				log.Error(p.logger, "error sending data to event-api", "model", record.model, "err", err)
 			}
+			lock.Unlock()
 		}
 	}()
 	for {
@@ -179,25 +184,47 @@ func (p *eventAPIPipe) run() {
 			}
 			p.mu.Unlock()
 		case <-p.ctx.Done():
+			log.Debug(p.logger, "run ctx is done")
 			ticker.Stop()
+			// hold lock so we can safely close channel
+			lock.Lock()
+			close(ch)
+			lock.Unlock()
 			return
 		}
 	}
 }
 
+// Config is the configuration
+type Config struct {
+	Ctx        context.Context
+	Logger     log.Logger
+	Dir        string
+	CustomerID string
+	UUID       string
+	JobID      string
+	Channel    string
+	APIKey     string
+	Secret     string
+}
+
 // New will create a new eventapi pipe
-func New(logger log.Logger, dir string, customerID string, uuid string, jobid string, channel string, apikey string, secret string) sdk.Pipe {
-	ctx, cancel := context.WithCancel(context.Background())
+func New(config Config) sdk.Pipe {
+	c := config.Ctx
+	if c == nil {
+		c = context.Background()
+	}
+	ctx, cancel := context.WithCancel(c)
 	p := &eventAPIPipe{
-		logger:     logger,
-		dir:        dir,
+		logger:     config.Logger,
+		dir:        config.Dir,
 		files:      make(map[string]*wrapperFile),
-		channel:    channel,
-		customerID: customerID,
-		uuid:       uuid,
-		jobid:      jobid,
-		apikey:     apikey,
-		secret:     secret,
+		channel:    config.Channel,
+		customerID: config.CustomerID,
+		uuid:       config.UUID,
+		jobid:      config.JobID,
+		apikey:     config.APIKey,
+		secret:     config.Secret,
 		ctx:        ctx,
 		cancel:     cancel,
 	}
