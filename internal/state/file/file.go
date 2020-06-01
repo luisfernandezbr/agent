@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"sync"
 
 	"github.com/pinpt/agent.next/sdk"
@@ -36,11 +37,19 @@ func (f *State) Set(refType string, key string, value interface{}) error {
 }
 
 // Get will return a value for a given key or nil if not found
-func (f *State) Get(refType string, key string) (interface{}, error) {
+func (f *State) Get(refType string, key string, out interface{}) (bool, error) {
 	f.mu.RLock()
 	val := f.state[f.getKey(refType, key)]
 	f.mu.RUnlock()
-	return val, nil
+	if val == nil {
+		return false, nil
+	}
+	valueof := reflect.ValueOf(out)
+	if valueof.Kind() != reflect.Ptr {
+		return false, fmt.Errorf("out argument must be a pointer but was %s", valueof.Kind())
+	}
+	valueof.Elem().Set(reflect.ValueOf(val))
+	return true, nil
 }
 
 // Exists return true if the key exists in state
@@ -81,7 +90,7 @@ func New(fn string) (*State, error) {
 			return nil, err
 		}
 		defer of.Close()
-		if err := json.NewDecoder(of).Decode(&kv); err != nil {
+		if err := json.NewDecoder(of).Decode(&kv); err != nil && err != io.EOF {
 			return nil, err
 		}
 		of.Close()

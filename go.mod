@@ -17,7 +17,7 @@ require (
 	github.com/pinpt/httpclient v0.0.0-20190815022759-09e0028c9067 // indirect
 	github.com/pinpt/integration-sdk v0.0.994
 	github.com/spf13/cobra v1.0.0
-	github.com/stretchr/testify v1.4.0 // indirect
+	github.com/stretchr/testify v1.4.0
 	go.mongodb.org/mongo-driver v1.3.3 // indirect
 	golang.org/x/net v0.0.0-20190923162816-aa69164e4478 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect

@@ -100,7 +100,7 @@ var serverCmd = &cobra.Command{
 			// we must connect to redis in multi mode
 			redisURL, _ := cmd.Flags().GetString("redis")
 			redisDb, _ := cmd.Flags().GetInt("redisDB")
-			redisClient := redis.NewClient(&redis.Options{
+			redisClient = redis.NewClient(&redis.Options{
 				Addr: redisURL,
 				DB:   redisDb,
 			})

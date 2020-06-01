@@ -4,8 +4,8 @@ package sdk
 type State interface {
 	// Set a value by key in state. the value must be able to serialize to JSON
 	Set(refType string, key string, value interface{}) error
-	// Get will return a value for a given key or nil if not found
-	Get(refType string, key string) (interface{}, error)
+	// Get will return a value for a given key and set the value to the address of out
+	Get(refType string, key string, out interface{}) (bool, error)
 	// Exists return true if the key exists in state
 	Exists(refType string, key string) bool
 	// Delete will return data for key in state

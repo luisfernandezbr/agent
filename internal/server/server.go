@@ -129,11 +129,18 @@ func (s *Server) handleExport(logger log.Logger, evt event.SubscriptionEvent) er
 				return
 			}
 			// wait for the integration to complete
-			<-completion
+			comp := <-completion
+			if err := p.Flush(); err != nil {
+				log.Error(logger, "error flushing pipe", "err", err)
+			}
 			if err := state.Flush(); err != nil {
 				log.Error(logger, "error flushing state", "err", err)
 			}
-			log.Debug(logger, "export completed", "integration", descriptor.RefType, "duration", time.Since(ts))
+			log.Debug(logger, "export completed", "integration", descriptor.RefType, "duration", time.Since(ts), "err", comp.Error)
+			if comp.Error != nil {
+				errors <- comp.Error
+				return
+			}
 		}(integration, descriptor)
 	}
 	log.Debug(logger, "waiting for export to complete")

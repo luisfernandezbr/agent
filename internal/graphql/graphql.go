@@ -76,7 +76,10 @@ func (g *client) Query(query string, variables map[string]interface{}, out inter
 		if err != nil {
 			return err
 		}
-		if datares.Errors != nil {
+		if len(datares.Errors) > 0 {
+			if len(datares.Errors) == 1 && datares.Errors[0].Message != "" {
+				return errors.New(datares.Errors[0].Message)
+			}
 			b, err := json.Marshal(datares.Errors)
 			if err != nil {
 				return err

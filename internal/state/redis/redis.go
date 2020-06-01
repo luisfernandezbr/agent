@@ -20,7 +20,7 @@ var _ sdk.State = (*State)(nil)
 var _ io.Closer = (*State)(nil)
 
 func (f *State) getKey(refType string, key string) string {
-	return fmt.Sprintf("%s_%s_%s", f.customerID, refType, key)
+	return fmt.Sprintf("agent:%s_%s:%s", f.customerID, refType, key)
 }
 
 // Set a value by key in state. the value must be able to serialize to JSON
@@ -29,19 +29,16 @@ func (f *State) Set(refType string, key string, value interface{}) error {
 }
 
 // Get will return a value for a given key or nil if not found
-func (f *State) Get(refType string, key string) (interface{}, error) {
-	res := f.client.Get(f.getKey(refType, key))
-	err := res.Err()
+func (f *State) Get(refType string, key string, val interface{}) (bool, error) {
+	str, err := f.client.Get(f.getKey(refType, key)).Result()
 	if err == redis.Nil {
-		return nil, err
+		return false, nil
 	}
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-	str := res.Val()
-	var val interface{}
 	err = json.Unmarshal([]byte(str), val)
-	return val, err
+	return true, err
 }
 
 // Exists return true if the key exists in state
