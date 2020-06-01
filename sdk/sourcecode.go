@@ -42,8 +42,8 @@ type SourceCodePullRequestReview = sourcecode.PullRequestReview
 // SourceCodePullRequestReviewCreatedDate is a pull request review created date
 type SourceCodePullRequestReviewCreatedDate = sourcecode.PullRequestReviewCreatedDate
 
-// SourceCodePullRepo is a code repository in the source code system
-type SourceCodePullRepo = sourcecode.Repo
+// SourceCodeRepo is a code repository in the source code system
+type SourceCodeRepo = sourcecode.Repo
 
 // SourceCodeUser is a user in the source code system
 type SourceCodeUser = sourcecode.User
