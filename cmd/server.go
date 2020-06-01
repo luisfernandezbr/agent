@@ -31,6 +31,11 @@ type configFile struct {
 	APIKey     string `json:"api_key"`
 }
 
+type integrationData struct {
+	Integration sdk.Integration
+	Descriptor  *sdk.Descriptor
+}
+
 // serverCmd represents the server command
 var serverCmd = &cobra.Command{
 	Use:   "server",
@@ -53,7 +58,7 @@ var serverCmd = &cobra.Command{
 		}
 		manager := emanager.New(logger)
 		intconfig := sdk.Config{}
-		integrations := make(map[string]sdk.Integration)
+		integrations := make(map[string]*integrationData)
 		for _, fn := range integrationFiles {
 			plug, err := plugin.Open(fn)
 			if err != nil {
@@ -67,7 +72,12 @@ var serverCmd = &cobra.Command{
 			if err := instance.Start(logger, intconfig, manager); err != nil {
 				log.Fatal(logger, "error starting integration", "err", err, "file", fn)
 			}
-			integrations[instance.RefType()] = instance
+			descriptor, err := sdk.LoadDescriptorFromPlugin(plug)
+			if err != nil {
+				log.Fatal(logger, "error loading integration", "err", err, "file", fn)
+			}
+			integrations[descriptor.RefType] = &integrationData{instance, descriptor}
+			log.Info(logger, "loaded integration", "name", descriptor.Name, "ref_type", descriptor.RefType, "build", descriptor.BuildCommitSHA, "date", descriptor.BuildDate)
 		}
 		if len(integrations) == 0 {
 			log.Fatal(logger, "no integrations found", "dir", integrationsDir)
@@ -161,12 +171,14 @@ var serverCmd = &cobra.Command{
 					var iwg sync.WaitGroup
 					started := time.Now()
 					for _, i := range req.Integrations {
-						integration := integrations[i.Name]
-						if integration == nil {
+						integrationdata := integrations[i.Name]
+						if integrationdata == nil {
 							// FIXME: send an error response
 							log.Error(logger, "couldn't find integration named", "name", i.Name)
 							continue
 						}
+						integration := integrationdata.Integration
+						descriptor := integrationdata.Descriptor
 						// build the sdk config for the integration
 						sdkconfig := sdk.Config{}
 						for k, v := range i.Authorization.ToMap() {
@@ -174,7 +186,7 @@ var serverCmd = &cobra.Command{
 						}
 						iwg.Add(1)
 						// start the integration in it's own thread
-						go func(integration sdk.Integration) {
+						go func(integration sdk.Integration, descriptor *sdk.Descriptor) {
 							defer iwg.Done()
 							completion := make(chan eventapi.Completion, 1)
 							p := pipe.New(pipe.Config{
@@ -209,8 +221,8 @@ var serverCmd = &cobra.Command{
 								log.Fatal(logger, "error running export", "err", err)
 							}
 							<-completion
-							log.Debug(logger, "export completed", "integration", integration.RefType(), "duration", time.Since(ts))
-						}(integration)
+							log.Debug(logger, "export completed", "integration", descriptor.RefType, "duration", time.Since(ts))
+						}(integration, descriptor)
 					}
 					log.Debug(logger, "waiting for export to complete")
 					iwg.Wait()

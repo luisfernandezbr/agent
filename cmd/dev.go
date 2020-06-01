@@ -39,7 +39,7 @@ var devCmd = &cobra.Command{
 		logger := log.With(_logger, "pkg", integration)
 
 		// build our integration
-		c := exec.Command(os.Args[0], "build", "--dir", distDir, integrationDir)
+		c := exec.Command(os.Args[0], "build", "--bundle=false", "--dir", distDir, integrationDir)
 		c.Stderr = os.Stderr
 		c.Stdout = os.Stdout
 		if err := c.Run(); err != nil {
