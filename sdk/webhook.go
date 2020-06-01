@@ -4,6 +4,8 @@ package sdk
 type WebHook interface {
 	// Config is any customer specific configuration for this customer
 	Config() Config
+	// State is a customer specific state object for this integration and customer
+	State() State
 	// CustomerID will return the customer id for the web hook
 	CustomerID() string
 	// RefID will return the ref id from when the hook was created

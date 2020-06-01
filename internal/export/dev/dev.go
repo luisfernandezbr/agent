@@ -15,6 +15,7 @@ type Completion struct {
 type export struct {
 	logger     log.Logger
 	config     sdk.Config
+	state      sdk.State
 	jobID      string
 	customerID string
 	pipe       sdk.Pipe
@@ -26,6 +27,11 @@ var _ sdk.Export = (*export)(nil)
 // Config is any customer specific configuration for this customer
 func (e *export) Config() sdk.Config {
 	return e.config
+}
+
+// State is any customer specific state for this customer
+func (e *export) State() sdk.State {
+	return e.state
 }
 
 // JobID will return a specific job id for this export which can be used in logs, etc
@@ -61,10 +67,11 @@ func (e *export) Completed(err error) {
 }
 
 // New will return an sdk.Export
-func New(logger log.Logger, config sdk.Config, jobID string, customerID string, pipe sdk.Pipe, completion chan Completion) (sdk.Export, error) {
+func New(logger log.Logger, config sdk.Config, state sdk.State, jobID string, customerID string, pipe sdk.Pipe, completion chan Completion) (sdk.Export, error) {
 	return &export{
 		logger:     logger,
 		config:     config,
+		state:      state,
 		jobID:      jobID,
 		customerID: customerID,
 		pipe:       pipe,

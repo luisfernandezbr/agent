@@ -12,6 +12,7 @@ import (
 	manager "github.com/pinpt/agent.next/internal/manager/dev"
 	"github.com/pinpt/agent.next/internal/pipe/console"
 	"github.com/pinpt/agent.next/internal/pipe/file"
+	state "github.com/pinpt/agent.next/internal/state/file"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/fileutil"
 	"github.com/pinpt/go-common/log"
@@ -76,8 +77,17 @@ var devCmd = &cobra.Command{
 		}
 		jobid, _ := cmd.Flags().GetString("jobid")
 		customerid, _ := cmd.Flags().GetString("customerid")
+		statedir, _ := cmd.Flags().GetString("state")
+		if statedir == "" {
+			statedir = outdir
+		}
+		statefn := filepath.Join(statedir, "state.json")
+		stateobj, err := state.New(statefn)
+		if err != nil {
+			log.Fatal(logger, "error opening state file", "err", err)
+		}
 		completion := make(chan export.Completion, 1)
-		exp, err := export.New(logger, config, jobid, customerid, pipe, completion)
+		exp, err := export.New(logger, config, stateobj, jobid, customerid, pipe, completion)
 		if err != nil {
 			log.Fatal(logger, "export failed", "err", err)
 		}
@@ -104,4 +114,5 @@ func init() {
 	devCmd.Flags().String("jobid", "999", "job id")
 	devCmd.Flags().String("customerid", "000", "customer id")
 	devCmd.Flags().String("dir", "", "the directory to output pipe contents")
+	devCmd.Flags().String("state", "", "the state file directory")
 }

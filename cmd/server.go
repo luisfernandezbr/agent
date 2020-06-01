@@ -4,21 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"plugin"
 	"regexp"
-	"sync"
-	"time"
 
-	"github.com/pinpt/agent.next/internal/export/eventapi"
+	"github.com/go-redis/redis"
 	emanager "github.com/pinpt/agent.next/internal/manager/eventapi"
-	pipe "github.com/pinpt/agent.next/internal/pipe/eventapi"
+	"github.com/pinpt/agent.next/internal/server"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/event"
 	"github.com/pinpt/go-common/fileutil"
 	"github.com/pinpt/go-common/log"
 	pos "github.com/pinpt/go-common/os"
-	pstr "github.com/pinpt/go-common/strings"
 	"github.com/pinpt/integration-sdk/agent"
 	"github.com/spf13/cobra"
 )
@@ -29,11 +25,6 @@ type configFile struct {
 	DeviceID   string `json:"device_id"`
 	SystemID   string `json:"system_id"`
 	APIKey     string `json:"api_key"`
-}
-
-type integrationData struct {
-	Integration sdk.Integration
-	Descriptor  *sdk.Descriptor
 }
 
 // serverCmd represents the server command
@@ -56,9 +47,10 @@ var serverCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(logger, "error loading integrations", "err", err)
 		}
+		var state sdk.State
 		manager := emanager.New(logger)
 		intconfig := sdk.Config{}
-		integrations := make(map[string]*integrationData)
+		integrations := make(map[string]*server.IntegrationContext)
 		for _, fn := range integrationFiles {
 			plug, err := plugin.Open(fn)
 			if err != nil {
@@ -76,7 +68,10 @@ var serverCmd = &cobra.Command{
 			if err != nil {
 				log.Fatal(logger, "error loading integration", "err", err, "file", fn)
 			}
-			integrations[descriptor.RefType] = &integrationData{instance, descriptor}
+			integrations[descriptor.RefType] = &server.IntegrationContext{
+				Integration: instance,
+				Descriptor:  descriptor,
+			}
 			log.Info(logger, "loaded integration", "name", descriptor.Name, "ref_type", descriptor.RefType, "build", descriptor.BuildCommitSHA, "date", descriptor.BuildDate)
 		}
 		if len(integrations) == 0 {
@@ -84,6 +79,7 @@ var serverCmd = &cobra.Command{
 		}
 		var channel, uuid, apikey string
 		var subchannel *event.SubscriptionChannel
+		var redisClient *redis.Client
 		if secret != "" {
 			channel, _ = cmd.Flags().GetString("channel")
 			// running in multi agent mode
@@ -100,6 +96,20 @@ var serverCmd = &cobra.Command{
 				log.Fatal(logger, "error creating subscription", "err", err)
 			}
 			subchannel = ch
+
+			// we must connect to redis in multi mode
+			redisURL, _ := cmd.Flags().GetString("redis")
+			redisDb, _ := cmd.Flags().GetInt("redisDB")
+			redisClient := redis.NewClient(&redis.Options{
+				Addr: redisURL,
+				DB:   redisDb,
+			})
+			err = redisClient.Ping().Err()
+			if err != nil {
+				log.Fatal(logger, "error connecting to redis", "url", redisURL, "db", redisDb, "err", err)
+			}
+			defer redisClient.Close()
+			log.Info(logger, "redis ping OK", "url", redisURL, "db", redisDb)
 			log.Info(logger, "running in multi agent mode", "channel", channel)
 		} else {
 			// running in single agent mode
@@ -155,84 +165,26 @@ var serverCmd = &cobra.Command{
 		}
 		os.MkdirAll(tmpdir, 0700)
 
-		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			log.Debug(logger, "starting subscription channel")
-			for evt := range subchannel.Channel() {
-				log.Debug(logger, "received event", "evt", evt)
-				switch evt.Model {
-				case agent.ExportRequestModelName.String():
-					var req agent.ExportRequest
-					json.Unmarshal([]byte(evt.Data), &req)
-					dir := filepath.Join(tmpdir, req.JobID)
-					os.MkdirAll(dir, 0700)
-					var iwg sync.WaitGroup
-					started := time.Now()
-					for _, i := range req.Integrations {
-						integrationdata := integrations[i.Name]
-						if integrationdata == nil {
-							// FIXME: send an error response
-							log.Error(logger, "couldn't find integration named", "name", i.Name)
-							continue
-						}
-						integration := integrationdata.Integration
-						descriptor := integrationdata.Descriptor
-						// build the sdk config for the integration
-						sdkconfig := sdk.Config{}
-						for k, v := range i.Authorization.ToMap() {
-							sdkconfig[k] = pstr.Value(v)
-						}
-						iwg.Add(1)
-						// start the integration in it's own thread
-						go func(integration sdk.Integration, descriptor *sdk.Descriptor) {
-							defer iwg.Done()
-							completion := make(chan eventapi.Completion, 1)
-							p := pipe.New(pipe.Config{
-								Ctx:        ctx,
-								Logger:     logger,
-								Dir:        dir,
-								CustomerID: req.CustomerID,
-								UUID:       uuid,
-								JobID:      req.JobID,
-								Channel:    channel,
-								APIKey:     apikey,
-								Secret:     secret,
-							})
-							c, err := eventapi.New(eventapi.Config{
-								Ctx:        ctx,
-								Logger:     logger,
-								Config:     sdkconfig,
-								CustomerID: req.CustomerID,
-								JobID:      req.JobID,
-								UUID:       uuid,
-								Pipe:       p,
-								Completion: completion,
-								Channel:    channel,
-								APIKey:     apikey,
-								Secret:     secret,
-							})
-							if err != nil {
-								log.Fatal(logger, "error creating event api export", "err", err)
-							}
-							ts := time.Now()
-							if err := integration.Export(c); err != nil {
-								log.Fatal(logger, "error running export", "err", err)
-							}
-							<-completion
-							log.Debug(logger, "export completed", "integration", descriptor.RefType, "duration", time.Since(ts))
-						}(integration, descriptor)
-					}
-					log.Debug(logger, "waiting for export to complete")
-					iwg.Wait()
-					log.Info(logger, "export completed", "duration", time.Since(started), "jobid", req.JobID, "customer_id", req.CustomerID)
-				}
-				evt.Commit()
-			}
-		}()
+		server, err := server.New(server.Config{
+			Ctx:                 ctx,
+			Dir:                 tmpdir,
+			Logger:              logger,
+			State:               state,
+			SubscriptionChannel: subchannel,
+			RedisClient:         redisClient,
+			Integrations:        integrations,
+			UUID:                uuid,
+			Channel:             channel,
+			APIKey:              apikey,
+			Secret:              secret,
+		})
+		if err != nil {
+			log.Fatal(logger, "error starting server", "err", err)
+		}
+
 		<-done
 		log.Info(logger, "stopping")
+		server.Close()
 		subchannel.Close()
 		shutdown <- true
 		log.Info(logger, "stopped")
@@ -246,7 +198,11 @@ func init() {
 	serverCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "dev"), "the channel configuration")
 	serverCmd.Flags().String("integrations", "dist", "the directory where our integration plugins are stored")
 	serverCmd.Flags().String("tempdir", "dist/export", "the directory to place files")
+	serverCmd.Flags().String("redis", "0.0.0.0:6379", "the redis endpoint url")
+	serverCmd.Flags().Int("redisDB", 0, "the redis db")
 	serverCmd.Flags().MarkHidden("secret")
 	serverCmd.Flags().MarkHidden("channel")
 	serverCmd.Flags().MarkHidden("tempdir")
+	serverCmd.Flags().MarkHidden("redis")
+	serverCmd.Flags().MarkHidden("redisDB")
 }

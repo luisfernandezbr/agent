@@ -1,0 +1,93 @@
+package file
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
+	"sync"
+
+	"github.com/pinpt/agent.next/sdk"
+	"github.com/pinpt/go-common/fileutil"
+	pjson "github.com/pinpt/go-common/json"
+)
+
+// State is a simple file backed state store
+type State struct {
+	fn    string
+	state map[string]interface{}
+	mu    sync.RWMutex
+}
+
+var _ sdk.State = (*State)(nil)
+var _ io.Closer = (*State)(nil)
+
+func (f *State) getKey(refType string, key string) string {
+	return fmt.Sprintf("%s_%s", refType, key)
+}
+
+// Set a value by key in state. the value must be able to serialize to JSON
+func (f *State) Set(refType string, key string, value interface{}) error {
+	f.mu.Lock()
+	f.state[f.getKey(refType, key)] = value
+	f.mu.Unlock()
+	return nil
+}
+
+// Get will return a value for a given key or nil if not found
+func (f *State) Get(refType string, key string) (interface{}, error) {
+	f.mu.RLock()
+	val := f.state[f.getKey(refType, key)]
+	f.mu.RUnlock()
+	return val, nil
+}
+
+// Exists return true if the key exists in state
+func (f *State) Exists(refType string, key string) bool {
+	f.mu.RLock()
+	_, exists := f.state[f.getKey(refType, key)]
+	f.mu.RUnlock()
+	return exists
+}
+
+// Delete will return data for key in state
+func (f *State) Delete(refType string, key string) error {
+	f.mu.Lock()
+	delete(f.state, f.getKey(refType, key))
+	f.mu.Unlock()
+	return nil
+}
+
+// Flush any pending data to storage
+func (f *State) Flush() error {
+	f.mu.Lock()
+	err := ioutil.WriteFile(f.fn, []byte(pjson.Stringify(f.state)), 0600)
+	f.mu.Unlock()
+	return err
+}
+
+// Close the state and sync data to the state file
+func (f *State) Close() error {
+	return f.Flush()
+}
+
+// New will create a new state store backed by a file
+func New(fn string) (*State, error) {
+	kv := make(map[string]interface{})
+	if fileutil.FileExists(fn) {
+		of, err := os.Open(fn)
+		if err != nil {
+			return nil, err
+		}
+		defer of.Close()
+		if err := json.NewDecoder(of).Decode(&kv); err != nil {
+			return nil, err
+		}
+		of.Close()
+	}
+	return &State{
+		fn:    fn,
+		state: kv,
+	}, nil
+}

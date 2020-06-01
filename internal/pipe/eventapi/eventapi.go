@@ -3,7 +3,9 @@ package file
 import (
 	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -12,6 +14,7 @@ import (
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/datamodel"
 	"github.com/pinpt/go-common/event"
+	pjson "github.com/pinpt/go-common/json"
 	"github.com/pinpt/go-common/log"
 	"github.com/pinpt/integration-sdk/agent"
 )
@@ -44,6 +47,7 @@ type eventAPIPipe struct {
 	customerID string
 	uuid       string
 	jobid      string
+	reftype    string
 	channel    string
 	apikey     string
 	secret     string
@@ -127,7 +131,18 @@ type sendRecord struct {
 
 func (p *eventAPIPipe) send(model string, f *wrapperFile) error {
 	log.Debug(p.logger, "sending to event-api", "model", model, "size", f.bytes, "count", f.count, "last_event", time.Since(f.ts))
-	object := &agent.ExportResponse{} // FIXME - need a new batch type object
+	f.Close()
+	buf, err := ioutil.ReadFile(f.of.Name())
+	if err != nil {
+		return fmt.Errorf("error reading file: %w", err)
+	}
+	object := &agent.ExportData{
+		CustomerID: p.customerID,
+		RefType:    p.reftype,
+		RefID:      p.uuid,
+		JobID:      p.jobid,
+		Objects:    pjson.Stringify(map[string]string{model: base64.StdEncoding.EncodeToString(buf)}),
+	}
 	evt := event.PublishEvent{
 		Logger: p.logger,
 		Object: object,
@@ -203,6 +218,7 @@ type Config struct {
 	CustomerID string
 	UUID       string
 	JobID      string
+	RefType    string
 	Channel    string
 	APIKey     string
 	Secret     string
@@ -223,6 +239,7 @@ func New(config Config) sdk.Pipe {
 		customerID: config.CustomerID,
 		uuid:       config.UUID,
 		jobid:      config.JobID,
+		reftype:    config.RefType,
 		apikey:     config.APIKey,
 		secret:     config.Secret,
 		ctx:        ctx,

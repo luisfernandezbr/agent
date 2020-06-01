@@ -6,6 +6,8 @@ import "time"
 type Export interface {
 	// Config is any customer specific configuration for this customer
 	Config() Config
+	// State is a customer specific state object for this integration and customer
+	State() State
 	// JobID will return a specific job id for this export which can be used in logs, etc
 	JobID() string
 	// CustomerID will return the customer id for the export

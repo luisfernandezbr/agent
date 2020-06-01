@@ -18,6 +18,7 @@ type export struct {
 	ctx        context.Context
 	logger     log.Logger
 	config     sdk.Config
+	state      sdk.State
 	customerID string
 	jobID      string
 	uuid       string
@@ -35,6 +36,11 @@ var _ sdk.Export = (*export)(nil)
 // Config is any customer specific configuration for this customer
 func (e *export) Config() sdk.Config {
 	return e.config
+}
+
+// State is any customer specific state for this customer
+func (e *export) State() sdk.State {
+	return e.state
 }
 
 // JobID will return a specific job id for this export which can be used in logs, etc
@@ -93,6 +99,7 @@ type Config struct {
 	Ctx        context.Context
 	Logger     log.Logger
 	Config     sdk.Config
+	State      sdk.State
 	CustomerID string
 	JobID      string
 	UUID       string
@@ -113,6 +120,7 @@ func New(config Config) (sdk.Export, error) {
 		ctx:        ctx,
 		logger:     config.Logger,
 		config:     config.Config,
+		state:      config.State,
 		customerID: config.CustomerID,
 		jobID:      config.JobID,
 		uuid:       config.UUID,
