@@ -16,6 +16,9 @@ This is an overview of a set of notes and TODOs for bringing this Agent v4 to li
 - Can we simplify / reduce some of the agent messages (payload data)
 - Need to think through how we do versioning of plugins/agent since they have to be built together
 
+## Bugs/Fixes
+
+- Improve server shutdown
 
 ## Ports
 

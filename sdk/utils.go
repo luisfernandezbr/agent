@@ -26,27 +26,27 @@ type Logger = log.Logger
 
 // LogDebug will log an debug level log to logger
 func LogDebug(logger Logger, msg string, kv ...interface{}) error {
-	return log.Debug(logger, msg, kv)
+	return log.Debug(logger, msg, kv...)
 }
 
 // LogInfo will log an info level log to logger
 func LogInfo(logger Logger, msg string, kv ...interface{}) error {
-	return log.Info(logger, msg, kv)
+	return log.Info(logger, msg, kv...)
 }
 
 // LogWarn will log an warning level log to logger
 func LogWarn(logger Logger, msg string, kv ...interface{}) error {
-	return log.Warn(logger, msg, kv)
+	return log.Warn(logger, msg, kv...)
 }
 
 // LogError will log an error level log to logger
 func LogError(logger Logger, msg string, kv ...interface{}) error {
-	return log.Error(logger, msg, kv)
+	return log.Error(logger, msg, kv...)
 }
 
 // LogFatal will log an fatal level log to logger
 func LogFatal(logger Logger, msg string, kv ...interface{}) {
-	log.Fatal(logger, msg, kv)
+	log.Fatal(logger, msg, kv...)
 }
 
 // LogWith will return a new logger adding keyvalues to all logs
