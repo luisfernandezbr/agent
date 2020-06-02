@@ -56,12 +56,13 @@ var devCmd = &cobra.Command{
 			log.Fatal(logger, "couldn't integration plugin entrypoint", "err", err)
 		}
 		instance := sym.(sdk.Integration)
-		config := make(sdk.Config)
+		configkv := make(map[string]interface{})
 		arr, _ := cmd.Flags().GetStringSlice("config")
 		for _, val := range arr {
 			tok := strings.Split(val, "=")
-			config[strings.TrimSpace(tok[0])] = strings.TrimSpace(tok[1])
+			configkv[strings.TrimSpace(tok[0])] = strings.TrimSpace(tok[1])
 		}
+		config := sdk.NewConfig(configkv)
 		log.Info(_logger, "starting")
 		mgr := manager.New(logger)
 		if err := instance.Start(logger, config, mgr); err != nil {

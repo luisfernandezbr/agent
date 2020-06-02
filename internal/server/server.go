@@ -16,7 +16,6 @@ import (
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/event"
 	"github.com/pinpt/go-common/log"
-	pstr "github.com/pinpt/go-common/strings"
 	"github.com/pinpt/integration-sdk/agent"
 )
 
@@ -74,10 +73,7 @@ func (s *Server) handleExport(logger log.Logger, evt event.SubscriptionEvent) er
 		integration := integrationdata.Integration
 		descriptor := integrationdata.Descriptor
 		// build the sdk config for the integration
-		sdkconfig := sdk.Config{}
-		for k, v := range i.Authorization.ToMap() {
-			sdkconfig[k] = pstr.Value(v)
-		}
+		sdkconfig := sdk.NewConfig(i.Authorization.ToMap())
 		state := s.config.State
 		if state == nil {
 			// if no state provided, we use redis state in this case
