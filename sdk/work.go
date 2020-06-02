@@ -168,32 +168,32 @@ func NewWorkIssueCommentID(customerID string, refID string, refType string, proj
 	return work.NewIssueCommentID(customerID, refID, refType, projectID)
 }
 
-// NewIssuePriorityID will return the work issue priority id
-func NewIssuePriorityID(customerID string, refType string, refID string) string {
+// NewWorkIssuePriorityID will return the work issue priority id
+func NewWorkIssuePriorityID(customerID string, refType string, refID string) string {
 	return work.NewIssuePriorityID(customerID, refType, refID)
 }
 
-// NewIssueStatusID will return the work issue status id
-func NewIssueStatusID(customerID string, refType string, refID string) string {
+// NewWorkIssueStatusID will return the work issue status id
+func NewWorkIssueStatusID(customerID string, refType string, refID string) string {
 	return work.NewIssueStatusID(customerID, refType, refID)
 }
 
-// NewIssueTypeID will return the work issue type id
-func NewIssueTypeID(customerID string, refType string, refID string) string {
+// NewWorkIssueTypeID will return the work issue type id
+func NewWorkIssueTypeID(customerID string, refType string, refID string) string {
 	return work.NewIssueTypeID(customerID, refType, refID)
 }
 
-// NewKanbanBoardID will return the work kanban board id
-func NewKanbanBoardID(customerID string, refID string, refType string) string {
+// NewWorkKanbanBoardID will return the work kanban board id
+func NewWorkKanbanBoardID(customerID string, refID string, refType string) string {
 	return work.NewKanbanBoardID(customerID, refType, refID)
 }
 
-// NewSprintID will return the work sprint id
-func NewSprintID(customerID string, refID string, refType string) string {
+// NewWorkSprintID will return the work sprint id
+func NewWorkSprintID(customerID string, refID string, refType string) string {
 	return work.NewSprintID(customerID, refID, refType)
 }
 
-// NewUserID will return the work user id
-func NewUserID(customerID string, refID string, refType string) string {
+// NewWorkUserID will return the work user id
+func NewWorkUserID(customerID string, refID string, refType string) string {
 	return work.NewUserID(customerID, refID, refType)
 }
