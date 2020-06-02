@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -62,6 +63,20 @@ func (c *client) exec(req *sdk.HTTPRequest, out interface{}, options ...sdk.With
 		StatusCode: resp.StatusCode,
 		Headers:    resp.Header,
 	}
+	// check to see if this was a rate limited response
+	if resp.StatusCode == http.StatusTooManyRequests {
+		val := resp.Header.Get("Retry-After")
+		tv := 30 * time.Second // if we don't get any header back, pick a value
+		if val != "" {
+			v, _ := strconv.ParseInt(val, 10, 64)
+			if v > 0 {
+				tv = time.Second * time.Duration(v)
+			}
+		}
+		return res, &sdk.RateLimitError{
+			RetryAfter: tv,
+		}
+	}
 	if resp.StatusCode != http.StatusOK {
 		var buf bytes.Buffer
 		io.Copy(&buf, resp.Body)
@@ -106,7 +121,7 @@ type requestMaker func() (*http.Request, error)
 
 func isStatusRetryable(status int) bool {
 	switch status {
-	case http.StatusTooManyRequests, http.StatusBadGateway, http.StatusGatewayTimeout, http.StatusServiceUnavailable:
+	case http.StatusBadGateway, http.StatusGatewayTimeout, http.StatusServiceUnavailable:
 		return true
 	default:
 		return false

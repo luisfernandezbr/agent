@@ -86,9 +86,11 @@ func WithAuthorization(value string) WithHTTPOption {
 // WithGetQueryParameters will allow the query parameters to be overriden
 func WithGetQueryParameters(variables url.Values) WithHTTPOption {
 	return func(req *HTTPRequest) error {
+		q := req.Request.URL.Query()
 		for k, v := range variables {
-			req.Request.URL.Query().Set(k, v[0])
+			q.Set(k, v[0])
 		}
+		req.Request.URL.RawQuery = q.Encode()
 		return nil
 	}
 }
