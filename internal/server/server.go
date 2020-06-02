@@ -78,21 +78,20 @@ func (s *Server) handleExport(logger log.Logger, evt event.SubscriptionEvent) er
 		for k, v := range i.Authorization.ToMap() {
 			sdkconfig[k] = pstr.Value(v)
 		}
+		state := s.config.State
+		if state == nil {
+			// if no state provided, we use redis state in this case
+			st, err := redisState.New(s.config.RedisClient, req.CustomerID)
+			if err != nil {
+				return err
+			}
+			state = st
+		}
 		wg.Add(1)
 		// start the integration in it's own thread
-		go func(integration sdk.Integration, descriptor *sdk.Descriptor) {
+		go func(integration sdk.Integration, descriptor *sdk.Descriptor, state sdk.State) {
 			defer wg.Done()
 			completion := make(chan eventapi.Completion, 1)
-			state := s.config.State
-			if state == nil {
-				// if no state provided, we use redis state in this case
-				st, err := redisState.New(s.config.RedisClient, req.CustomerID)
-				if err != nil {
-					errors <- err
-					return
-				}
-				state = st
-			}
 			p := pipe.New(pipe.Config{
 				Ctx:        s.config.Ctx,
 				Logger:     logger,
@@ -141,7 +140,7 @@ func (s *Server) handleExport(logger log.Logger, evt event.SubscriptionEvent) er
 				errors <- comp.Error
 				return
 			}
-		}(integration, descriptor)
+		}(integration, descriptor, state)
 	}
 	log.Debug(logger, "waiting for export to complete")
 	wg.Wait()
