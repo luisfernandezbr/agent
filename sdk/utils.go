@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/pinpt/go-common/datetime"
@@ -65,4 +66,13 @@ func NewDateWithTime(tv time.Time) (*Date, error) {
 // TimeToEpoch returns an epoch time from a time.Time
 func TimeToEpoch(tv time.Time) int64 {
 	return datetime.TimeToEpoch(tv)
+}
+
+// MapToStruct will unmarshal a map into the target
+func MapToStruct(m map[string]interface{}, target interface{}) error {
+	b, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, target)
 }
