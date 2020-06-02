@@ -4,6 +4,8 @@ package sdk
 type Manager interface {
 	// GraphQLManager returns a graphql manager instance
 	GraphQLManager() GraphQLClientManager
+	// HTTPManager returns a HTTP manager instance
+	HTTPManager() HTTPClientManager
 	// CreateWebHook is used by the integration to create a webhook on behalf of the integration for a given customer, reftype and refid
 	// the result will be a fully qualified URL to the webhook endpoint that should be registered with the integration
 	CreateWebHook(customerID string, refType string, refID string) (string, error)
