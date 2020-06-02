@@ -153,6 +153,33 @@ const WorkSprintStatusClosed WorkSprintStatus = work.SprintStatusClosed
 // WorkKanbanBoardColumns is the kanban board columns
 type WorkKanbanBoardColumns = work.KanbanBoardColumns
 
+// WorkIssueTypeMappedType is the issue type mapped type enum
+type WorkIssueTypeMappedType = work.IssueTypeMappedType
+
+// WorkIssueTypeMappedTypeUnknown is the enumeration value for unknown
+const WorkIssueTypeMappedTypeUnknown WorkIssueTypeMappedType = work.IssueTypeMappedTypeUnknown
+
+// WorkIssueTypeMappedTypeFeature is the enumeration value for feature
+const WorkIssueTypeMappedTypeFeature WorkIssueTypeMappedType = work.IssueTypeMappedTypeFeature
+
+// WorkIssueTypeMappedTypeBug is the enumeration value for bug
+const WorkIssueTypeMappedTypeBug WorkIssueTypeMappedType = work.IssueTypeMappedTypeBug
+
+// WorkIssueTypeMappedTypeEnhancement is the enumeration value for enhancement
+const WorkIssueTypeMappedTypeEnhancement WorkIssueTypeMappedType = work.IssueTypeMappedTypeEnhancement
+
+// WorkIssueTypeMappedTypeEpic is the enumeration value for epic
+const WorkIssueTypeMappedTypeEpic WorkIssueTypeMappedType = work.IssueTypeMappedTypeEpic
+
+// WorkIssueTypeMappedTypeStory is the enumeration value for story
+const WorkIssueTypeMappedTypeStory WorkIssueTypeMappedType = work.IssueTypeMappedTypeStory
+
+// WorkIssueTypeMappedTypeTask is the enumeration value for task
+const WorkIssueTypeMappedTypeTask WorkIssueTypeMappedType = work.IssueTypeMappedTypeTask
+
+// WorkIssueTypeMappedTypeSubtask is the enumeration value for subtask
+const WorkIssueTypeMappedTypeSubtask WorkIssueTypeMappedType = work.IssueTypeMappedTypeSubtask
+
 // NewWorkProjectID will return the work project id
 func NewWorkProjectID(customerID string, refID string, refType string) string {
 	return work.NewProjectID(customerID, refID, refType)
