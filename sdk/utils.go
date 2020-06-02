@@ -100,3 +100,8 @@ func MapToStruct(m map[string]interface{}, target interface{}) error {
 	}
 	return json.Unmarshal(b, target)
 }
+
+// JoinURL creates a URL string from parts
+func JoinURL(elem ...string) string {
+	return ps.JoinURL(elem...)
+}
