@@ -152,3 +152,48 @@ const WorkSprintStatusClosed WorkSprintStatus = work.SprintStatusClosed
 
 // WorkKanbanBoardColumns is the kanban board columns
 type WorkKanbanBoardColumns = work.KanbanBoardColumns
+
+// NewWorkProjectID will return the work project id
+func NewWorkProjectID(customerID string, refID string, refType string) string {
+	return work.NewProjectID(customerID, refID, refType)
+}
+
+// NewWorkIssueID will return the work issue id
+func NewWorkIssueID(customerID string, refID string, refType string) string {
+	return work.NewIssueID(customerID, refID, refType)
+}
+
+// NewWorkIssueCommentID will return the work issue comment id
+func NewWorkIssueCommentID(customerID string, refID string, refType string, projectID string) string {
+	return work.NewIssueCommentID(customerID, refID, refType, projectID)
+}
+
+// NewIssuePriorityID will return the work issue priority id
+func NewIssuePriorityID(customerID string, refType string, refID string) string {
+	return work.NewIssuePriorityID(customerID, refType, refID)
+}
+
+// NewIssueStatusID will return the work issue status id
+func NewIssueStatusID(customerID string, refType string, refID string) string {
+	return work.NewIssueStatusID(customerID, refType, refID)
+}
+
+// NewIssueTypeID will return the work issue type id
+func NewIssueTypeID(customerID string, refType string, refID string) string {
+	return work.NewIssueTypeID(customerID, refType, refID)
+}
+
+// NewKanbanBoardID will return the work kanban board id
+func NewKanbanBoardID(customerID string, refID string, refType string) string {
+	return work.NewKanbanBoardID(customerID, refType, refID)
+}
+
+// NewSprintID will return the work sprint id
+func NewSprintID(customerID string, refID string, refType string) string {
+	return work.NewSprintID(customerID, refID, refType)
+}
+
+// NewUserID will return the work user id
+func NewUserID(customerID string, refID string, refType string) string {
+	return work.NewUserID(customerID, refID, refType)
+}

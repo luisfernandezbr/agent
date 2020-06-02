@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"encoding/json"
+	"reflect"
 	"time"
 
 	"github.com/pinpt/go-common/datetime"
@@ -66,6 +67,29 @@ func NewDateWithTime(tv time.Time) (*Date, error) {
 // TimeToEpoch returns an epoch time from a time.Time
 func TimeToEpoch(tv time.Time) int64 {
 	return datetime.TimeToEpoch(tv)
+}
+
+// EpochNow will return the current time as an epoch value
+func EpochNow() int64 {
+	return datetime.EpochNow()
+}
+
+// ConvertTimeToDateModel will fill the dataModel struct with the current time
+func ConvertTimeToDateModel(ts time.Time, dateModel interface{}) {
+	if ts.IsZero() {
+		return
+	}
+
+	date, err := datetime.NewDateWithTime(ts)
+	if err != nil {
+		// this will never happen NewDateWithTime, always returns nil
+		panic(err)
+	}
+
+	t := reflect.ValueOf(dateModel).Elem()
+	t.FieldByName("Rfc3339").Set(reflect.ValueOf(date.Rfc3339))
+	t.FieldByName("Epoch").Set(reflect.ValueOf(date.Epoch))
+	t.FieldByName("Offset").Set(reflect.ValueOf(date.Offset))
 }
 
 // MapToStruct will unmarshal a map into the target
