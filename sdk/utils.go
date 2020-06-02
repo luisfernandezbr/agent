@@ -105,3 +105,14 @@ func MapToStruct(m map[string]interface{}, target interface{}) error {
 func JoinURL(elem ...string) string {
 	return ps.JoinURL(elem...)
 }
+
+// Keys will return the keys that are true from a map[string]bool
+func Keys(m map[string]bool) []string {
+	a := make([]string, 0)
+	for k, v := range m {
+		if v {
+			a = append(a, k)
+		}
+	}
+	return a
+}
