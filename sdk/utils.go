@@ -7,6 +7,7 @@ import (
 
 	"github.com/pinpt/go-common/v10/datetime"
 	"github.com/pinpt/go-common/v10/hash"
+	pjson "github.com/pinpt/go-common/v10/json"
 	"github.com/pinpt/go-common/v10/log"
 	ps "github.com/pinpt/go-common/v10/strings"
 )
@@ -115,4 +116,9 @@ func Keys(m map[string]bool) []string {
 		}
 	}
 	return a
+}
+
+// Stringify will return a JSON stringified representation of vval
+func Stringify(val interface{}) string {
+	return pjson.Stringify(val)
 }
