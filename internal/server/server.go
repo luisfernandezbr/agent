@@ -14,8 +14,8 @@ import (
 	pipe "github.com/pinpt/agent.next/internal/pipe/eventapi"
 	redisState "github.com/pinpt/agent.next/internal/state/redis"
 	"github.com/pinpt/agent.next/sdk"
-	"github.com/pinpt/go-common/event"
-	"github.com/pinpt/go-common/log"
+	"github.com/pinpt/go-common/v10/event"
+	"github.com/pinpt/go-common/v10/log"
 	"github.com/pinpt/integration-sdk/agent"
 )
 

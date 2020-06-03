@@ -10,8 +10,8 @@ import (
 	"sync"
 
 	"github.com/pinpt/agent.next/sdk"
-	"github.com/pinpt/go-common/fileutil"
-	pjson "github.com/pinpt/go-common/json"
+	"github.com/pinpt/go-common/v10/fileutil"
+	pjson "github.com/pinpt/go-common/v10/json"
 )
 
 // State is a simple file backed state store

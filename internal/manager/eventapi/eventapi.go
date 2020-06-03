@@ -7,8 +7,8 @@ import (
 	"github.com/pinpt/agent.next/internal/graphql"
 	"github.com/pinpt/agent.next/internal/http"
 	"github.com/pinpt/agent.next/sdk"
-	"github.com/pinpt/go-common/api"
-	"github.com/pinpt/go-common/log"
+	"github.com/pinpt/go-common/v10/api"
+	"github.com/pinpt/go-common/v10/log"
 )
 
 type eventAPIManager struct {

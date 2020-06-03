@@ -5,10 +5,10 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/pinpt/go-common/datetime"
-	"github.com/pinpt/go-common/hash"
-	"github.com/pinpt/go-common/log"
-	ps "github.com/pinpt/go-common/strings"
+	"github.com/pinpt/go-common/v10/datetime"
+	"github.com/pinpt/go-common/v10/hash"
+	"github.com/pinpt/go-common/v10/log"
+	ps "github.com/pinpt/go-common/v10/strings"
 )
 
 // StringPointer return a string pointer from a value

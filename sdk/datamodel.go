@@ -1,6 +1,6 @@
 package sdk
 
-import "github.com/pinpt/go-common/datamodel"
+import "github.com/pinpt/go-common/v10/datamodel"
 
 // Type aliases for our exported datamodel types to create a stable version
 // which Integrations depend on instead of directly depending on a specific

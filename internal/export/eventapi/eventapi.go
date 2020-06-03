@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/pinpt/agent.next/sdk"
-	"github.com/pinpt/go-common/log"
+	"github.com/pinpt/go-common/v10/log"
 )
 
 // Completion event

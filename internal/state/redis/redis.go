@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-redis/redis"
 	"github.com/pinpt/agent.next/sdk"
-	pjson "github.com/pinpt/go-common/json"
+	pjson "github.com/pinpt/go-common/v10/json"
 )
 
 // State is a simple file backed state store

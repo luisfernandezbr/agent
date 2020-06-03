@@ -8,8 +8,8 @@ import (
 	"sync"
 
 	"github.com/pinpt/agent.next/sdk"
-	"github.com/pinpt/go-common/datamodel"
-	"github.com/pinpt/go-common/log"
+	"github.com/pinpt/go-common/v10/datamodel"
+	"github.com/pinpt/go-common/v10/log"
 )
 
 type wrapperFile struct {

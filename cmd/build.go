@@ -11,9 +11,9 @@ import (
 	"strings"
 
 	"github.com/pinpt/agent.next/sdk"
-	"github.com/pinpt/go-common/datetime"
-	"github.com/pinpt/go-common/fileutil"
-	"github.com/pinpt/go-common/log"
+	"github.com/pinpt/go-common/v10/datetime"
+	"github.com/pinpt/go-common/v10/fileutil"
+	"github.com/pinpt/go-common/v10/log"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )

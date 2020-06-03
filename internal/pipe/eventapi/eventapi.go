@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/pinpt/agent.next/sdk"
-	"github.com/pinpt/go-common/datamodel"
-	"github.com/pinpt/go-common/event"
-	pjson "github.com/pinpt/go-common/json"
-	"github.com/pinpt/go-common/log"
+	"github.com/pinpt/go-common/v10/datamodel"
+	"github.com/pinpt/go-common/v10/event"
+	pjson "github.com/pinpt/go-common/v10/json"
+	"github.com/pinpt/go-common/v10/log"
 	"github.com/pinpt/integration-sdk/agent"
 )
 

@@ -1,8 +1,8 @@
 package sdk
 
 import (
-	pn "github.com/pinpt/go-common/number"
-	ps "github.com/pinpt/go-common/strings"
+	pn "github.com/pinpt/go-common/v10/number"
+	ps "github.com/pinpt/go-common/v10/strings"
 )
 
 // Config is the integration configuration

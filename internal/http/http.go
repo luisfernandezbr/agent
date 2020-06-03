@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/pinpt/agent.next/sdk"
-	"github.com/pinpt/go-common/event"
-	"github.com/pinpt/go-common/httpdefaults"
+	"github.com/pinpt/go-common/v10/event"
+	"github.com/pinpt/go-common/v10/httpdefaults"
 )
 
 var transport = httpdefaults.DefaultTransport()
