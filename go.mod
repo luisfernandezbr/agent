@@ -3,7 +3,10 @@ module github.com/pinpt/agent.next
 go 1.14
 
 require (
+	github.com/fatih/color v1.9.0
+	github.com/go-kit/kit v0.10.0
 	github.com/go-redis/redis v6.15.8+incompatible
+	github.com/gorilla/websocket v1.4.2
 	github.com/mattn/go-colorable v0.1.6
 	github.com/mattn/go-isatty v0.0.12
 	github.com/onsi/ginkgo v1.12.3 // indirect
