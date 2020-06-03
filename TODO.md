@@ -15,6 +15,7 @@ This is an overview of a set of notes and TODOs for bringing this Agent v4 to li
 - Need good way to instrument and have good observability of the agents
 - Can we simplify / reduce some of the agent messages (payload data)
 - Need to think through how we do versioning of plugins/agent since they have to be built together
+- Support for mutations
 
 ## Bugs/Fixes
 

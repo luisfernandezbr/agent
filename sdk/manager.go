@@ -9,4 +9,6 @@ type Manager interface {
 	// CreateWebHook is used by the integration to create a webhook on behalf of the integration for a given customer, reftype and refid
 	// the result will be a fully qualified URL to the webhook endpoint that should be registered with the integration
 	CreateWebHook(customerID string, refType string, refID string) (string, error)
+	// RefreshOAuth2Token will refresh the OAuth2 access token using the provided refreshToken and return a new access token
+	RefreshOAuth2Token(refType string, refreshToken string) (string, error)
 }

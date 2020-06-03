@@ -64,7 +64,8 @@ var devCmd = &cobra.Command{
 		}
 		config := sdk.NewConfig(configkv)
 		log.Info(_logger, "starting")
-		mgr := manager.New(logger)
+		channel, _ := cmd.Flags().GetString("channel")
+		mgr := manager.New(logger, channel)
 		if err := instance.Start(logger, config, mgr); err != nil {
 			log.Fatal(logger, "failed to start", "err", err)
 		}
@@ -116,4 +117,5 @@ func init() {
 	devCmd.Flags().String("customerid", "000", "customer id")
 	devCmd.Flags().String("dir", "", "the directory to output pipe contents")
 	devCmd.Flags().String("state", "", "the state file directory")
+	devCmd.Flags().String("channel", "stable", "channel for communicating with the pinpoint cloud")
 }

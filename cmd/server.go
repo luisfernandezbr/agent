@@ -48,7 +48,6 @@ var serverCmd = &cobra.Command{
 			log.Fatal(logger, "error loading integrations", "err", err)
 		}
 		var state sdk.State
-		manager := emanager.New(logger)
 		intconfig := sdk.Config{}
 		integrations := make(map[string]*server.IntegrationContext)
 		for _, fn := range integrationFiles {
@@ -61,9 +60,6 @@ var serverCmd = &cobra.Command{
 				log.Fatal(logger, "couldn't integration plugin entrypoint", "err", err)
 			}
 			instance := sym.(sdk.Integration)
-			if err := instance.Start(logger, intconfig, manager); err != nil {
-				log.Fatal(logger, "error starting integration", "err", err, "file", fn)
-			}
 			descriptor, err := sdk.LoadDescriptorFromPlugin(plug)
 			if err != nil {
 				log.Fatal(logger, "error loading integration", "err", err, "file", fn)
@@ -147,6 +143,12 @@ var serverCmd = &cobra.Command{
 			}
 			subchannel = ch
 			log.Info(logger, "running in single agent mode", "uuid", config.DeviceID, "customer_id", config.CustomerID, "channel", config.Channel)
+		}
+		manager := emanager.New(logger, channel)
+		for _, instance := range integrations {
+			if err := instance.Integration.Start(logger, intconfig, manager); err != nil {
+				log.Fatal(logger, "error starting integration", "err", err, "name", instance.Descriptor.Name)
+			}
 		}
 		done := make(chan bool, 1)
 		shutdown := make(chan bool)
