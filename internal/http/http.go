@@ -42,19 +42,7 @@ type client struct {
 var _ sdk.HTTPClient = (*client)(nil)
 
 func (c *client) exec(req *sdk.HTTPRequest, out interface{}, options ...sdk.WithHTTPOption) (*sdk.HTTPResponse, error) {
-	req.Request.Header.Set("Accept", "application/json")
-	req.Request.Header.Set("Content-Type", "application/json")
-	req.Request.Header.Set("User-Agent", "pinpoint.com")
-	for k, v := range c.headers {
-		req.Request.Header.Set(k, v)
-	}
-	for _, opt := range options {
-		if opt != nil {
-			if err := opt(req); err != nil {
-				return nil, err
-			}
-		}
-	}
+
 	resp, err := http.DefaultClient.Do(req.Request)
 	if err != nil {
 		return nil, err
