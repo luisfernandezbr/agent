@@ -43,9 +43,13 @@ var serverCmd = &cobra.Command{
 			log.Fatal(logger, "missing --config")
 		}
 		integrationsDir, _ := cmd.Flags().GetString("integrations")
+		log.Debug(logger, "looking for integrations", "dir", integrationsDir)
 		integrationFiles, err := fileutil.FindFiles(integrationsDir, regexp.MustCompile(".so$"))
 		if err != nil {
 			log.Fatal(logger, "error loading integrations", "err", err)
+		}
+		if len(integrationFiles) == 0 {
+			log.Fatal(logger, "no integrations found", "dir", integrationsDir)
 		}
 		var state sdk.State
 		intconfig := sdk.Config{}
@@ -69,9 +73,6 @@ var serverCmd = &cobra.Command{
 				Descriptor:  descriptor,
 			}
 			log.Info(logger, "loaded integration", "name", descriptor.Name, "ref_type", descriptor.RefType, "build", descriptor.BuildCommitSHA, "date", descriptor.BuildDate)
-		}
-		if len(integrations) == 0 {
-			log.Fatal(logger, "no integrations found", "dir", integrationsDir)
 		}
 		var channel, uuid, apikey string
 		var subchannel *event.SubscriptionChannel
@@ -100,6 +101,7 @@ var serverCmd = &cobra.Command{
 				Addr: redisURL,
 				DB:   redisDb,
 			})
+			log.Debug(logger, "attempt to ping redis", "url", redisURL)
 			err = redisClient.Ping(ctx).Err()
 			if err != nil {
 				log.Fatal(logger, "error connecting to redis", "url", redisURL, "db", redisDb, "err", err)
