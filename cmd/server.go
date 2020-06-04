@@ -55,6 +55,7 @@ var serverCmd = &cobra.Command{
 		intconfig := sdk.Config{}
 		integrations := make(map[string]*server.IntegrationContext)
 		for _, fn := range integrationFiles {
+			log.Debug(logger, "attempt to load plugin", "file", fn)
 			plug, err := plugin.Open(fn)
 			if err != nil {
 				log.Fatal(logger, "couldn't open integration plugin", "err", err, "file", fn)
