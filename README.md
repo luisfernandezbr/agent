@@ -16,6 +16,7 @@ This is a working concept prototype for the next generation of the Agent.  It's 
 You can build like this:
 
 ```
+go generate
 go install
 ```
 
@@ -26,6 +27,20 @@ Make sure and setup your `$GOPRIVATE` env to read any pinpoint modules from our 
 ```
 go env -w GOPRIVATE=github.com/pinpt
 ```
+
+## Creating an integration
+
+You will need to cd to your $GOPATH/src/{org_name} and call the generate command with a project name (make sure you run the previous step first).
+
+For example:
+
+```
+cd $GOPATH/src/github.com/pinpt
+agent.next generate project_name
+```
+
+This command will fail if called from anywhere else. Once you run it, it will ask for some information, such as integration name, publisher info, etc.
+The project will be created. Go to that directory and open it in VSCode to start working on it. Happy coding.
 
 ## Running for local dev
 

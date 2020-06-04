@@ -1,0 +1,82 @@
+package internal
+
+import (
+	"github.com/pinpt/agent.next/sdk"
+)
+
+// {{ .TitleCaseName }}Integration is an integration for {{ .TitleCaseName }}
+type {{ .TitleCaseName }}Integration struct {
+	logger  sdk.Logger
+	config  sdk.Config
+	manager sdk.Manager
+	reftype string
+
+	graphql    sdk.GraphQLClient
+	httpclient sdk.HTTPClient
+}
+
+var _ sdk.Integration = (*{{ .TitleCaseName }}Integration)(nil)
+
+// Start is called when the integration is starting up
+func (g *{{ .TitleCaseName }}Integration) Start(logger sdk.Logger, config sdk.Config, manager sdk.Manager) error {
+	g.logger = sdk.LogWith(logger, "pkg", "{{ .LowerCaseName }}")
+	g.config = config
+	g.manager = manager
+	g.reftype = "{{ .LowerCaseName }}"
+	sdk.LogInfo(g.logger, "starting")
+	return nil
+}
+
+// WebHook is called when a webhook is received on behalf of the integration
+func (g *{{ .TitleCaseName }}Integration) WebHook(webhook sdk.WebHook) error {
+	sdk.LogInfo(g.logger, "webhook not implemented")
+	return nil
+}
+
+// Stop is called when the integration is shutting down for cleanup
+func (g *{{ .TitleCaseName }}Integration) Stop() error {
+	sdk.LogInfo(g.logger, "stopping")
+	return nil
+}
+
+// Export is called to tell the integration to run an export
+func (g *{{ .TitleCaseName }}Integration) Export(export sdk.Export) error {
+	sdk.LogInfo(g.logger, "export started")
+
+	// Start must be called to begin an export and receive a pipe for sending data
+	pipe, err := export.Start()
+	if err != nil {
+		return err
+	}
+
+	// State is a customer specific state object for this integration and customer
+	state := export.State()
+
+	// CustomerID will return the customer id for the export
+	customerID := export.CustomerID()
+
+	// Config is any customer specific configuration for this customer
+	config := export.Config()
+
+	g.graphql = g.manager.GraphQLManager().New("https://some_graphql_api.com/", map[string]string{
+		"Authorization": "bearer 1234567890",
+	})
+	g.httpclient = g.manager.HTTPManager().New("https://some_rest_api.com/", map[string]string{
+		"Authorization": "bearer 1234567890",
+	})
+
+	sdk.LogDebug(g.logger, "export starting")
+
+	// start export here
+	// -------------
+	// call completed when done
+
+	export.Completed(nil)
+
+	// quite the compiler:
+	_ = pipe
+	_ = state
+	_ = customerID
+	_ = config
+	return nil
+}

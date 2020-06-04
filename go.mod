@@ -3,6 +3,8 @@ module github.com/pinpt/agent.next
 go 1.14
 
 require (
+	github.com/AlecAivazis/survey/v2 v2.0.7
+	github.com/fatih/color v1.9.0
 	github.com/go-redis/redis v6.15.8+incompatible
 	github.com/onsi/ginkgo v1.12.3 // indirect
 	github.com/pinpt/go-common/v10 v10.0.2
