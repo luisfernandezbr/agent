@@ -200,7 +200,7 @@ func init() {
 	serverCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "dev"), "the channel configuration")
 	serverCmd.Flags().String("integrations", "dist", "the directory where our integration plugins are stored")
 	serverCmd.Flags().String("tempdir", "dist/export", "the directory to place files")
-	serverCmd.Flags().String("redis", "0.0.0.0:6379", "the redis endpoint url")
+	serverCmd.Flags().String("redis", pos.Getenv("PP_REDIS_URL", "0.0.0.0:6379"), "the redis endpoint url")
 	serverCmd.Flags().Int("redisDB", 0, "the redis db")
 	serverCmd.Flags().MarkHidden("secret")
 	serverCmd.Flags().MarkHidden("channel")
