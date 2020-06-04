@@ -14,31 +14,31 @@ import (
 	"github.com/pinpt/integration-sdk/work"
 )
 
-// IntegraionType used in the generator survey
-type IntegraionType string
+// IntegrationType used in the generator survey
+type IntegrationType string
 
-func (i IntegraionType) String() string {
+func (i IntegrationType) String() string {
 	return string(i)
 }
 
 const (
-	// IntegraionTypeSourcecode type source code
-	IntegraionTypeSourcecode IntegraionType = "Source Code"
-	// IntegraionTypeIssueTracking type work
-	IntegraionTypeIssueTracking IntegraionType = "Issue Tracking"
-	// IntegraionTypeCalendar type calendar
-	IntegraionTypeCalendar IntegraionType = "Calendar"
-	// IntegraionTypeCodeQuality type code quality
-	IntegraionTypeCodeQuality IntegraionType = "Code Quality"
+	// IntegrationTypeSourcecode type source code
+	IntegrationTypeSourcecode IntegrationType = "Source Code"
+	// IntegrationTypeIssueTracking type work
+	IntegrationTypeIssueTracking IntegrationType = "Issue Tracking"
+	// IntegrationTypeCalendar type calendar
+	IntegrationTypeCalendar IntegrationType = "Calendar"
+	// IntegrationTypeCodeQuality type code quality
+	IntegrationTypeCodeQuality IntegrationType = "Code Quality"
 )
 
 // Info needed info to generate the integration
 type Info struct {
-	Name            string   `json:"integration_name" survey:"integration_name"`
-	PublisherName   string   `json:"publisher_name" survey:"publisher_name"`
-	PublisherURL    string   `json:"publisher_url" survey:"publisher_url"`
-	PublisherAvatar string   `json:"publisher_avatar" survey:"publisher_avatar"`
-	IntegraionTypes []string `json:"integraion_types" survey:"integraion_types"`
+	Name             string   `json:"integration_name" survey:"integration_name"`
+	PublisherName    string   `json:"publisher_name" survey:"publisher_name"`
+	PublisherURL     string   `json:"publisher_url" survey:"publisher_url"`
+	PublisherAvatar  string   `json:"publisher_avatar" survey:"publisher_avatar"`
+	IntegrationTypes []string `json:"integration_types" survey:"integration_types"`
 
 	Capabilities  []datamodel.ModelNameType
 	PKG           string
@@ -58,14 +58,14 @@ func Generate(path string, info Info) error {
 		return err
 	}
 
-	for _, t := range info.IntegraionTypes {
-		switch IntegraionType(t) {
-		case IntegraionTypeSourcecode:
+	for _, t := range info.IntegrationTypes {
+		switch IntegrationType(t) {
+		case IntegrationTypeSourcecode:
 			info.Capabilities = append(info.Capabilities,
 				sourcecode.PullRequestCommitModelName,
 				sourcecode.PullRequestCommentModelName,
 			)
-		case IntegraionTypeIssueTracking:
+		case IntegrationTypeIssueTracking:
 			info.Capabilities = append(info.Capabilities,
 				work.UserModelName,
 				work.ProjectModelName,
@@ -73,13 +73,13 @@ func Generate(path string, info Info) error {
 				work.IssueCommentModelName,
 				work.SprintModelName,
 			)
-		case IntegraionTypeCalendar:
+		case IntegrationTypeCalendar:
 			info.Capabilities = append(info.Capabilities,
 				calendar.UserModelName,
 				calendar.CalendarModelName,
 				calendar.EventModelName,
 			)
-		case IntegraionTypeCodeQuality:
+		case IntegrationTypeCodeQuality:
 			info.Capabilities = append(info.Capabilities,
 				codequality.MetricModelName,
 				codequality.ProjectModelName,

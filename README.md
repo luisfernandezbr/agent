@@ -16,7 +16,6 @@ This is a working concept prototype for the next generation of the Agent.  It's 
 You can build like this:
 
 ```
-go generate
 go install
 ```
 

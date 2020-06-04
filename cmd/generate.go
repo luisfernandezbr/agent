@@ -134,14 +134,14 @@ func promptSettings(result *generator.Info) error {
 			Transform: survey.ToLower,
 		},
 		{
-			Name: "integraion_types",
+			Name: "integration_types",
 			Prompt: &survey.MultiSelect{
 				Message: "Choose capabilities:",
 				Options: []string{
-					generator.IntegraionTypeIssueTracking.String(),
-					generator.IntegraionTypeSourcecode.String(),
-					generator.IntegraionTypeCodeQuality.String(),
-					generator.IntegraionTypeCalendar.String(),
+					generator.IntegrationTypeIssueTracking.String(),
+					generator.IntegrationTypeSourcecode.String(),
+					generator.IntegrationTypeCodeQuality.String(),
+					generator.IntegrationTypeCalendar.String(),
 				},
 			},
 		},
