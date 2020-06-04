@@ -100,7 +100,7 @@ var serverCmd = &cobra.Command{
 				Addr: redisURL,
 				DB:   redisDb,
 			})
-			err = redisClient.Ping().Err()
+			err = redisClient.Ping(ctx).Err()
 			if err != nil {
 				log.Fatal(logger, "error connecting to redis", "url", redisURL, "db", redisDb, "err", err)
 			}
