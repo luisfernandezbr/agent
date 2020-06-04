@@ -25,6 +25,9 @@ func (c Config) Get(key string) (bool, interface{}) {
 // GetString will return a string coerced value for key
 func (c Config) GetString(key string) (bool, string) {
 	val, ok := c.kv[key]
+	if !ok || val == "" {
+		return false, ""
+	}
 	return ok, ps.Value(val)
 }
 

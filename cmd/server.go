@@ -7,7 +7,7 @@ import (
 	"plugin"
 	"regexp"
 
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 	emanager "github.com/pinpt/agent.next/internal/manager/eventapi"
 	"github.com/pinpt/agent.next/internal/server"
 	"github.com/pinpt/agent.next/sdk"

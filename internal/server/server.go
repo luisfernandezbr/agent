@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 	"github.com/pinpt/agent.next/internal/export/eventapi"
 	pipe "github.com/pinpt/agent.next/internal/pipe/eventapi"
 	redisState "github.com/pinpt/agent.next/internal/state/redis"
@@ -77,7 +77,7 @@ func (s *Server) handleExport(logger log.Logger, evt event.SubscriptionEvent) er
 		state := s.config.State
 		if state == nil {
 			// if no state provided, we use redis state in this case
-			st, err := redisState.New(s.config.RedisClient, req.CustomerID)
+			st, err := redisState.New(s.config.Ctx, s.config.RedisClient, req.CustomerID)
 			if err != nil {
 				return err
 			}
