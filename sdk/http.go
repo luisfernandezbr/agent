@@ -71,6 +71,7 @@ func WithHTTPHeader(key, value string) WithHTTPOption {
 func WithEndpoint(value string) WithHTTPOption {
 	return func(req *HTTPRequest) error {
 		req.Request.URL.Path = JoinURL(req.Request.URL.Path, value)
+		req.Request.URL, _ = url.Parse(req.Request.URL.String())
 		return nil
 	}
 }

@@ -130,7 +130,7 @@ func (c *client) execWithRetry(maker requestMaker, out interface{}, options ...s
 		}
 		i++
 		resp, err := c.exec(httpreq, out, options...)
-		if event.IsErrorRetryable(err) || isStatusRetryable(resp.StatusCode) {
+		if event.IsErrorRetryable(err) || (resp != nil && isStatusRetryable(resp.StatusCode)) {
 			if time.Now().Before(httpreq.Deadline) {
 				// do an expotential backoff
 				time.Sleep(time.Millisecond * time.Duration(int64(i)*rand.Int63n(backoffRange)))
