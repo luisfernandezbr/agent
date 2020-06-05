@@ -43,7 +43,9 @@ var devCmd = &cobra.Command{
 
 		channel, _ := cmd.Flags().GetString("channel")
 		dir, _ := cmd.Flags().GetString("dir")
-		dir, _ = filepath.Abs(dir)
+		if dir != "" {
+			dir, _ = filepath.Abs(dir)
+		}
 		devargs := []string{"--dev", "--dir", dir, "--channel", channel, "--log-level", "debug"}
 
 		config, _ := cmd.Flags().GetStringSlice("config")
