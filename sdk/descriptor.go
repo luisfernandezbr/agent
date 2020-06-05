@@ -3,7 +3,6 @@ package sdk
 import (
 	"encoding/base64"
 	"fmt"
-	"plugin"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -66,14 +65,9 @@ type InstallationOption struct {
 	Required    bool   `json:"required" yaml:"required"`
 }
 
-// LoadDescriptorFromPlugin will load a descriptor from an integration plugin instance
-func LoadDescriptorFromPlugin(plug *plugin.Plugin) (*Descriptor, error) {
-	sym, err := plug.Lookup("IntegrationDescriptor")
-	if err != nil {
-		return nil, fmt.Errorf("error finding the IntegrationDescriptor symbol: %w", err)
-	}
-	val := sym.(*string)
-	buf, err := base64.StdEncoding.DecodeString(*val)
+// LoadDescriptor will load a descriptor from an integration
+func LoadDescriptor(descriptorBuf, build, commit string) (*Descriptor, error) {
+	buf, err := base64.StdEncoding.DecodeString(descriptorBuf)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding the IntegrationDescriptor symbol: %w", err)
 	}
@@ -81,21 +75,11 @@ func LoadDescriptorFromPlugin(plug *plugin.Plugin) (*Descriptor, error) {
 	if err := yaml.Unmarshal(buf, &descriptor); err != nil {
 		return nil, fmt.Errorf("error parsing the IntegrationDescriptor data: %w", err)
 	}
-	sym, err = plug.Lookup("IntegrationBuildDate")
-	if err != nil {
-		return nil, fmt.Errorf("error finding the IntegrationBuildDate symbol: %w", err)
-	}
-	val = sym.(*string)
-	tv, err := time.Parse(time.RFC3339, *val)
+	tv, err := time.Parse(time.RFC3339, build)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing the IntegrationBuildDate data: %w", err)
 	}
 	descriptor.BuildDate = tv
-	sym, err = plug.Lookup("IntegrationBuildCommitSHA")
-	if err != nil {
-		return nil, fmt.Errorf("error finding the IntegrationBuildCommitSHA symbol: %w", err)
-	}
-	val = sym.(*string)
-	descriptor.BuildCommitSHA = *val
+	descriptor.BuildCommitSHA = commit
 	return &descriptor, nil
 }

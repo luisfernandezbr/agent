@@ -63,12 +63,14 @@ You must first build integrations:
 go run . build ../agent.next.github
 ```
 
-This will be placed in your `dist` folder as a file named `github.so`.
+This will be placed in your `dist` folder as a file named `github`.
 
 ### Standalone
 
+Once you build the integration, you can just run it:
+
 ```
-go run . server --log-level debug --config agent.json
+github --log-level debug --config agent.json
 ```
 
 Currently, the agent.config format matches the current (legacy) agent config.
@@ -76,7 +78,7 @@ Currently, the agent.config format matches the current (legacy) agent config.
 ### Multi
 
 ```
-go run . server --log-level debug
+github --log-level debug
 ```
 
 By default in this mode, will only talk with the local dev event-api. You can set `--channel` and `--secret` to point at another environment.
@@ -84,7 +86,7 @@ By default in this mode, will only talk with the local dev event-api. You can se
 To place an event, use the event-api `produce` command such as:
 
 ```
-go run . produce --log-level debug --channel dev agent.ExportRequest --input '{"customer_id":"1234","integrations":[{"name":"github","authorization":{"api_key":"XYZ"}}]}' --secret 'fa0s8f09a8sd09f8iasdlkfjalsfm,.m,xf'
+go run . produce --log-level debug --channel dev agent.ExportRequest --input '{"customer_id":"1234","integrations":[{"name":"github","authorization":{"api_key":"XYZ"}}]}' --secret 'fa0s8f09a8sd09f8iasdlkfjalsfm,.m,xf' --header integration=github
 ```
 
 Make sure you update the `api_key` with the value of your `PP_GITHUB_TOKEN`.  Also, make sure you're running event-api server locally such as:

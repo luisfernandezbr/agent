@@ -18,6 +18,22 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+func generateMainTemplate(filename, content, descriptor, build, sha string) (string, error) {
+	i := strings.Index(content, "runner.Main(&Integration)")
+	if i < 0 {
+		return "", fmt.Errorf("couldn't find the correct runner.Main func in %s", filename)
+	}
+	before := content[0:i]
+	after := content[i+25:]
+	return fmt.Sprintf(`%s
+	IntegrationDescriptor := "%s"
+	IntegrationBuildDate := "%s"
+	IntegrationBuildCommitSHA := "%s"
+	runner.Main(&Integration, IntegrationDescriptor, IntegrationBuildDate, IntegrationBuildCommitSHA)
+%s
+`, before, descriptor, build, sha, after), nil
+}
+
 type rewriteFunc func()
 
 // buildCmd represents the build command
@@ -38,7 +54,7 @@ var buildCmd = &cobra.Command{
 		distDir, _ := cmd.Flags().GetString("dir")
 		distDir, _ = filepath.Abs(distDir)
 		os.MkdirAll(distDir, 0700)
-		dist := filepath.Join(distDir, integration+".so")
+		dist := filepath.Join(distDir, integration)
 		// local dev issue with plugins: https://github.com/golang/go/issues/31354
 		modfp := filepath.Join(integrationDir, "go.mod")
 		mod, err := ioutil.ReadFile(modfp)
@@ -76,17 +92,22 @@ var buildCmd = &cobra.Command{
 			gensha.Dir = integrationDir
 			gensha.Run()
 			bbuf := base64.StdEncoding.EncodeToString(buf)
-			ioutil.WriteFile(ygofn, []byte(fmt.Sprintf("%s\n\nvar IntegrationDescriptor = \"%s\"\nvar IntegrationBuildDate = \"%s\"\nvar IntegrationBuildCommitSHA = \"%s\"", gobuf, bbuf, datetime.ISODate(), strings.TrimSpace(shabuf.String()))), 0644)
+			tmpl, err := generateMainTemplate(ygofn, string(gobuf), bbuf, datetime.ISODate(), strings.TrimSpace(shabuf.String()))
+			if err != nil {
+				log.Fatal(logger, "error generating build", "err", err)
+			}
+			ioutil.WriteFile(ygofn, []byte(tmpl), 0644)
 			bundleRewriter = func() {
 				ioutil.WriteFile(ygofn, gobuf, 0644)
 			}
 			defer bundleRewriter()
 		}
-		c := exec.Command("go", "build", "-buildmode=plugin", "-o", dist, fp)
+		c := exec.Command("go", "build", "-o", dist)
 		c.Stderr = os.Stderr
 		c.Stdout = os.Stdout
 		c.Dir = integrationDir
 		if err := c.Run(); err != nil {
+			bundleRewriter()
 			ioutil.WriteFile(modfp, mod, 0644) // restore original
 			os.Exit(1)
 		}

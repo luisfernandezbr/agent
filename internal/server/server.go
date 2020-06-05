@@ -3,10 +3,10 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -33,11 +33,14 @@ type Config struct {
 	State               sdk.State // can be nil
 	SubscriptionChannel *event.SubscriptionChannel
 	RedisClient         *redis.Client // can be nil
-	Integrations        map[string]*IntegrationContext
+	Integration         *IntegrationContext
 	UUID                string
 	Channel             string
 	APIKey              string
 	Secret              string
+	DevMode             bool
+	DevPipe             sdk.Pipe
+	DevExport           sdk.Export
 }
 
 // Server is the event loop server portion of the agent
@@ -52,103 +55,97 @@ func (s *Server) Close() error {
 	return nil
 }
 
-func (s *Server) handleExport(logger log.Logger, evt event.SubscriptionEvent) error {
-	var req agent.ExportRequest
-	if err := json.Unmarshal([]byte(evt.Data), &req); err != nil {
-		return err
-	}
+func (s *Server) handleExport(logger log.Logger, req agent.ExportRequest) error {
 	dir := filepath.Join(s.config.Dir, req.JobID)
 	os.MkdirAll(dir, 0700)
-	var wg sync.WaitGroup
-	errors := make(chan error, len(req.Integrations))
 	started := time.Now()
+	var found bool
+	var integrationAuth agent.ExportRequestIntegrationsAuthorization
 	// run our integrations in parallel
 	for _, i := range req.Integrations {
-		integrationdata := s.config.Integrations[i.Name]
-		if integrationdata == nil {
-			// FIXME: send an error response
-			log.Error(logger, "couldn't find integration named", "name", i.Name)
-			continue
+		if i.Name == s.config.Integration.Descriptor.RefType {
+			found = true
+			integrationAuth = i.Authorization
+			break
 		}
-		integration := integrationdata.Integration
-		descriptor := integrationdata.Descriptor
-		// build the sdk config for the integration
-		sdkconfig := sdk.NewConfig(i.Authorization.ToMap())
-		state := s.config.State
-		if state == nil {
-			// if no state provided, we use redis state in this case
-			st, err := redisState.New(s.config.Ctx, s.config.RedisClient, req.CustomerID)
-			if err != nil {
-				return err
-			}
-			state = st
+	}
+	if !found {
+		return fmt.Errorf("incorrect agent.ExportRequest event, didn't match our integration")
+	}
+	// build the sdk config for the integration
+	var sdkconfig sdk.Config
+	if s.config.DevMode {
+		sdkconfig = s.config.DevExport.Config()
+	} else {
+		sdkconfig = sdk.NewConfig(integrationAuth.ToMap())
+	}
+	state := s.config.State
+	if state == nil {
+		// if no state provided, we use redis state in this case
+		st, err := redisState.New(s.config.Ctx, s.config.RedisClient, req.CustomerID)
+		if err != nil {
+			return err
 		}
-		wg.Add(1)
-		// start the integration in it's own thread
-		go func(integration sdk.Integration, descriptor *sdk.Descriptor, state sdk.State) {
-			defer wg.Done()
-			completion := make(chan eventapi.Completion, 1)
-			p := pipe.New(pipe.Config{
-				Ctx:        s.config.Ctx,
-				Logger:     logger,
-				Dir:        dir,
-				CustomerID: req.CustomerID,
-				UUID:       s.config.UUID,
-				JobID:      req.JobID,
-				Channel:    s.config.Channel,
-				APIKey:     s.config.APIKey,
-				Secret:     s.config.Secret,
-				RefType:    descriptor.RefType,
-			})
-			c, err := eventapi.New(eventapi.Config{
-				Ctx:        s.config.Ctx,
-				Logger:     logger,
-				Config:     sdkconfig,
-				State:      state,
-				CustomerID: req.CustomerID,
-				JobID:      req.JobID,
-				UUID:       s.config.UUID,
-				Pipe:       p,
-				Completion: completion,
-				Channel:    s.config.Channel,
-				APIKey:     s.config.APIKey,
-				Secret:     s.config.Secret,
-			})
-			if err != nil {
-				errors <- err
-				return
-			}
-			ts := time.Now()
-			if err := integration.Export(c); err != nil {
-				errors <- err
-				return
-			}
-			// wait for the integration to complete
-			comp := <-completion
-			if err := p.Flush(); err != nil {
-				log.Error(logger, "error flushing pipe", "err", err)
-			}
-			if err := state.Flush(); err != nil {
-				log.Error(logger, "error flushing state", "err", err)
-			}
-			log.Debug(logger, "export completed", "integration", descriptor.RefType, "duration", time.Since(ts), "err", comp.Error)
-			if comp.Error != nil {
-				errors <- comp.Error
-				return
-			}
-		}(integration, descriptor, state)
+		state = st
 	}
-	log.Debug(logger, "waiting for export to complete")
-	wg.Wait()
-	var err error
-	select {
-	case e := <-errors:
-		err = e
-		break
-	default:
+	// start the integration in it's own thread
+	completion := make(chan eventapi.Completion, 1)
+	var p sdk.Pipe
+	var e sdk.Export
+	if s.config.DevMode {
+		p = s.config.DevPipe
+		e = s.config.DevExport
+	} else {
+		p = pipe.New(pipe.Config{
+			Ctx:        s.config.Ctx,
+			Logger:     logger,
+			Dir:        dir,
+			CustomerID: req.CustomerID,
+			UUID:       s.config.UUID,
+			JobID:      req.JobID,
+			Channel:    s.config.Channel,
+			APIKey:     s.config.APIKey,
+			Secret:     s.config.Secret,
+			RefType:    s.config.Integration.Descriptor.RefType,
+		})
+		c, err := eventapi.New(eventapi.Config{
+			Ctx:        s.config.Ctx,
+			Logger:     logger,
+			Config:     sdkconfig,
+			State:      state,
+			CustomerID: req.CustomerID,
+			JobID:      req.JobID,
+			UUID:       s.config.UUID,
+			Pipe:       p,
+			Completion: completion,
+			Channel:    s.config.Channel,
+			APIKey:     s.config.APIKey,
+			Secret:     s.config.Secret,
+		})
+		if err != nil {
+			return err
+		}
+		e = c
 	}
-	log.Info(logger, "export completed", "duration", time.Since(started), "jobid", req.JobID, "customer_id", req.CustomerID, "err", err)
-	return err
+	log.Info(logger, "starting export")
+	ts := time.Now()
+	if err := s.config.Integration.Integration.Export(e); err != nil {
+		return err
+	}
+	// wait for the integration to complete
+	comp := <-completion
+	if err := p.Flush(); err != nil {
+		log.Error(logger, "error flushing pipe", "err", err)
+	}
+	if err := state.Flush(); err != nil {
+		log.Error(logger, "error flushing state", "err", err)
+	}
+	log.Debug(logger, "export completed", "integration", s.config.Integration.Descriptor.RefType, "duration", time.Since(ts), "err", comp.Error)
+	if comp.Error != nil {
+		return comp.Error
+	}
+	log.Info(logger, "export completed", "duration", time.Since(started), "jobid", req.JobID, "customer_id", req.CustomerID)
+	return nil
 }
 
 func (s *Server) run() {
@@ -158,7 +155,11 @@ func (s *Server) run() {
 		log.Debug(logger, "received event", "evt", evt)
 		switch evt.Model {
 		case agent.ExportRequestModelName.String():
-			err := s.handleExport(logger, evt)
+			var req agent.ExportRequest
+			if err := json.Unmarshal([]byte(evt.Data), &req); err != nil {
+				// FIXME
+			}
+			err := s.handleExport(logger, req)
 			if err != nil {
 				// FIXME: send export response with err
 			}
@@ -170,6 +171,20 @@ func (s *Server) run() {
 // New returns a new server instance
 func New(config Config) (*Server, error) {
 	server := &Server{config}
+	if config.DevMode {
+		if err := server.handleExport(config.Logger, agent.ExportRequest{
+			JobID:      config.DevExport.JobID(),
+			CustomerID: config.DevExport.CustomerID(),
+			Integrations: []agent.ExportRequestIntegrations{
+				agent.ExportRequestIntegrations{
+					Name: config.Integration.Descriptor.RefType,
+				},
+			},
+		}); err != nil {
+			return nil, err
+		}
+		return nil, nil
+	}
 	go server.run()
 	return server, nil
 }

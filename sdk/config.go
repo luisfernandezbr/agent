@@ -47,3 +47,11 @@ func (c Config) GetBool(key string) (bool, bool) {
 func NewConfig(kv map[string]interface{}) Config {
 	return Config{kv}
 }
+
+// Merge in new config
+func (c Config) Merge(kv map[string]interface{}) Config {
+	for k, v := range kv {
+		c.kv[k] = v
+	}
+	return c
+}
