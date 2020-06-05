@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	exp "github.com/pinpt/agent.next/internal/export"
 	devexport "github.com/pinpt/agent.next/internal/export/dev"
 	emanager "github.com/pinpt/agent.next/internal/manager/eventapi"
 	"github.com/pinpt/agent.next/internal/pipe/console"
@@ -184,14 +185,14 @@ func Main(integration sdk.Integration, args ...string) {
 					Integration: integration,
 					Descriptor:  descriptor,
 				},
-				UUID:    uuid,
-				Channel: channel,
-				APIKey:  apikey,
-				Secret:  secret,
+				UUID:       uuid,
+				Channel:    channel,
+				APIKey:     apikey,
+				Secret:     secret,
+				Completion: make(chan exp.Completion, 1),
 			}
 			if devMode {
 				serverConfig.DevMode = true
-				completion := make(chan devexport.Completion, 1)
 				statedir := filepath.Join(os.TempDir(), "agent.state")
 				statefn := filepath.Join(statedir, "state.json")
 				stateobj, err := devstate.New(statefn)
@@ -206,7 +207,7 @@ func Main(integration sdk.Integration, args ...string) {
 				} else {
 					pipe = console.New(logger)
 				}
-				exp, err := devexport.New(logger, intconfig, stateobj, "9999", "1234", pipe, completion)
+				exp, err := devexport.New(logger, intconfig, stateobj, "9999", "1234", pipe, serverConfig.Completion)
 				if err != nil {
 					log.Fatal(logger, "export failed", "err", err)
 				}
