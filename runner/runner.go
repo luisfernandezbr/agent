@@ -64,7 +64,6 @@ func Main(integration sdk.Integration, args ...string) {
 					kv[tok[0]] = tok[1]
 				}
 			}
-			fmt.Println(kv)
 			devMode, _ := cmd.Flags().GetBool("dev")
 			intconfig := sdk.NewConfig(kv)
 			var channel, uuid, apikey string
@@ -145,6 +144,8 @@ func Main(integration sdk.Integration, args ...string) {
 					subchannel = ch
 					log.Info(logger, "running in single agent mode", "uuid", config.DeviceID, "customer_id", config.CustomerID, "channel", config.Channel)
 				}
+			} else {
+				channel, _ = cmd.Flags().GetString("channel")
 			}
 
 			manager := emanager.New(logger, channel)
