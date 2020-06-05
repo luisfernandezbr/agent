@@ -43,7 +43,7 @@ var devCmd = &cobra.Command{
 
 		channel, _ := cmd.Flags().GetString("channel")
 		dir, _ := cmd.Flags().GetString("dir")
-
+		dir, _ = filepath.Abs(dir)
 		devargs := []string{"--dev", "--dir", dir, "--channel", channel, "--log-level", "debug"}
 
 		config, _ := cmd.Flags().GetStringSlice("config")
@@ -75,7 +75,7 @@ var devCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(devCmd)
 	devCmd.Flags().StringSlice("config", []string{}, "a config key/value pair such as a=b")
-	devCmd.Flags().String("dir", "", "the directory to output pipe contents")
+	devCmd.Flags().String("dir", "dev_dist", "the directory to output pipe contents")
 	devCmd.Flags().String("channel", "", "the channel which can be set")
 	devCmd.Flags().MarkHidden("channel")
 }

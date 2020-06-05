@@ -193,14 +193,14 @@ func Main(integration sdk.Integration, args ...string) {
 			}
 			if devMode {
 				serverConfig.DevMode = true
-				statedir := filepath.Join(os.TempDir(), "agent.state")
-				statefn := filepath.Join(statedir, "state.json")
+				outdir, _ := cmd.Flags().GetString("dir")
+				statefn := filepath.Join(outdir, "agent.state.json")
+
 				stateobj, err := devstate.New(statefn)
 				if err != nil {
 					log.Fatal(logger, "error opening state file", "err", err)
 				}
 				var pipe sdk.Pipe
-				outdir, _ := cmd.Flags().GetString("dir")
 				if outdir != "" {
 					os.MkdirAll(outdir, 0700)
 					pipe = file.New(logger, outdir)
