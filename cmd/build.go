@@ -8,12 +8,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/datetime"
 	"github.com/pinpt/go-common/v10/fileutil"
 	"github.com/pinpt/go-common/v10/log"
+	pos "github.com/pinpt/go-common/v10/os"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
@@ -54,7 +56,7 @@ var buildCmd = &cobra.Command{
 		distDir, _ := cmd.Flags().GetString("dir")
 		distDir, _ = filepath.Abs(distDir)
 		os.MkdirAll(distDir, 0700)
-		dist := filepath.Join(distDir, integration)
+		dist := filepath.Join(distDir)
 		// local dev issue with plugins: https://github.com/golang/go/issues/31354
 		modfp := filepath.Join(integrationDir, "go.mod")
 		mod, err := ioutil.ReadFile(modfp)
@@ -102,20 +104,32 @@ var buildCmd = &cobra.Command{
 			}
 			defer bundleRewriter()
 		}
-		c := exec.Command("go", "build", "-o", dist)
-		c.Stderr = os.Stderr
-		c.Stdout = os.Stdout
-		c.Dir = integrationDir
-		if err := c.Run(); err != nil {
-			bundleRewriter()
-			ioutil.WriteFile(modfp, mod, 0644) // restore original
-			os.Exit(1)
+		theenv := os.Environ()
+		oses, _ := cmd.Flags().GetStringSlice("os")
+		for _, theos := range oses {
+			arches, _ := cmd.Flags().GetStringSlice("arch")
+			for _, arch := range arches {
+				env := append(theenv, []string{"GOOS=" + theos, "GOARCH=" + arch}...)
+				outfn := filepath.Join(dist, theos, arch, integration)
+				os.MkdirAll(filepath.Dir(outfn), 0700)
+				c := exec.Command("go", "build", "-o", outfn)
+				c.Stderr = os.Stderr
+				c.Stdout = os.Stdout
+				c.Stdin = os.Stdin
+				c.Dir = integrationDir
+				c.Env = env
+				if err := c.Run(); err != nil {
+					bundleRewriter()
+					ioutil.WriteFile(modfp, mod, 0644) // restore original
+					os.Exit(1)
+				}
+				log.Info(logger, "file built to "+outfn)
+			}
 		}
 		ioutil.WriteFile(modfp, mod, 0644) // restore original
 		if bundleRewriter != nil {
 			bundleRewriter()
 		}
-		log.Info(logger, "file built to "+dist)
 	},
 }
 
@@ -123,4 +137,6 @@ func init() {
 	rootCmd.AddCommand(buildCmd)
 	buildCmd.Flags().String("dir", "dist", "the output directory to place the generated file")
 	buildCmd.Flags().Bool("bundle", true, "bundle artifacts into the library")
+	buildCmd.Flags().StringSlice("os", []string{pos.Getenv("GOOS", runtime.GOOS)}, "the OS to build for")
+	buildCmd.Flags().StringSlice("arch", []string{pos.Getenv("GOARCH", runtime.GOARCH)}, "the architecture to build for")
 }

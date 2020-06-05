@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 
@@ -30,7 +31,7 @@ var devCmd = &cobra.Command{
 		}
 		distDir := filepath.Join(os.TempDir(), "agent.next")
 		os.MkdirAll(distDir, 0700)
-		integrationFile := filepath.Join(distDir, integration)
+		integrationFile := filepath.Join(distDir, runtime.GOOS, runtime.GOARCH, integration)
 
 		// build our integration
 		c := exec.Command(os.Args[0], "build", "--dir", distDir, integrationDir)
@@ -61,6 +62,7 @@ var devCmd = &cobra.Command{
 
 		c.Stderr = os.Stderr
 		c.Stdout = os.Stdout
+		c.Stdin = os.Stdin
 		c.Dir = distDir
 		c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 		if err := c.Start(); err != nil {
