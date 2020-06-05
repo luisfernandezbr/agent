@@ -42,19 +42,7 @@ type client struct {
 var _ sdk.HTTPClient = (*client)(nil)
 
 func (c *client) exec(req *sdk.HTTPRequest, out interface{}, options ...sdk.WithHTTPOption) (*sdk.HTTPResponse, error) {
-	req.Request.Header.Set("Accept", "application/json")
-	req.Request.Header.Set("Content-Type", "application/json")
-	req.Request.Header.Set("User-Agent", "pinpoint.com")
-	for k, v := range c.headers {
-		req.Request.Header.Set(k, v)
-	}
-	for _, opt := range options {
-		if opt != nil {
-			if err := opt(req); err != nil {
-				return nil, err
-			}
-		}
-	}
+
 	resp, err := http.DefaultClient.Do(req.Request)
 	if err != nil {
 		return nil, err
@@ -142,7 +130,7 @@ func (c *client) execWithRetry(maker requestMaker, out interface{}, options ...s
 		}
 		i++
 		resp, err := c.exec(httpreq, out, options...)
-		if event.IsErrorRetryable(err) || isStatusRetryable(resp.StatusCode) {
+		if event.IsErrorRetryable(err) || (resp != nil && isStatusRetryable(resp.StatusCode)) {
 			if time.Now().Before(httpreq.Deadline) {
 				// do an expotential backoff
 				time.Sleep(time.Millisecond * time.Duration(int64(i)*rand.Int63n(backoffRange)))

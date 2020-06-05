@@ -177,3 +177,55 @@ func TestHTTPRetryTimeout(t *testing.T) {
 	assert.Nil(resp)
 	assert.True(count >= 5)
 }
+
+func TestHTTPGetWithEndpoint(t *testing.T) {
+
+	// testing endpoints. For example:
+	//     base url: https://www.googleapis.com/calendar/v3
+	//     endpoint: /users/me/calendarList
+	// complete url: https://www.googleapis.com/calendar/v3/users/me/calendarList
+
+	assert := assert.New(t)
+	mux := http.DefaultServeMux
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"url":"` + r.URL.Path + `"}`))
+	}
+	mux.HandleFunc("/", handler)
+	mux.HandleFunc("/foo", handler)
+	mux.HandleFunc("/bar", handler)
+	mux.HandleFunc("/hello/world", handler)
+
+	ts := httptest.NewServer(mux)
+
+	defer ts.Close()
+	mgr := New()
+
+	cl := mgr.New(ts.URL, nil)
+	kv := make(map[string]interface{})
+	resp, err := cl.Get(&kv, sdk.WithEndpoint("foo"))
+	assert.NoError(err)
+	assert.NotNil(resp)
+	assert.Equal(http.StatusOK, resp.StatusCode)
+	assert.Equal("/foo", kv["url"])
+
+	resp, err = cl.Get(&kv, sdk.WithEndpoint("bar"))
+	assert.NoError(err)
+	assert.NotNil(resp)
+	assert.Equal(http.StatusOK, resp.StatusCode)
+	assert.Equal("/bar", kv["url"])
+
+	resp, err = cl.Get(&kv, sdk.WithEndpoint("hello/world"))
+	assert.NoError(err)
+	assert.NotNil(resp)
+	assert.Equal(http.StatusOK, resp.StatusCode)
+	assert.Equal("/hello/world", kv["url"])
+
+	resp, err = cl.Get(&kv)
+	assert.NoError(err)
+	assert.NotNil(resp)
+	assert.Equal(http.StatusOK, resp.StatusCode)
+	assert.Equal("/", kv["url"])
+}

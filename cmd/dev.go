@@ -4,18 +4,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"plugin"
+	"runtime"
 	"strings"
-	"time"
+	"syscall"
 
-	export "github.com/pinpt/agent.next/internal/export/dev"
-	manager "github.com/pinpt/agent.next/internal/manager/dev"
-	"github.com/pinpt/agent.next/internal/pipe/console"
-	"github.com/pinpt/agent.next/internal/pipe/file"
-	state "github.com/pinpt/agent.next/internal/state/file"
-	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/fileutil"
 	"github.com/pinpt/go-common/v10/log"
+	pos "github.com/pinpt/go-common/v10/os"
 	"github.com/spf13/cobra"
 )
 
@@ -36,86 +31,51 @@ var devCmd = &cobra.Command{
 		}
 		distDir := filepath.Join(os.TempDir(), "agent.next")
 		os.MkdirAll(distDir, 0700)
-		dist := filepath.Join(distDir, integration+".so")
-		logger := log.With(_logger, "pkg", integration)
+		integrationFile := filepath.Join(distDir, runtime.GOOS, runtime.GOARCH, integration)
 
 		// build our integration
-		c := exec.Command(os.Args[0], "build", "--bundle=false", "--dir", distDir, integrationDir)
+		c := exec.Command(os.Args[0], "build", "--dir", distDir, integrationDir)
 		c.Stderr = os.Stderr
 		c.Stdout = os.Stdout
 		if err := c.Run(); err != nil {
 			os.Exit(1)
 		}
 
-		plug, err := plugin.Open(dist)
-		if err != nil {
-			log.Fatal(logger, "couldn't open integration plugin", "err", err)
-		}
-		sym, err := plug.Lookup("Integration")
-		if err != nil {
-			log.Fatal(logger, "couldn't integration plugin entrypoint", "err", err)
-		}
-		instance := sym.(sdk.Integration)
-		configkv := make(map[string]interface{})
-		arr, _ := cmd.Flags().GetStringSlice("config")
-		for _, val := range arr {
-			tok := strings.Split(val, "=")
-			configkv[strings.TrimSpace(tok[0])] = strings.TrimSpace(tok[1])
-		}
-		config := sdk.NewConfig(configkv)
-		log.Info(_logger, "starting")
 		channel, _ := cmd.Flags().GetString("channel")
-		mgr := manager.New(logger, channel)
-		if err := instance.Start(logger, config, mgr); err != nil {
-			log.Fatal(logger, "failed to start", "err", err)
+		dir, _ := cmd.Flags().GetString("dir")
+
+		devargs := []string{"--dev", "--dir", dir, "--channel", channel, "--log-level", "debug"}
+
+		config, _ := cmd.Flags().GetStringSlice("config")
+		for _, str := range config {
+			devargs = append(devargs, "--set", str)
 		}
-		var pipe sdk.Pipe
-		outdir, _ := cmd.Flags().GetString("dir")
-		if outdir != "" {
-			os.MkdirAll(outdir, 0700)
-			pipe = file.New(logger, outdir)
-		} else {
-			pipe = console.New(logger)
+
+		c = exec.Command(integrationFile, devargs...)
+
+		pos.OnExit(func(_ int) {
+			if c != nil {
+				syscall.Kill(-c.Process.Pid, syscall.SIGINT)
+				c = nil
+			}
+		})
+
+		c.Stderr = os.Stderr
+		c.Stdout = os.Stdout
+		c.Stdin = os.Stdin
+		c.Dir = distDir
+		c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		if err := c.Start(); err != nil {
+			os.Exit(1)
 		}
-		jobid, _ := cmd.Flags().GetString("jobid")
-		customerid, _ := cmd.Flags().GetString("customerid")
-		statedir, _ := cmd.Flags().GetString("state")
-		if statedir == "" {
-			statedir = outdir
-		}
-		statefn := filepath.Join(statedir, "state.json")
-		stateobj, err := state.New(statefn)
-		if err != nil {
-			log.Fatal(logger, "error opening state file", "err", err)
-		}
-		completion := make(chan export.Completion, 1)
-		exp, err := export.New(logger, config, stateobj, jobid, customerid, pipe, completion)
-		if err != nil {
-			log.Fatal(logger, "export failed", "err", err)
-		}
-		started := time.Now()
-		if err := instance.Export(exp); err != nil {
-			log.Fatal(logger, "export failed", "err", err)
-		}
-		done := <-completion
-		if done.Error != nil {
-			log.Error(logger, "error running export", "err", done.Error)
-		} else {
-			log.Info(logger, "export finished", "duration", time.Since(started))
-		}
-		if err := instance.Stop(); err != nil {
-			log.Fatal(logger, "failed to stop", "err", err)
-		}
-		log.Info(_logger, "stopped")
+		c.Wait()
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(devCmd)
 	devCmd.Flags().StringSlice("config", []string{}, "a config key/value pair such as a=b")
-	devCmd.Flags().String("jobid", "999", "job id")
-	devCmd.Flags().String("customerid", "000", "customer id")
 	devCmd.Flags().String("dir", "", "the directory to output pipe contents")
-	devCmd.Flags().String("state", "", "the state file directory")
-	devCmd.Flags().String("channel", "stable", "channel for communicating with the pinpoint cloud")
+	devCmd.Flags().String("channel", "", "the channel which can be set")
+	devCmd.Flags().MarkHidden("channel")
 }

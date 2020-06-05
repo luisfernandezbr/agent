@@ -4,6 +4,7 @@ This is an overview of a set of notes and TODOs for bringing this Agent v4 to li
 
 ## Design Stuff
 
+- Send events such as pause, resume, export etc
 - Web Hooks need to be fully flushed out and implemented
 - Need to figure out what's required for onboard still
 - Need to figure out the startup sequence for self-managed vs multi-tenant

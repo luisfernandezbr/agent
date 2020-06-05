@@ -67,6 +67,15 @@ func WithHTTPHeader(key, value string) WithHTTPOption {
 	}
 }
 
+// WithEndpoint will add to the url path
+func WithEndpoint(value string) WithHTTPOption {
+	return func(req *HTTPRequest) error {
+		req.Request.URL.Path = JoinURL(req.Request.URL.Path, value)
+		req.Request.URL, _ = url.Parse(req.Request.URL.String())
+		return nil
+	}
+}
+
 // WithContentType will set the Content-Type header
 func WithContentType(value string) WithHTTPOption {
 	return func(req *HTTPRequest) error {
