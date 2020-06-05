@@ -100,7 +100,7 @@ func Generate(path string, info Info) error {
 	if err := generate(path, "README.md", info); err != nil {
 		return handleError(err)
 	}
-	if err := generate(path, "integration.yml", info); err != nil {
+	if err := generate(path, "integration.yaml", info); err != nil {
 		return handleError(err)
 	}
 	if err := generate(path, "internal/root.go", info); err != nil {

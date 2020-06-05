@@ -1,8 +1,13 @@
 package main
 
-import "{{.PKG}}/internal"
+import (
+	"{{.PKG}}/internal"
+	"github.com/pinpt/agent.next/runner"
+)
 
 // Integration is used to export the integration
 var Integration internal.{{.TitleCaseName}}Integration
 
-func main() {}
+func main() {
+	runner.Main(&Integration)
+}
