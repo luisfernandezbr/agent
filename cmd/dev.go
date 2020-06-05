@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/pinpt/go-common/v10/fileutil"
 	"github.com/pinpt/go-common/v10/log"
@@ -20,9 +21,16 @@ var devCmd = &cobra.Command{
 	Short: "run an integration in development mode",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+
 		integrationDir := args[0]
 		_logger := log.NewCommandLogger(cmd)
 		defer _logger.Close()
+
+		started := time.Now()
+		defer func() {
+			log.Info(_logger, "duration "+time.Since(started).String())
+		}()
+
 		integrationDir, _ = filepath.Abs(integrationDir)
 		integration := strings.Replace(filepath.Base(integrationDir), "agent.next.", "", -1)
 		fp := filepath.Join(integrationDir, "integration.go")
