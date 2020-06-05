@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	exp "github.com/pinpt/agent.next/internal/export"
 	"github.com/pinpt/agent.next/internal/export/eventapi"
 	pipe "github.com/pinpt/agent.next/internal/pipe/eventapi"
 	redisState "github.com/pinpt/agent.next/internal/state/redis"
@@ -41,6 +42,7 @@ type Config struct {
 	DevMode             bool
 	DevPipe             sdk.Pipe
 	DevExport           sdk.Export
+	Completion          chan exp.Completion
 }
 
 // Server is the event loop server portion of the agent
@@ -89,7 +91,6 @@ func (s *Server) handleExport(logger log.Logger, req agent.ExportRequest) error 
 		state = st
 	}
 	// start the integration in it's own thread
-	completion := make(chan eventapi.Completion, 1)
 	var p sdk.Pipe
 	var e sdk.Export
 	if s.config.DevMode {
@@ -117,7 +118,7 @@ func (s *Server) handleExport(logger log.Logger, req agent.ExportRequest) error 
 			JobID:      req.JobID,
 			UUID:       s.config.UUID,
 			Pipe:       p,
-			Completion: completion,
+			Completion: s.config.Completion,
 			Channel:    s.config.Channel,
 			APIKey:     s.config.APIKey,
 			Secret:     s.config.Secret,
@@ -133,7 +134,8 @@ func (s *Server) handleExport(logger log.Logger, req agent.ExportRequest) error 
 		return err
 	}
 	// wait for the integration to complete
-	comp := <-completion
+	comp := <-s.config.Completion
+
 	if err := p.Flush(); err != nil {
 		log.Error(logger, "error flushing pipe", "err", err)
 	}

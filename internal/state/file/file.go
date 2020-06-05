@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sync"
 
@@ -84,17 +85,25 @@ func (f *State) Close() error {
 // New will create a new state store backed by a file
 func New(fn string) (*State, error) {
 	kv := make(map[string]interface{})
+	var of *os.File
+	var err error
+
 	if fileutil.FileExists(fn) {
-		of, err := os.Open(fn)
-		if err != nil {
+		of, err = os.Open(fn)
+	} else {
+		if err := os.MkdirAll(filepath.Dir(fn), 0755); err != nil {
 			return nil, err
 		}
-		defer of.Close()
-		if err := json.NewDecoder(of).Decode(&kv); err != nil && err != io.EOF {
-			return nil, err
-		}
-		of.Close()
+		of, err = os.Create(fn)
 	}
+	if err != nil {
+		return nil, err
+	}
+	defer of.Close()
+	if err := json.NewDecoder(of).Decode(&kv); err != nil && err != io.EOF {
+		return nil, err
+	}
+
 	return &State{
 		fn:    fn,
 		state: kv,

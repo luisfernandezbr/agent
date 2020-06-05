@@ -5,15 +5,12 @@ import (
 	"sync"
 	"time"
 
+	exp "github.com/pinpt/agent.next/internal/export"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/log"
 )
 
 // Completion event
-type Completion struct {
-	Error error
-}
-
 type export struct {
 	ctx        context.Context
 	logger     log.Logger
@@ -26,7 +23,7 @@ type export struct {
 	apikey     string
 	secret     string
 	pipe       sdk.Pipe
-	completion chan Completion
+	completion chan exp.Completion
 	paused     bool
 	mu         sync.Mutex
 }
@@ -91,7 +88,7 @@ func (e *export) Resumed() error {
 // Completed must be called when an export is completed and can include an optional error or nil if no error
 func (e *export) Completed(err error) {
 	// FIXME: send agent.ExportResponse
-	e.completion <- Completion{err}
+	e.completion <- exp.Completion{Error: err}
 }
 
 // Config is details for the configuration
@@ -104,7 +101,7 @@ type Config struct {
 	JobID      string
 	UUID       string
 	Pipe       sdk.Pipe
-	Completion chan Completion
+	Completion chan exp.Completion
 	Channel    string
 	APIKey     string
 	Secret     string

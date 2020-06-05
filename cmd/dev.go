@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/pinpt/go-common/v10/fileutil"
 	"github.com/pinpt/go-common/v10/log"
@@ -20,9 +21,16 @@ var devCmd = &cobra.Command{
 	Short: "run an integration in development mode",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+
 		integrationDir := args[0]
 		_logger := log.NewCommandLogger(cmd)
 		defer _logger.Close()
+
+		started := time.Now()
+		defer func() {
+			log.Info(_logger, "duration "+time.Since(started).String())
+		}()
+
 		integrationDir, _ = filepath.Abs(integrationDir)
 		integration := strings.Replace(filepath.Base(integrationDir), "agent.next.", "", -1)
 		fp := filepath.Join(integrationDir, "integration.go")
@@ -43,7 +51,9 @@ var devCmd = &cobra.Command{
 
 		channel, _ := cmd.Flags().GetString("channel")
 		dir, _ := cmd.Flags().GetString("dir")
-
+		if dir != "" {
+			dir, _ = filepath.Abs(dir)
+		}
 		devargs := []string{"--dev", "--dir", dir, "--channel", channel, "--log-level", "debug"}
 
 		config, _ := cmd.Flags().GetStringSlice("config")
@@ -75,7 +85,7 @@ var devCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(devCmd)
 	devCmd.Flags().StringSlice("config", []string{}, "a config key/value pair such as a=b")
-	devCmd.Flags().String("dir", "", "the directory to output pipe contents")
+	devCmd.Flags().String("dir", "dev_dist", "the directory to output pipe contents")
 	devCmd.Flags().String("channel", "", "the channel which can be set")
 	devCmd.Flags().MarkHidden("channel")
 }

@@ -3,14 +3,10 @@ package dev
 import (
 	"time"
 
+	exp "github.com/pinpt/agent.next/internal/export"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/log"
 )
-
-// Completion event
-type Completion struct {
-	Error error
-}
 
 type export struct {
 	logger     log.Logger
@@ -19,7 +15,7 @@ type export struct {
 	jobID      string
 	customerID string
 	pipe       sdk.Pipe
-	completion chan Completion
+	completion chan exp.Completion
 }
 
 var _ sdk.Export = (*export)(nil)
@@ -63,11 +59,11 @@ func (e *export) Resumed() error {
 
 // Completed must be called when an export is completed and can include an optional error or nil if no error
 func (e *export) Completed(err error) {
-	e.completion <- Completion{err}
+	e.completion <- exp.Completion{Error: err}
 }
 
 // New will return an sdk.Export
-func New(logger log.Logger, config sdk.Config, state sdk.State, jobID string, customerID string, pipe sdk.Pipe, completion chan Completion) (sdk.Export, error) {
+func New(logger log.Logger, config sdk.Config, state sdk.State, jobID string, customerID string, pipe sdk.Pipe, completion chan exp.Completion) (sdk.Export, error) {
 	return &export{
 		logger:     logger,
 		config:     config,
