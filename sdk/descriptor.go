@@ -22,9 +22,10 @@ type Descriptor struct {
 
 // Publisher is the metadata about the publisher
 type Publisher struct {
-	Name      string `json:"name" yaml:"name"`
-	URL       string `json:"url" yaml:"url"`
-	AvatarURL string `json:"avatar_url" yaml:"avatar_url"`
+	Name       string `json:"name" yaml:"name"`
+	Identifier string `json:"identifier" yaml:"identifier"`
+	URL        string `json:"url" yaml:"url"`
+	AvatarURL  string `json:"avatar_url" yaml:"avatar_url"`
 }
 
 // InstallationMode is the type of installation
@@ -75,11 +76,13 @@ func LoadDescriptor(descriptorBuf, build, commit string) (*Descriptor, error) {
 	if err := yaml.Unmarshal(buf, &descriptor); err != nil {
 		return nil, fmt.Errorf("error parsing the IntegrationDescriptor data: %w", err)
 	}
-	tv, err := time.Parse(time.RFC3339, build)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing the IntegrationBuildDate data: %w", err)
+	if build != "" {
+		tv, err := time.Parse(time.RFC3339, build)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing the IntegrationBuildDate data: %w", err)
+		}
+		descriptor.BuildDate = tv
+		descriptor.BuildCommitSHA = commit
 	}
-	descriptor.BuildDate = tv
-	descriptor.BuildCommitSHA = commit
 	return &descriptor, nil
 }

@@ -250,11 +250,6 @@ func Main(integration sdk.Integration, args ...string) {
 	serverCmd.Flags().Bool("dev", false, "running in dev mode, do a fake integration")
 	serverCmd.Flags().String("dir", "", "directory to place files when in dev mode")
 	serverCmd.Flags().StringSlice("set", []string{}, "set a config value from the command line")
-	serverCmd.Flags().MarkHidden("secret")
-	serverCmd.Flags().MarkHidden("channel")
-	serverCmd.Flags().MarkHidden("tempdir")
-	serverCmd.Flags().MarkHidden("redis")
-	serverCmd.Flags().MarkHidden("redisDB")
 	serverCmd.Flags().MarkHidden("dev")
 	serverCmd.Flags().MarkHidden("dir")
 	if err := serverCmd.Execute(); err != nil {

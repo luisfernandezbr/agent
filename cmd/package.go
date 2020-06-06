@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"archive/zip"
-	"bytes"
 	"crypto/sha512"
 	"encoding/hex"
 	"io"
@@ -78,6 +77,25 @@ func addFileToZip(zipWriter *zip.Writer, dir string, filename string) error {
 	return err
 }
 
+func checksum(fn string) (string, error) {
+	hasher := sha512.New()
+	of, err := os.Open(fn)
+	if err != nil {
+		return "", err
+	}
+	for {
+		buf := make([]byte, 8096)
+		n, err := of.Read(buf)
+		if err == io.EOF || n == 0 {
+			break
+		}
+		hasher.Write(buf[0:n])
+	}
+	of.Close()
+	sha := hex.EncodeToString(hasher.Sum(nil))
+	return sha, nil
+}
+
 func shaFiles(dir string, outfile string, re *regexp.Regexp) error {
 	filenames, err := fileutil.FindFiles(dir, re)
 	if err != nil {
@@ -87,21 +105,10 @@ func shaFiles(dir string, outfile string, re *regexp.Regexp) error {
 	for _, fn := range filenames {
 		stat, _ := os.Stat(fn)
 		if !stat.IsDir() {
-			hasher := sha512.New()
-			of, err := os.Open(fn)
+			sha, err := checksum(fn)
 			if err != nil {
 				return err
 			}
-			for {
-				buf := make([]byte, 8096)
-				n, err := of.Read(buf)
-				if err == io.EOF || n == 0 {
-					break
-				}
-				hasher.Write(buf[0:n])
-			}
-			of.Close()
-			sha := hex.EncodeToString(hasher.Sum(nil))
 			relfn, _ := filepath.Rel(dir, fn)
 			shas.WriteString(sha + "  " + relfn + "\n")
 		}
@@ -154,18 +161,10 @@ var packageCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		gensha := exec.Command("git", "rev-parse", "HEAD")
-		var shabuf bytes.Buffer
-		gensha.Stdout = &shabuf
-		gensha.Dir = integrationDir
-		gensha.Run()
-
-		if shabuf.Len() == 0 {
-			// TODO: we need to ask for a version
-		}
+		sha := getBuildCommitForIntegration(integrationDir)
 
 		// write out our version file
-		ioutil.WriteFile(filepath.Join(bundleDir, "version.txt"), shabuf.Bytes(), 0644)
+		ioutil.WriteFile(filepath.Join(bundleDir, "version.txt"), []byte(sha), 0644)
 
 		// write out the sha sum512 for each file in the zip for integrity checking
 		shafilename := filepath.Join(bundleDir, "sha512sum.txt.asc")
@@ -187,6 +186,6 @@ var packageCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(packageCmd)
 	packageCmd.Flags().String("dir", "dist", "the output directory to place the generated file")
-	packageCmd.Flags().StringSlice("os", []string{"windows", "darwin", "linux"}, "the OS to build for")
+	packageCmd.Flags().StringSlice("os", []string{"darwin", "linux"}, "the OS to build for")
 	packageCmd.Flags().StringSlice("arch", []string{"amd64"}, "the architecture to build for")
 }

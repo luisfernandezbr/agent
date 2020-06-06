@@ -20,6 +20,15 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+func getBuildCommitForIntegration(integrationDir string) string {
+	gensha := exec.Command("git", "rev-parse", "HEAD")
+	var shabuf bytes.Buffer
+	gensha.Stdout = &shabuf
+	gensha.Dir = integrationDir
+	gensha.Run()
+	return strings.TrimSpace(shabuf.String())
+}
+
 func generateMainTemplate(filename, content, descriptor, build, sha string) (string, error) {
 	i := strings.Index(content, "runner.Main(&Integration)")
 	if i < 0 {
@@ -88,13 +97,9 @@ var buildCmd = &cobra.Command{
 			if err := yaml.Unmarshal(buf, &descriptor); err != nil {
 				log.Fatal(logger, "error parsing config file at "+yfn, "err", err)
 			}
-			gensha := exec.Command("git", "rev-parse", "HEAD")
-			var shabuf bytes.Buffer
-			gensha.Stdout = &shabuf
-			gensha.Dir = integrationDir
-			gensha.Run()
+			version := getBuildCommitForIntegration(integrationDir)
 			bbuf := base64.StdEncoding.EncodeToString(buf)
-			tmpl, err := generateMainTemplate(ygofn, string(gobuf), bbuf, datetime.ISODate(), strings.TrimSpace(shabuf.String()))
+			tmpl, err := generateMainTemplate(ygofn, string(gobuf), bbuf, datetime.ISODate(), version)
 			if err != nil {
 				log.Fatal(logger, "error generating build", "err", err)
 			}
@@ -123,7 +128,7 @@ var buildCmd = &cobra.Command{
 					ioutil.WriteFile(modfp, mod, 0644) // restore original
 					os.Exit(1)
 				}
-				log.Info(logger, "file built to "+outfn)
+				log.Debug(logger, "file built to "+outfn)
 			}
 		}
 		ioutil.WriteFile(modfp, mod, 0644) // restore original
