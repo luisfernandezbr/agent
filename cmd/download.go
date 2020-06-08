@@ -74,16 +74,21 @@ var downloadCmd = &cobra.Command{
 		defer os.RemoveAll(tmpdir)
 		// FIXME once we get list from the registry
 		destDir := args[0]
-		integration := args[1]
+		fullIntegration := args[1]
 		version := args[2]
-		publisher := "pinpt"
 		os.MkdirAll(destDir, 0700)
 		channel, _ := cmd.Flags().GetString("channel")
 		cl, err := api.NewHTTPAPIClientDefault()
 		if err != nil {
 			log.Fatal(logger, "error creating client", "err", err)
 		}
-		url := pstr.JoinURL(api.BackendURL(api.RegistryService, channel), fmt.Sprintf("/fetch/%s/%s/%s", publisher, integration, version))
+		tok := strings.Split(fullIntegration, "/")
+		if len(tok) != 2 {
+			log.Fatal(logger, "integration should be in the format: publisher/integration such as pinpt/github")
+		}
+		integration := tok[1]
+		url := pstr.JoinURL(api.BackendURL(api.RegistryService, channel), fmt.Sprintf("/fetch/%s/%s", fullIntegration, version))
+		log.Debug(logger, "downloading", "url", url)
 		req, err := http.NewRequest(http.MethodGet, url, nil)
 		if err != nil {
 			log.Fatal(logger, "error creating request", "err", err)
@@ -162,7 +167,8 @@ var downloadCmd = &cobra.Command{
 		io.Copy(df, sf)
 		df.Close()
 		os.Chmod(outfn, 0500) // make it executable
-		log.Debug(logger, "platform integration available at "+outfn)
+		outfn, _ = filepath.Abs(outfn)
+		log.Info(logger, "platform integration available at "+outfn)
 	},
 }
 
