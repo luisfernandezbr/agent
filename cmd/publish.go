@@ -64,15 +64,14 @@ var publishCmd = &cobra.Command{
 		if secret != "" {
 			opts = append(opts, api.WithHeader("x-api-key", secret))
 		} else if apikey == "" {
-			ring, err := getKeyRing()
+			c, err := loadDevConfig()
 			if err != nil {
-				log.Fatal(logger, "error opening key chain", "err", err)
+				log.Fatal(logger, "error opening developer config", "err", err)
 			}
-			item, err := ring.Get("apikey")
-			if err != nil {
-				log.Fatal(logger, "error fetching apikey from keychain", "err", err)
+			apikey = c.APIKey
+			if apikey == "" {
+				log.Fatal(logger, "you must login or provide the apikey using --apikey before continuing")
 			}
-			apikey = string(item.Data) // set it
 		}
 		descriptorFn := filepath.Join(integrationDir, "integration.yaml")
 		descriptorBuf, err := ioutil.ReadFile(descriptorFn)

@@ -1,24 +1,75 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 
-	"github.com/99designs/keyring"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/api"
+	"github.com/pinpt/go-common/v10/fileutil"
 	"github.com/pinpt/go-common/v10/httpmessage"
 	"github.com/pinpt/go-common/v10/log"
 	"github.com/pkg/browser"
 	"github.com/spf13/cobra"
 )
 
-func getKeyRing() (keyring.Keyring, error) {
-	return keyring.Open(keyring.Config{
-		ServiceName: "pinpoint",
-	})
+type devConfig struct {
+	CustomerID string `json:"customer_id"`
+	APIKey     string `json:"apikey"`
+}
+
+func (c *devConfig) remove() {
+	fn, err := c.filename()
+	if err == nil {
+		os.Remove(fn)
+	}
+}
+
+func (c *devConfig) filename() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	fn := filepath.Join(home, ".pinpoint-developer")
+	return fn, nil
+}
+
+func (c *devConfig) save() error {
+	fn, err := c.filename()
+	if err != nil {
+		return err
+	}
+	of, err := os.OpenFile(fn, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+	defer of.Close()
+	return json.NewEncoder(of).Encode(c)
+}
+
+func loadDevConfig() (*devConfig, error) {
+	var c devConfig
+	fn, err := c.filename()
+	if err != nil {
+		return nil, err
+	}
+	if fileutil.FileExists(fn) {
+		of, err := os.Open(fn)
+		if err != nil {
+			return nil, fmt.Errorf("error opening %s: %w", fn, err)
+		}
+		defer of.Close()
+		if err := json.NewDecoder(of).Decode(&c); err != nil {
+			return nil, fmt.Errorf("error decoding %s: %w", fn, err)
+		}
+		return &c, nil
+	}
+	return &c, nil
 }
 
 // loginCmd represents the login command
@@ -29,10 +80,7 @@ var loginCmd = &cobra.Command{
 		logger := log.NewCommandLogger(cmd)
 		defer logger.Close()
 
-		ring, err := getKeyRing()
-		if err != nil {
-			log.Fatal(logger, "error opening key chain", "err", err)
-		}
+		var config devConfig
 
 		channel, _ := cmd.Flags().GetString("channel")
 
@@ -44,23 +92,14 @@ var loginCmd = &cobra.Command{
 		port := listener.Addr().(*net.TCPAddr).Port
 
 		done := make(chan bool, 1)
-		var customerid string
 
 		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			q := r.URL.Query()
-			if err := ring.Set(keyring.Item{
-				Key:  "apikey",
-				Data: []byte(q.Get("apikey")),
-			}); err != nil {
-				log.Error(logger, "error saving apikey to keychain", "err", err)
+			config.APIKey = q.Get("apikey")
+			config.CustomerID = q.Get("customer_id")
+			if err := config.save(); err != nil {
+				log.Error(logger, "error saving config", "err", err)
 			}
-			if err := ring.Set(keyring.Item{
-				Key:  "customer_id",
-				Data: []byte(q.Get("customer_id")),
-			}); err != nil {
-				log.Error(logger, "error saving customer_id to keychain", "err", err)
-			}
-			customerid = q.Get("customer_id")
 			httpmessage.RenderStatus(w, r, http.StatusOK, "Login Success", "You have logged in successfully and can now close this window")
 			done <- true
 		})
@@ -71,8 +110,6 @@ var loginCmd = &cobra.Command{
 		defer server.Close()
 		go server.Serve(listener)
 
-		_ = channel
-
 		baseurl := api.BackendURL(api.AuthService, channel)
 		url := sdk.JoinURL(baseurl, "/login?apikey=true&redirect_to="+url.QueryEscape(fmt.Sprintf("http://localhost:%d/", port)))
 
@@ -81,7 +118,7 @@ var loginCmd = &cobra.Command{
 		}
 
 		<-done
-		log.Info(logger, "logged in", "customer_id", customerid)
+		log.Info(logger, "logged in", "customer_id", config.CustomerID)
 	},
 }
 
