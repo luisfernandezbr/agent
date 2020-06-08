@@ -87,7 +87,6 @@ func New(fn string) (*State, error) {
 	kv := make(map[string]interface{})
 	var of *os.File
 	var err error
-
 	if fileutil.FileExists(fn) {
 		of, err = os.Open(fn)
 	} else {

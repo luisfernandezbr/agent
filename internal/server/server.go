@@ -149,10 +149,12 @@ func (s *Server) run() {
 			var req agent.ExportRequest
 			if err := json.Unmarshal([]byte(evt.Data), &req); err != nil {
 				// FIXME
+				log.Error(logger, "error parsing export request event", "err", err)
 			}
 			err := s.handleExport(logger, req)
 			if err != nil {
 				// FIXME: send export response with err
+				log.Error(logger, "error running export request", "err", err)
 			}
 		}
 		evt.Commit()
