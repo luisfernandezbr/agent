@@ -94,6 +94,8 @@ func Main(integration sdk.Integration, args ...string) {
 
 					// we must connect to redis in multi mode
 					redisURL, _ := cmd.Flags().GetString("redis")
+					redisURL = strings.ReplaceAll(redisURL, "redis://", "")
+					redisURL = strings.TrimPrefix(redisURL, "//")
 					redisDb, _ := cmd.Flags().GetInt("redisDB")
 					redisClient = redis.NewClient(&redis.Options{
 						Addr: redisURL,
