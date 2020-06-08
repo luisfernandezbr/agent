@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	exp "github.com/pinpt/agent.next/internal/export"
 	devexport "github.com/pinpt/agent.next/internal/export/dev"
 	emanager "github.com/pinpt/agent.next/internal/manager/eventapi"
 	"github.com/pinpt/agent.next/internal/pipe/console"
@@ -187,11 +186,10 @@ func Main(integration sdk.Integration, args ...string) {
 					Integration: integration,
 					Descriptor:  descriptor,
 				},
-				UUID:       uuid,
-				Channel:    channel,
-				APIKey:     apikey,
-				Secret:     secret,
-				Completion: make(chan exp.Completion, 1),
+				UUID:    uuid,
+				Channel: channel,
+				APIKey:  apikey,
+				Secret:  secret,
 			}
 			if devMode {
 				serverConfig.DevMode = true
@@ -209,7 +207,7 @@ func Main(integration sdk.Integration, args ...string) {
 				} else {
 					pipe = console.New(logger)
 				}
-				exp, err := devexport.New(logger, intconfig, stateobj, "9999", "1234", pipe, serverConfig.Completion)
+				exp, err := devexport.New(logger, intconfig, stateobj, "9999", "1234", pipe)
 				if err != nil {
 					log.Fatal(logger, "export failed", "err", err)
 				}
