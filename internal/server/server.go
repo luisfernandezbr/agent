@@ -60,11 +60,13 @@ func (s *Server) handleExport(logger log.Logger, req agent.ExportRequest) error 
 	os.MkdirAll(dir, 0700)
 	started := time.Now()
 	var found bool
+	var integration agent.ExportRequestIntegrations
 	var integrationAuth agent.ExportRequestIntegrationsAuthorization
 	// run our integrations in parallel
 	for _, i := range req.Integrations {
 		if i.Name == s.config.Integration.Descriptor.RefType {
 			found = true
+			integration = i
 			integrationAuth = i.Authorization
 			break
 		}
@@ -82,7 +84,7 @@ func (s *Server) handleExport(logger log.Logger, req agent.ExportRequest) error 
 	state := s.config.State
 	if state == nil {
 		// if no state provided, we use redis state in this case
-		st, err := redisState.New(s.config.Ctx, s.config.RedisClient, req.CustomerID)
+		st, err := redisState.New(s.config.Ctx, s.config.RedisClient, req.CustomerID+":"+s.config.Integration.Descriptor.RefType+":"+integration.ID)
 		if err != nil {
 			return err
 		}

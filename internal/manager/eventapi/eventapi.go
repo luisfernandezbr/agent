@@ -58,7 +58,7 @@ func (m *eventAPIManager) RefreshOAuth2Token(refType string, refreshToken string
 	return res.AccessToken, nil
 }
 
-// New will create a new dev sdk.Manager
+// New will create a new event api sdk.Manager
 func New(logger log.Logger, channel string) sdk.Manager {
 	return &eventAPIManager{logger, channel}
 }

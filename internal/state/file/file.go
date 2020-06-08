@@ -25,22 +25,22 @@ type State struct {
 var _ sdk.State = (*State)(nil)
 var _ io.Closer = (*State)(nil)
 
-func (f *State) getKey(refType string, key string) string {
-	return fmt.Sprintf("%s_%s", refType, key)
+func (f *State) getKey(key string) string {
+	return key
 }
 
 // Set a value by key in state. the value must be able to serialize to JSON
-func (f *State) Set(refType string, key string, value interface{}) error {
+func (f *State) Set(key string, value interface{}) error {
 	f.mu.Lock()
-	f.state[f.getKey(refType, key)] = value
+	f.state[f.getKey(key)] = value
 	f.mu.Unlock()
 	return nil
 }
 
 // Get will return a value for a given key or nil if not found
-func (f *State) Get(refType string, key string, out interface{}) (bool, error) {
+func (f *State) Get(key string, out interface{}) (bool, error) {
 	f.mu.RLock()
-	val := f.state[f.getKey(refType, key)]
+	val := f.state[f.getKey(key)]
 	f.mu.RUnlock()
 	if val == nil {
 		return false, nil
@@ -54,17 +54,17 @@ func (f *State) Get(refType string, key string, out interface{}) (bool, error) {
 }
 
 // Exists return true if the key exists in state
-func (f *State) Exists(refType string, key string) bool {
+func (f *State) Exists(key string) bool {
 	f.mu.RLock()
-	_, exists := f.state[f.getKey(refType, key)]
+	_, exists := f.state[f.getKey(key)]
 	f.mu.RUnlock()
 	return exists
 }
 
 // Delete will return data for key in state
-func (f *State) Delete(refType string, key string) error {
+func (f *State) Delete(key string) error {
 	f.mu.Lock()
-	delete(f.state, f.getKey(refType, key))
+	delete(f.state, f.getKey(key))
 	f.mu.Unlock()
 	return nil
 }

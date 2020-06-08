@@ -194,7 +194,7 @@ func Main(integration sdk.Integration, args ...string) {
 			if devMode {
 				serverConfig.DevMode = true
 				outdir, _ := cmd.Flags().GetString("dir")
-				statefn := filepath.Join(outdir, "agent.state.json")
+				statefn := filepath.Join(outdir, descriptor.RefType+".state.json")
 
 				stateobj, err := devstate.New(statefn)
 				if err != nil {

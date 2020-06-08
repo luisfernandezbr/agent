@@ -13,26 +13,26 @@ import (
 
 // State is a simple file backed state store
 type State struct {
-	ctx        context.Context
-	client     *redis.Client
-	customerID string
+	ctx    context.Context
+	client *redis.Client
+	prefix string
 }
 
 var _ sdk.State = (*State)(nil)
 var _ io.Closer = (*State)(nil)
 
-func (f *State) getKey(refType string, key string) string {
-	return fmt.Sprintf("agent:%s_%s:%s", f.customerID, refType, key)
+func (f *State) getKey(key string) string {
+	return fmt.Sprintf("agent:%s:%s", f.prefix, key)
 }
 
 // Set a value by key in state. the value must be able to serialize to JSON
-func (f *State) Set(refType string, key string, value interface{}) error {
-	return f.client.Set(f.ctx, f.getKey(refType, key), pjson.Stringify(value), 0).Err()
+func (f *State) Set(key string, value interface{}) error {
+	return f.client.Set(f.ctx, f.getKey(key), pjson.Stringify(value), 0).Err()
 }
 
 // Get will return a value for a given key or nil if not found
-func (f *State) Get(refType string, key string, val interface{}) (bool, error) {
-	str, err := f.client.Get(f.ctx, f.getKey(refType, key)).Result()
+func (f *State) Get(key string, val interface{}) (bool, error) {
+	str, err := f.client.Get(f.ctx, f.getKey(key)).Result()
 	if err == redis.Nil {
 		return false, nil
 	}
@@ -44,14 +44,14 @@ func (f *State) Get(refType string, key string, val interface{}) (bool, error) {
 }
 
 // Exists return true if the key exists in state
-func (f *State) Exists(refType string, key string) bool {
-	val := f.client.Exists(f.ctx, f.getKey(refType, key)).Val()
+func (f *State) Exists(key string) bool {
+	val := f.client.Exists(f.ctx, f.getKey(key)).Val()
 	return val > 0
 }
 
 // Delete will return data for key in state
-func (f *State) Delete(refType string, key string) error {
-	return f.client.Del(f.ctx, f.getKey(refType, key)).Err()
+func (f *State) Delete(key string) error {
+	return f.client.Del(f.ctx, f.getKey(key)).Err()
 }
 
 // Flush any pending data to storage
@@ -65,10 +65,10 @@ func (f *State) Close() error {
 }
 
 // New will create a new state store backed by Redis
-func New(ctx context.Context, client *redis.Client, customerID string) (*State, error) {
+func New(ctx context.Context, client *redis.Client, prefix string) (*State, error) {
 	return &State{
-		ctx:        ctx,
-		client:     client,
-		customerID: customerID,
+		ctx:    ctx,
+		client: client,
+		prefix: prefix,
 	}, nil
 }
