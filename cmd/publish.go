@@ -21,7 +21,7 @@ import (
 
 // publishCmd represents the publish command
 var publishCmd = &cobra.Command{
-	Use:   "publish",
+	Use:   "publish <integration dir>",
 	Short: "publish an integration to the registry",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
