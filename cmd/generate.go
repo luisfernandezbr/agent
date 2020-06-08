@@ -124,6 +124,16 @@ func promptSettings(result *generator.Info) error {
 			Transform: survey.ToLower,
 		},
 		{
+			Name: "identifier",
+			Prompt: &survey.Input{
+				Message: "Your company's identifier",
+				Help:    "For Pinpoint this would be pinpt",
+			},
+			Validate:  survey.Required,
+			Transform: survey.ToLower,
+		},
+
+		{
 			Name: "publisher_avatar",
 			Prompt: &survey.Input{
 				Message: "Your avatar url, or your company's avatar url",

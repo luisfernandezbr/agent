@@ -9,10 +9,10 @@ type {{ .TitleCaseName }}Integration struct {
 	logger  sdk.Logger
 	config  sdk.Config
 	manager sdk.Manager
-	reftype string
+	refType string
 
-	graphql    sdk.GraphQLClient
-	httpclient sdk.HTTPClient
+	graphQL    sdk.GraphQLClient
+	httpClient sdk.HTTPClient
 }
 
 var _ sdk.Integration = (*{{ .TitleCaseName }}Integration)(nil)
@@ -22,7 +22,7 @@ func (g *{{ .TitleCaseName }}Integration) Start(logger sdk.Logger, config sdk.Co
 	g.logger = sdk.LogWith(logger, "pkg", "{{ .LowerCaseName }}")
 	g.config = config
 	g.manager = manager
-	g.reftype = "{{ .LowerCaseName }}"
+	g.refType = "{{ .LowerCaseName }}"
 	sdk.LogInfo(g.logger, "starting")
 	return nil
 }
@@ -43,8 +43,8 @@ func (g *{{ .TitleCaseName }}Integration) Stop() error {
 func (g *{{ .TitleCaseName }}Integration) Export(export sdk.Export) error {
 	sdk.LogInfo(g.logger, "export started")
 
-	// Start must be called to begin an export and receive a pipe for sending data
-	pipe, err := export.Start()
+	// Pipe must be called to begin an export and receive a pipe for sending data
+	pipe, err := export.Pipe()
 	if err != nil {
 		return err
 	}
@@ -58,10 +58,10 @@ func (g *{{ .TitleCaseName }}Integration) Export(export sdk.Export) error {
 	// Config is any customer specific configuration for this customer
 	config := export.Config()
 
-	g.graphql = g.manager.GraphQLManager().New("https://some_graphql_api.com/", map[string]string{
+	g.graphQL = g.manager.GraphQLManager().New("https://some_graphql_api.com/", map[string]string{
 		"Authorization": "bearer 1234567890",
 	})
-	g.httpclient = g.manager.HTTPManager().New("https://some_rest_api.com/", map[string]string{
+	g.httpClient = g.manager.HTTPManager().New("https://some_rest_api.com/", map[string]string{
 		"Authorization": "bearer 1234567890",
 	})
 
@@ -69,10 +69,6 @@ func (g *{{ .TitleCaseName }}Integration) Export(export sdk.Export) error {
 
 	// start export here
 	// -------------
-	// call completed when done
-
-	export.Completed(nil)
-
 	// quite the compiler:
 	_ = pipe
 	_ = state

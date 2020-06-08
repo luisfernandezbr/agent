@@ -38,6 +38,7 @@ type Info struct {
 	PublisherName    string   `json:"publisher_name" survey:"publisher_name"`
 	PublisherURL     string   `json:"publisher_url" survey:"publisher_url"`
 	PublisherAvatar  string   `json:"publisher_avatar" survey:"publisher_avatar"`
+	Identifier       string   `json:"identifier" survey:"identifier"`
 	IntegrationTypes []string `json:"integration_types" survey:"integration_types"`
 
 	Capabilities  []datamodel.ModelNameType

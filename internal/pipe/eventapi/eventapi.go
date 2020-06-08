@@ -153,8 +153,8 @@ func (p *eventAPIPipe) send(model string, f *wrapperFile) error {
 		},
 	}
 	opts := make([]event.Option, 0)
-	if p.apikey != "" {
-		opts = append(opts, event.WithHeaders(map[string]string{"x-api-key": p.apikey}))
+	if p.secret != "" {
+		opts = append(opts, event.WithHeaders(map[string]string{"x-api-key": p.secret}))
 	}
 	// publish our data to the event-api
 	ts := time.Now()

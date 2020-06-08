@@ -5,6 +5,7 @@ publisher:
   name: "{{.PublisherName}}"
   url: "{{.PublisherURL}}"
   avatar_url: "{{.PublisherAvatar}}"
+  identifier: "{{.Identifier}}"
 capabilities:
 {{- range $val := .Capabilities }}
   - {{ $val }}
