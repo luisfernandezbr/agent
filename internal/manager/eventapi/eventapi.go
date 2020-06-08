@@ -36,6 +36,12 @@ func (m *eventAPIManager) CreateWebHook(customerID string, refType string, refID
 
 // RefreshOAuth2Token will refresh the OAuth2 access token using the provided refreshToken and return a new access token
 func (m *eventAPIManager) RefreshOAuth2Token(refType string, refreshToken string) (string, error) {
+	if refType == "" {
+		return "", fmt.Errorf("error refreshing oauth2 token, missing refType")
+	}
+	if refreshToken == "" {
+		return "", fmt.Errorf("error refreshing oauth2 token, missing refreshToken")
+	}
 	theurl := sdk.JoinURL(
 		api.BackendURL(api.AuthService, m.channel),
 		fmt.Sprintf("oauth/%s/refresh/%s", refType, url.PathEscape(refreshToken)),
