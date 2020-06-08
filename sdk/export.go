@@ -12,12 +12,10 @@ type Export interface {
 	JobID() string
 	// CustomerID will return the customer id for the export
 	CustomerID() string
-	// Start must be called to begin an export and receive a pipe for sending data
-	Start() (Pipe, error)
+	// Pipe should be called to get the pipe for streaming data back to pinpoint
+	Pipe() (Pipe, error)
 	// Paused must be called when the integration is paused for any reason such as rate limiting
 	Paused(resetAt time.Time) error
 	// Resumed must be called when a paused integration is resumed
 	Resumed() error
-	// Completed must be called when an export is completed and can include an optional error or nil if no error
-	Completed(err error)
 }

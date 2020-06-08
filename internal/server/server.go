@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	exp "github.com/pinpt/agent.next/internal/export"
 	"github.com/pinpt/agent.next/internal/export/eventapi"
 	pipe "github.com/pinpt/agent.next/internal/pipe/eventapi"
 	redisState "github.com/pinpt/agent.next/internal/state/redis"
@@ -42,7 +41,6 @@ type Config struct {
 	DevMode             bool
 	DevPipe             sdk.Pipe
 	DevExport           sdk.Export
-	Completion          chan exp.Completion
 }
 
 // Server is the event loop server portion of the agent
@@ -118,7 +116,6 @@ func (s *Server) handleExport(logger log.Logger, req agent.ExportRequest) error 
 			JobID:      req.JobID,
 			UUID:       s.config.UUID,
 			Pipe:       p,
-			Completion: s.config.Completion,
 			Channel:    s.config.Channel,
 			APIKey:     s.config.APIKey,
 			Secret:     s.config.Secret,
@@ -128,23 +125,15 @@ func (s *Server) handleExport(logger log.Logger, req agent.ExportRequest) error 
 		}
 		e = c
 	}
-	log.Info(logger, "starting export")
-	ts := time.Now()
+	log.Info(logger, "running export")
 	if err := s.config.Integration.Integration.Export(e); err != nil {
 		return err
 	}
-	// wait for the integration to complete
-	comp := <-s.config.Completion
-
 	if err := p.Flush(); err != nil {
 		log.Error(logger, "error flushing pipe", "err", err)
 	}
 	if err := state.Flush(); err != nil {
 		log.Error(logger, "error flushing state", "err", err)
-	}
-	log.Debug(logger, "export completed", "integration", s.config.Integration.Descriptor.RefType, "duration", time.Since(ts), "err", comp.Error)
-	if comp.Error != nil {
-		return comp.Error
 	}
 	log.Info(logger, "export completed", "duration", time.Since(started), "jobid", req.JobID, "customer_id", req.CustomerID)
 	return nil

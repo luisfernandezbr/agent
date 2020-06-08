@@ -40,8 +40,8 @@ func (e *export) CustomerID() string {
 	return e.customerID
 }
 
-// Start must be called to begin an export and receive a pipe for sending data
-func (e *export) Start() (sdk.Pipe, error) {
+//  Pipe should be called to get the pipe for streaming data back to pinpoint
+func (e *export) Pipe() (sdk.Pipe, error) {
 	return e.pipe, nil
 }
 
@@ -57,13 +57,8 @@ func (e *export) Resumed() error {
 	return nil
 }
 
-// Completed must be called when an export is completed and can include an optional error or nil if no error
-func (e *export) Completed(err error) {
-	e.completion <- exp.Completion{Error: err}
-}
-
 // New will return an sdk.Export
-func New(logger log.Logger, config sdk.Config, state sdk.State, jobID string, customerID string, pipe sdk.Pipe, completion chan exp.Completion) (sdk.Export, error) {
+func New(logger log.Logger, config sdk.Config, state sdk.State, jobID string, customerID string, pipe sdk.Pipe) (sdk.Export, error) {
 	return &export{
 		logger:     logger,
 		config:     config,
@@ -71,6 +66,5 @@ func New(logger log.Logger, config sdk.Config, state sdk.State, jobID string, cu
 		jobID:      jobID,
 		customerID: customerID,
 		pipe:       pipe,
-		completion: completion,
 	}, nil
 }

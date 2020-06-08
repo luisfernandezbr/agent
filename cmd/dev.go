@@ -28,7 +28,7 @@ var devCmd = &cobra.Command{
 
 		started := time.Now()
 		defer func() {
-			log.Info(_logger, "duration "+time.Since(started).String())
+			log.Info(_logger, "completed", "duration", time.Since(started).String())
 		}()
 
 		integrationDir, _ = filepath.Abs(integrationDir)
@@ -40,6 +40,7 @@ var devCmd = &cobra.Command{
 		distDir := filepath.Join(os.TempDir(), "agent.next")
 		os.MkdirAll(distDir, 0700)
 		integrationFile := filepath.Join(distDir, runtime.GOOS, runtime.GOARCH, integration)
+		log.Info(_logger, "will generate data into temp folder at "+distDir)
 
 		// build our integration
 		c := exec.Command(os.Args[0], "build", "--dir", distDir, integrationDir)
