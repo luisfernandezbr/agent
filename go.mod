@@ -7,7 +7,7 @@ require (
 	github.com/fatih/color v1.9.0
 	github.com/go-redis/redis/v8 v8.0.0-beta.2
 	github.com/pinpt/go-common/v10 v10.0.3
-	github.com/pinpt/integration-sdk v0.0.1004
+	github.com/pinpt/integration-sdk v0.0.1005
 	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
 	github.com/spf13/cobra v1.0.0
 	github.com/stretchr/testify v1.6.0
