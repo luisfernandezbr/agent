@@ -3,7 +3,6 @@ package dev
 import (
 	"time"
 
-	exp "github.com/pinpt/agent.next/internal/export"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/log"
 )
@@ -15,7 +14,6 @@ type export struct {
 	jobID      string
 	customerID string
 	pipe       sdk.Pipe
-	completion chan exp.Completion
 }
 
 var _ sdk.Export = (*export)(nil)
