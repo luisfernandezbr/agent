@@ -43,6 +43,7 @@ func (m *eventAPIManager) RefreshOAuth2Token(refType string, refreshToken string
 	}
 	client := http.New().New(theurl, map[string]string{"Content-Type": "application/json"})
 	_, err := client.Get(&res)
+	log.Debug(m.logger, "refresh oauth2 token", "url", theurl, "err", err)
 	if err != nil {
 		return "", err
 	}
