@@ -246,7 +246,7 @@ func Main(integration sdk.Integration, args ...string) {
 	serverCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "dev"), "the channel configuration")
 	serverCmd.Flags().String("tempdir", "dist/export", "the directory to place files")
 	serverCmd.Flags().String("redis", pos.Getenv("PP_REDIS_URL", "0.0.0.0:6379"), "the redis endpoint url")
-	serverCmd.Flags().Int("redisDB", 0, "the redis db")
+	serverCmd.Flags().Int("redisDB", 15, "the redis db")
 	serverCmd.Flags().Bool("dev", false, "running in dev mode, do a fake integration")
 	serverCmd.Flags().String("dir", "", "directory to place files when in dev mode")
 	serverCmd.Flags().StringSlice("set", []string{}, "set a config value from the command line")
