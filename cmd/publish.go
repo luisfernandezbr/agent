@@ -15,6 +15,7 @@ import (
 	"github.com/pinpt/go-common/v10/api"
 	"github.com/pinpt/go-common/v10/fileutil"
 	"github.com/pinpt/go-common/v10/log"
+	pnum "github.com/pinpt/go-common/v10/number"
 	"github.com/spf13/cobra"
 )
 
@@ -29,6 +30,7 @@ var publishCmd = &cobra.Command{
 		defer logger.Close()
 		tmpdir := os.TempDir()
 		defer os.RemoveAll(tmpdir)
+		log.Info(logger, "building package")
 		c := exec.Command(os.Args[0], "package", integrationDir, "--dir", tmpdir)
 		c.Stdout = os.Stdout
 		c.Stderr = os.Stderr
@@ -83,6 +85,7 @@ var publishCmd = &cobra.Command{
 		}
 		version := getBuildCommitForIntegration(integrationDir)
 		basepath := fmt.Sprintf("publish/%s/%s/%s", descriptor.Publisher.Identifier, descriptor.RefType, version)
+		log.Info(logger, "uploading", "size", pnum.ToBytesSize(stat.Size()))
 		resp, err := api.Put(ctx, channel, api.RegistryService, basepath, apikey, of, opts...)
 		if err != nil || resp.StatusCode != http.StatusAccepted {
 			buf, _ := ioutil.ReadAll(resp.Body)
