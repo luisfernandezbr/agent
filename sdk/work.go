@@ -180,6 +180,15 @@ const WorkIssueTypeMappedTypeTask WorkIssueTypeMappedType = work.IssueTypeMapped
 // WorkIssueTypeMappedTypeSubtask is the enumeration value for subtask
 const WorkIssueTypeMappedTypeSubtask WorkIssueTypeMappedType = work.IssueTypeMappedTypeSubtask
 
+// WorkConfig is the work config model
+type WorkConfig = work.Config
+
+// WorkConfigStatuses is the work config status type
+type WorkConfigStatuses = work.ConfigStatuses
+
+// WorkConfigTopLevelIssue is the work config top level issue type
+type WorkConfigTopLevelIssue = work.ConfigTopLevelIssue
+
 // NewWorkProjectID will return the work project id
 func NewWorkProjectID(customerID string, refID string, refType string) string {
 	return work.NewProjectID(customerID, refID, refType)
@@ -223,4 +232,9 @@ func NewWorkSprintID(customerID string, refID string, refType string) string {
 // NewWorkUserID will return the work user id
 func NewWorkUserID(customerID string, refID string, refType string) string {
 	return work.NewUserID(customerID, refID, refType)
+}
+
+// NewWorkConfigID will return the work config id
+func NewWorkConfigID(customerID string, refType string, integrationID string) string {
+	return work.NewConfigID(customerID, refType, integrationID)
 }
