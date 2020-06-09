@@ -56,10 +56,7 @@ func (g *{{ .TitleCaseName }}Integration) Export(export sdk.Export) error {
 	sdk.LogInfo(g.logger, "export started")
 
 	// Pipe must be called to begin an export and receive a pipe for sending data
-	pipe, err := export.Pipe()
-	if err != nil {
-		return err
-	}
+	pipe := export.Pipe()
 
 	// State is a customer specific state object for this integration and customer
 	state := export.State()

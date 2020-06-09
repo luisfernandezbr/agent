@@ -119,6 +119,9 @@ func generate(path string, tmplfile string, info Info) error {
 	if err != nil {
 		return err
 	}
+	if tmplfile == "internal/root.go" {
+		tmplfile = "internal/" + info.LowerCaseName + ".go"
+	}
 	file, err := os.Create(filepath.Join(path, tmplfile))
 	if err != nil {
 		return err
