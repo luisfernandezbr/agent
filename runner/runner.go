@@ -17,11 +17,9 @@ import (
 	"github.com/pinpt/agent.next/internal/server"
 	devstate "github.com/pinpt/agent.next/internal/state/file"
 	"github.com/pinpt/agent.next/sdk"
-	"github.com/pinpt/go-common/v10/event"
 	"github.com/pinpt/go-common/v10/fileutil"
 	"github.com/pinpt/go-common/v10/log"
 	pos "github.com/pinpt/go-common/v10/os"
-	"github.com/pinpt/integration-sdk/agent"
 	"github.com/spf13/cobra"
 )
 
@@ -66,30 +64,14 @@ func Main(integration sdk.Integration, args ...string) {
 			}
 			devMode, _ := cmd.Flags().GetBool("dev")
 			intconfig := sdk.NewConfig(kv)
-			var channel, uuid, apikey string
-			var subchannel *event.SubscriptionChannel
+			var channel, uuid, apikey, groupid string
 			var redisClient *redis.Client
 
 			if !devMode {
 				if secret != "" {
-					channel, _ = cmd.Flags().GetString("channel")
 					// running in multi agent mode
-					ch, err := event.NewSubscription(ctx, event.Subscription{
-						Logger:            logger,
-						Topics:            []string{agent.ExportRequestModelName.String()},
-						GroupID:           "agent",
-						HTTPHeaders:       map[string]string{"x-api-key": secret},
-						DisableAutoCommit: true,
-						Channel:           channel,
-						DisablePing:       true,
-						Headers: map[string]string{
-							"integration": descriptor.RefType,
-						},
-					})
-					if err != nil {
-						log.Fatal(logger, "error creating subscription", "err", err)
-					}
-					subchannel = ch
+					channel, _ = cmd.Flags().GetString("channel")
+					groupid = "agent"
 
 					// we must connect to redis in multi mode
 					redisURL, _ := cmd.Flags().GetString("redis")
@@ -126,24 +108,7 @@ func Main(integration sdk.Integration, args ...string) {
 					channel = config.Channel
 					uuid = config.DeviceID
 					apikey = config.APIKey
-					ch, err := event.NewSubscription(ctx, event.Subscription{
-						Logger: logger,
-						Topics: []string{
-							agent.ExportRequestModelName.String(),
-						},
-						GroupID:           "agent-" + config.DeviceID,
-						DisableAutoCommit: true,
-						Channel:           config.Channel,
-						Headers: map[string]string{
-							"uuid":        config.DeviceID,
-							"integration": descriptor.RefType,
-						},
-						DisablePing: true,
-					})
-					if err != nil {
-						log.Fatal(logger, "error creating subscription", "err", err)
-					}
-					subchannel = ch
+					groupid = "agent-" + config.DeviceID
 					log.Info(logger, "running in single agent mode", "uuid", config.DeviceID, "customer_id", config.CustomerID, "channel", config.Channel)
 				}
 			} else {
@@ -162,12 +127,6 @@ func Main(integration sdk.Integration, args ...string) {
 				<-shutdown
 			})
 
-			if subchannel != nil {
-				log.Info(logger, "waiting to connect")
-				subchannel.WaitForReady()
-				log.Info(logger, "running")
-			}
-
 			// get our temp folder to place in progress files
 			tmpdir, _ := cmd.Flags().GetString("tempdir")
 			if tmpdir == "" {
@@ -176,12 +135,11 @@ func Main(integration sdk.Integration, args ...string) {
 			os.MkdirAll(tmpdir, 0700)
 
 			serverConfig := server.Config{
-				Ctx:                 ctx,
-				Dir:                 tmpdir,
-				Logger:              logger,
-				State:               state,
-				SubscriptionChannel: subchannel,
-				RedisClient:         redisClient,
+				Ctx:         ctx,
+				Dir:         tmpdir,
+				Logger:      logger,
+				State:       state,
+				RedisClient: redisClient,
 				Integration: &server.IntegrationContext{
 					Integration: integration,
 					Descriptor:  descriptor,
@@ -190,6 +148,7 @@ func Main(integration sdk.Integration, args ...string) {
 				Channel: channel,
 				APIKey:  apikey,
 				Secret:  secret,
+				GroupID: groupid,
 			}
 			if devMode {
 				serverConfig.DevMode = true
@@ -235,7 +194,6 @@ func Main(integration sdk.Integration, args ...string) {
 				<-done
 				log.Info(logger, "stopping")
 				server.Close()
-				subchannel.Close()
 				shutdown <- true
 				log.Info(logger, "stopped")
 			}
