@@ -6,24 +6,29 @@ import (
 	"time"
 
 	"github.com/pinpt/agent.next/sdk"
+	"github.com/pinpt/go-common/v10/event"
 	"github.com/pinpt/go-common/v10/log"
+	"github.com/pinpt/integration-sdk/agent"
 )
 
 // Completion event
 type export struct {
-	ctx        context.Context
-	logger     log.Logger
-	config     sdk.Config
-	state      sdk.State
-	customerID string
-	jobID      string
-	uuid       string
-	channel    string
-	apikey     string
-	secret     string
-	pipe       sdk.Pipe
-	paused     bool
-	mu         sync.Mutex
+	ctx                 context.Context
+	logger              log.Logger
+	config              sdk.Config
+	state               sdk.State
+	subscriptionChannel *event.SubscriptionChannel
+	customerID          string
+	jobID               string
+	integrationID       string
+	uuid                string
+	channel             string
+	apikey              string
+	secret              string
+	pipe                sdk.Pipe
+	paused              bool
+	historical          bool
+	mu                  sync.Mutex
 }
 
 var _ sdk.Export = (*export)(nil)
@@ -48,10 +53,32 @@ func (e *export) CustomerID() string {
 	return e.customerID
 }
 
+// IntegrationID will return the unique instance id for this integration for a customer
+func (e *export) IntegrationID() string {
+	return e.integrationID
+}
+
 //  Pipe should be called to get the pipe for streaming data back to pinpoint
 func (e *export) Pipe() (sdk.Pipe, error) {
-	// TODO: send agent.ExportResponse with start progress
 	return e.pipe, nil
+}
+
+func (e *export) createPublishOpts() ([]event.Option, map[string]string) {
+	opts := []event.Option{
+		event.WithLogger(e.logger),
+	}
+	if e.secret != "" {
+		opts = append(opts, event.WithHeaders(map[string]string{"x-api-key": e.secret}))
+	}
+	headers := map[string]string{
+		"customer_id":    e.customerID,
+		"integration_id": e.integrationID,
+		"job_id":         e.jobID,
+	}
+	if e.uuid != "" {
+		headers["uuid"] = e.uuid
+	}
+	return opts, headers
 }
 
 // Paused must be called when the integration is paused for any reason such as rate limiting
@@ -65,8 +92,31 @@ func (e *export) Paused(resetAt time.Time) error {
 	e.mu.Unlock()
 	e.pipe.Flush() // flush the pipe once we're paused to go ahead and send any pending data
 	log.Info(e.logger, "paused", "reset", resetAt, "duration", time.Until(resetAt))
-	// FIXME: send agent.Pause
-	return nil
+	dt, _ := sdk.NewDateWithTime(time.Now())
+	rt, _ := sdk.NewDateWithTime(resetAt)
+	evt := &agent.Pause{
+		CustomerID:  e.customerID,
+		JobID:       e.jobID,
+		UUID:        e.uuid,
+		Integration: e.integrationID,
+		EventDate: agent.PauseEventDate{
+			Epoch:   dt.Epoch,
+			Offset:  dt.Offset,
+			Rfc3339: dt.Rfc3339,
+		},
+		ResumeDate: agent.PauseResumeDate{
+			Epoch:   rt.Epoch,
+			Offset:  rt.Offset,
+			Rfc3339: rt.Rfc3339,
+		},
+		Type: agent.PauseTypePause,
+	}
+	opts, headers := e.createPublishOpts()
+	return e.subscriptionChannel.Publish(event.PublishEvent{
+		Object:  evt,
+		Headers: headers,
+		Logger:  e.logger,
+	}, opts...)
 }
 
 // Resumed must be called when a paused integration is resumed
@@ -79,23 +129,48 @@ func (e *export) Resumed() error {
 	e.paused = false
 	e.mu.Unlock()
 	log.Info(e.logger, "pause resumed")
-	// FIXME: send agent.Resume
-	return nil
+	dt, _ := sdk.NewDateWithTime(time.Now())
+	evt := &agent.Resume{
+		CustomerID:  e.customerID,
+		JobID:       e.jobID,
+		UUID:        e.uuid,
+		Integration: e.integrationID,
+		EventDate: agent.ResumeEventDate{
+			Epoch:   dt.Epoch,
+			Offset:  dt.Offset,
+			Rfc3339: dt.Rfc3339,
+		},
+		Type: agent.ResumeTypeResume,
+	}
+	opts, headers := e.createPublishOpts()
+	return e.subscriptionChannel.Publish(event.PublishEvent{
+		Object:  evt,
+		Headers: headers,
+		Logger:  e.logger,
+	}, opts...)
+}
+
+// Historical if true, the integration should perform a full historical export
+func (e *export) Historical() bool {
+	return e.historical
 }
 
 // Config is details for the configuration
 type Config struct {
-	Ctx        context.Context
-	Logger     log.Logger
-	Config     sdk.Config
-	State      sdk.State
-	CustomerID string
-	JobID      string
-	UUID       string
-	Pipe       sdk.Pipe
-	Channel    string
-	APIKey     string
-	Secret     string
+	Ctx                 context.Context
+	Logger              log.Logger
+	Config              sdk.Config
+	State               sdk.State
+	SubscriptionChannel *event.SubscriptionChannel
+	CustomerID          string
+	JobID               string
+	IntegrationID       string
+	UUID                string
+	Pipe                sdk.Pipe
+	Channel             string
+	APIKey              string
+	Secret              string
+	Historical          bool
 }
 
 // New will return an sdk.Export
@@ -105,13 +180,16 @@ func New(config Config) (sdk.Export, error) {
 		ctx = context.Background()
 	}
 	return &export{
-		ctx:        ctx,
-		logger:     config.Logger,
-		config:     config.Config,
-		state:      config.State,
-		customerID: config.CustomerID,
-		jobID:      config.JobID,
-		uuid:       config.UUID,
-		pipe:       config.Pipe,
+		ctx:                 ctx,
+		logger:              config.Logger,
+		config:              config.Config,
+		state:               config.State,
+		customerID:          config.CustomerID,
+		jobID:               config.JobID,
+		integrationID:       config.IntegrationID,
+		uuid:                config.UUID,
+		pipe:                config.Pipe,
+		subscriptionChannel: config.SubscriptionChannel,
+		historical:          config.Historical,
 	}, nil
 }

@@ -4,6 +4,10 @@ package sdk
 type Integration interface {
 	// Start is called when the integration is starting up
 	Start(logger Logger, config Config, manager Manager) error
+	// Enroll is called when a new integration instance is added
+	Enroll(instance Instance) error
+	// Dismiss is called when an existing integration instance is removed
+	Dismiss(instance Instance) error
 	// Export is called to tell the integration to run an export
 	Export(export Export) error
 	// WebHook is called when a webhook is received on behalf of the integration

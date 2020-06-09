@@ -311,8 +311,6 @@ github.com/pinpt/go-common/v10 v10.0.3 h1:adSmYB3+kl2JaLugk13sMW9CSgJlHyCEZG8E30
 github.com/pinpt/go-common/v10 v10.0.3/go.mod h1:uRe9KzBE26kjqD+2UgreBQqesesXyBUEIjBT2NEK3kk=
 github.com/pinpt/httpclient v0.0.0-20190815022759-09e0028c9067 h1:GG0k6rjX7ywCwYnjVudy3OXXivcMAih8s08+sDrQiEE=
 github.com/pinpt/httpclient v0.0.0-20190815022759-09e0028c9067/go.mod h1:SzzGa0kOT+frqT6ABgV69U9+jlMU98XkmKup+HEZRVI=
-github.com/pinpt/integration-sdk v0.0.1005 h1:ohAnUDA+G75k+hIw52iOYEmP7ALHJwRaHn7yDghUOOk=
-github.com/pinpt/integration-sdk v0.0.1005/go.mod h1:GvEOhGTIbb2cYGBL/dvtxd/2/ocMPKewWDLaAhr9m1M=
 github.com/pinpt/integration-sdk v0.0.1006 h1:CsAs8d/zpBn7j07mv65CKVPD3DPl/0Kie/61ftbweUA=
 github.com/pinpt/integration-sdk v0.0.1006/go.mod h1:GvEOhGTIbb2cYGBL/dvtxd/2/ocMPKewWDLaAhr9m1M=
 github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4 h1:49lOXmGaUpV9Fz3gd7TFZY106KVlPVa5jcYD1gaQf98=

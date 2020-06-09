@@ -55,6 +55,34 @@ func (s *Server) Close() error {
 	return nil
 }
 
+func (s *Server) newState(customerID string, integrationID string) (sdk.State, error) {
+	state := s.config.State
+	if state == nil {
+		// if no state provided, we use redis state in this case
+		st, err := redisState.New(s.config.Ctx, s.config.RedisClient, customerID+":"+s.config.Integration.Descriptor.RefType+":"+integrationID)
+		if err != nil {
+			return nil, err
+		}
+		state = st
+	}
+	return state, nil
+}
+
+func (s *Server) handleAddIntegration(logger log.Logger, req agent.IntegrationRequest) error {
+	if s.config.Integration.Descriptor.RefType == req.Integration.RefType {
+		state, err := s.newState(req.CustomerID, req.Integration.ID)
+		if err != nil {
+			return err
+		}
+		instance := sdk.NewInstance(state, req.CustomerID, req.Integration.ID)
+		log.Info(logger, "running add integration")
+		if err := s.config.Integration.Integration.Enroll(*instance); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Server) handleExport(logger log.Logger, req agent.ExportRequest) error {
 	dir := filepath.Join(s.config.Dir, req.JobID)
 	os.MkdirAll(dir, 0700)
@@ -81,14 +109,9 @@ func (s *Server) handleExport(logger log.Logger, req agent.ExportRequest) error 
 	} else {
 		sdkconfig = sdk.NewConfig(integrationAuth.ToMap())
 	}
-	state := s.config.State
-	if state == nil {
-		// if no state provided, we use redis state in this case
-		st, err := redisState.New(s.config.Ctx, s.config.RedisClient, req.CustomerID+":"+s.config.Integration.Descriptor.RefType+":"+integration.ID)
-		if err != nil {
-			return err
-		}
-		state = st
+	state, err := s.newState(req.CustomerID, integration.ID)
+	if err != nil {
+		return err
 	}
 	// start the integration in it's own thread
 	var p sdk.Pipe
@@ -110,17 +133,19 @@ func (s *Server) handleExport(logger log.Logger, req agent.ExportRequest) error 
 			RefType:    s.config.Integration.Descriptor.RefType,
 		})
 		c, err := eventapi.New(eventapi.Config{
-			Ctx:        s.config.Ctx,
-			Logger:     logger,
-			Config:     sdkconfig,
-			State:      state,
-			CustomerID: req.CustomerID,
-			JobID:      req.JobID,
-			UUID:       s.config.UUID,
-			Pipe:       p,
-			Channel:    s.config.Channel,
-			APIKey:     s.config.APIKey,
-			Secret:     s.config.Secret,
+			Ctx:           s.config.Ctx,
+			Logger:        logger,
+			Config:        sdkconfig,
+			State:         state,
+			CustomerID:    req.CustomerID,
+			JobID:         req.JobID,
+			IntegrationID: integration.ID,
+			UUID:          s.config.UUID,
+			Pipe:          p,
+			Channel:       s.config.Channel,
+			APIKey:        s.config.APIKey,
+			Secret:        s.config.Secret,
+			Historical:    req.ReprocessHistorical,
 		})
 		if err != nil {
 			return err
@@ -134,6 +159,9 @@ func (s *Server) handleExport(logger log.Logger, req agent.ExportRequest) error 
 	if err := p.Flush(); err != nil {
 		log.Error(logger, "error flushing pipe", "err", err)
 	}
+	if err := p.Close(); err != nil {
+		log.Error(logger, "error closing the pipe", "err", err)
+	}
 	if err := state.Flush(); err != nil {
 		log.Error(logger, "error flushing state", "err", err)
 	}
@@ -141,22 +169,120 @@ func (s *Server) handleExport(logger log.Logger, req agent.ExportRequest) error 
 	return nil
 }
 
+func toResponseIntegrations(integrations []agent.ExportRequestIntegrations, exportType agent.ExportResponseIntegrationsExportType) []agent.ExportResponseIntegrations {
+	// FIXME: need to deal with entity errors somehow
+	resp := make([]agent.ExportResponseIntegrations, 0)
+	for _, i := range integrations {
+		resp = append(resp, agent.ExportResponseIntegrations{
+			IntegrationID: i.ID,
+			Name:          i.Name,
+			ExportType:    exportType,
+			SystemType:    agent.ExportResponseIntegrationsSystemType(i.SystemType),
+		})
+	}
+	return resp
+}
+
+func (s *Server) toHeaders(customerID string, refType string) map[string]string {
+	headers := map[string]string{
+		"customer_id": customerID,
+		"ref_type":    refType,
+	}
+	if s.config.UUID != "" {
+		headers["uuid"] = s.config.UUID
+	}
+	return headers
+}
+
 func (s *Server) run() {
 	logger := log.With(s.config.Logger, "pkg", "server")
 	log.Debug(logger, "starting subscription channel")
+	opts := []event.Option{
+		event.WithLogger(logger),
+	}
+	if s.config.Secret != "" {
+		opts = append(opts, event.WithHeaders(map[string]string{"x-api-key": s.config.Secret}))
+	}
+	// TODO: need an event to remove an integration
+
 	for evt := range s.config.SubscriptionChannel.Channel() {
 		log.Debug(logger, "received event", "evt", evt)
 		switch evt.Model {
+		case agent.IntegrationRequestModelName.String():
+			var req agent.IntegrationRequest
+			if err := json.Unmarshal([]byte(evt.Data), &req); err != nil {
+				log.Fatal(logger, "error parsing integration request event", "err", err)
+			}
+			var errmessage *string
+			err := s.handleAddIntegration(logger, req)
+			if err != nil {
+				log.Error(logger, "error running add integration request", "err", err)
+				errmessage = sdk.StringPointer(err.Error())
+			}
+			dt, err := sdk.NewDateWithTime(time.Now())
+			if err != nil {
+				log.Fatal(logger, "error parsing date time", "err", err)
+			}
+			resp := &agent.IntegrationResponse{
+				CustomerID: req.CustomerID,
+				Success:    err == nil,
+				Error:      errmessage,
+				UUID:       req.UUID,
+				EventDate: agent.IntegrationResponseEventDate{
+					Epoch:   dt.Epoch,
+					Offset:  dt.Offset,
+					Rfc3339: dt.Rfc3339,
+				},
+				Type:    agent.IntegrationResponseTypeIntegration,
+				RefType: req.RefType,
+			}
+			if s.config.SubscriptionChannel.Publish(event.PublishEvent{
+				Object:  resp,
+				Headers: s.toHeaders(req.CustomerID, req.RefType),
+				Logger:  logger,
+			}, opts...); err != nil {
+				log.Fatal(logger, "error sending add integration response", "err", err)
+			}
 		case agent.ExportRequestModelName.String():
 			var req agent.ExportRequest
 			if err := json.Unmarshal([]byte(evt.Data), &req); err != nil {
-				// FIXME
-				log.Error(logger, "error parsing export request event", "err", err)
+				log.Fatal(logger, "error parsing export request event", "err", err)
 			}
+			var errmessage *string
 			err := s.handleExport(logger, req)
 			if err != nil {
-				// FIXME: send export response with err
 				log.Error(logger, "error running export request", "err", err)
+				errmessage = sdk.StringPointer(err.Error())
+			}
+			exportType := agent.ExportResponseIntegrationsExportTypeIncremental
+			if req.ReprocessHistorical {
+				exportType = agent.ExportResponseIntegrationsExportTypeHistorical
+			}
+			dt, err := sdk.NewDateWithTime(time.Now())
+			if err != nil {
+				log.Fatal(logger, "error parsing date time", "err", err)
+			}
+			resp := &agent.ExportResponse{
+				CustomerID:   req.CustomerID,
+				Success:      err == nil,
+				Error:        errmessage,
+				JobID:        req.JobID,
+				Integrations: toResponseIntegrations(req.Integrations, exportType),
+				UUID:         req.UUID,
+				EventDate: agent.ExportResponseEventDate{
+					Epoch:   dt.Epoch,
+					Offset:  dt.Offset,
+					Rfc3339: dt.Rfc3339,
+				},
+				State: agent.ExportResponseStateCompleted,
+				Type:  agent.ExportResponseTypeExport,
+			}
+			if s.config.SubscriptionChannel.Publish(event.PublishEvent{
+				Object:  resp,
+				Headers: s.toHeaders(req.CustomerID, req.RefType),
+				Logger:  logger,
+			}, opts...); err != nil {
+				log.Fatal(logger, "error sending export response", "err", err)
 			}
 		}
 		evt.Commit()
@@ -172,6 +298,7 @@ func New(config Config) (*Server, error) {
 			CustomerID: config.DevExport.CustomerID(),
 			Integrations: []agent.ExportRequestIntegrations{
 				agent.ExportRequestIntegrations{
+					ID:   "1",
 					Name: config.Integration.Descriptor.RefType,
 				},
 			},

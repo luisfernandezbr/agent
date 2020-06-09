@@ -3,6 +3,7 @@ package dev
 import (
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/pinpt/agent.next/internal/graphql"
 	"github.com/pinpt/agent.next/internal/http"
@@ -29,9 +30,32 @@ func (m *eventAPIManager) HTTPManager() sdk.HTTPClientManager {
 }
 
 // CreateWebHook is used by the integration to create a webhook on behalf of the integration for a given customer and refid
-func (m *eventAPIManager) CreateWebHook(customerID string, refType string, refID string) (string, error) {
-	// FIXME: todo
-	return "", nil
+func (m *eventAPIManager) CreateWebHook(customerID string, integrationID string, refType string, refID string) (string, error) {
+	theurl := sdk.JoinURL(
+		api.BackendURL(api.EventService, m.channel),
+		"/hook",
+	)
+	client := http.New().New(theurl, map[string]string{"Content-Type": "application/json"})
+	data := map[string]interface{}{
+		"headers": map[string]string{
+			"ref_id":         refID,
+			"integration_id": integrationID,
+		},
+		"system": refType,
+	}
+	var res struct {
+		Success bool   `json:"success"`
+		URL     string `json:"url"`
+	}
+	_, err := client.Post(strings.NewReader(sdk.Stringify(data)), &res)
+	if err != nil {
+		return "", fmt.Errorf("error creating webhook url. %w", err)
+	}
+	if res.Success {
+		log.Debug(m.logger, "created webhook", "url", res.URL, "customer_id", customerID, "integration_id", integrationID, "ref_type", refType, "ref_id", refID)
+		return res.URL, nil
+	}
+	return "", fmt.Errorf("failed to create webhook url")
 }
 
 // RefreshOAuth2Token will refresh the OAuth2 access token using the provided refreshToken and return a new access token
