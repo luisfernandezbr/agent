@@ -98,6 +98,18 @@ func (s *Server) newTempDir(jobID string) string {
 	os.MkdirAll(dir, 0700)
 	return dir
 }
+func (s *Server) newConfig(configstr *string, kv map[string]interface{}) sdk.Config {
+	var sdkconfig sdk.Config
+	if s.config.DevMode {
+		sdkconfig = s.config.DevExport.Config()
+	} else {
+		if configstr != nil && *configstr != "" {
+			json.Unmarshal([]byte(*configstr), &kv)
+		}
+		sdkconfig = sdk.NewConfig(kv)
+	}
+	return sdkconfig
+}
 
 func (s *Server) handleAddIntegration(logger log.Logger, req agent.IntegrationRequest) error {
 	if s.config.Integration.Descriptor.RefType == req.Integration.RefType {
@@ -111,7 +123,8 @@ func (s *Server) handleAddIntegration(logger log.Logger, req agent.IntegrationRe
 			pipe.Close()
 			os.RemoveAll(dir)
 		}()
-		instance := sdk.NewInstance(state, pipe, req.CustomerID, req.Integration.ID)
+		config := s.newConfig(req.Integration.Config, req.Integration.Authorization.ToMap())
+		instance := sdk.NewInstance(config, state, pipe, req.CustomerID, req.Integration.ID)
 		log.Info(logger, "running add integration")
 		if err := s.config.Integration.Integration.Enroll(*instance); err != nil {
 			return err
@@ -139,13 +152,7 @@ func (s *Server) handleExport(logger log.Logger, req agent.ExportRequest) error 
 	if !found {
 		return fmt.Errorf("incorrect agent.ExportRequest event, didn't match our integration")
 	}
-	// build the sdk config for the integration
-	var sdkconfig sdk.Config
-	if s.config.DevMode {
-		sdkconfig = s.config.DevExport.Config()
-	} else {
-		sdkconfig = sdk.NewConfig(integrationAuth.ToMap())
-	}
+	sdkconfig := s.newConfig(integration.Config, integrationAuth.ToMap())
 	state, err := s.newState(req.CustomerID, integration.ID)
 	if err != nil {
 		return err

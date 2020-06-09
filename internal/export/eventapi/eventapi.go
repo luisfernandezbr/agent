@@ -59,8 +59,8 @@ func (e *export) IntegrationID() string {
 }
 
 //  Pipe should be called to get the pipe for streaming data back to pinpoint
-func (e *export) Pipe() (sdk.Pipe, error) {
-	return e.pipe, nil
+func (e *export) Pipe() sdk.Pipe {
+	return e.pipe
 }
 
 func (e *export) createPublishOpts() ([]event.Option, map[string]string) {

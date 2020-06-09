@@ -55,7 +55,12 @@ var devCmd = &cobra.Command{
 		if dir != "" {
 			dir, _ = filepath.Abs(dir)
 		}
+		historical, _ := cmd.Flags().GetBool("historical")
 		devargs := []string{"--dev", "--dir", dir, "--channel", channel, "--log-level", "debug"}
+
+		if historical {
+			devargs = append(devargs, "--historical=true")
+		}
 
 		config, _ := cmd.Flags().GetStringSlice("config")
 		for _, str := range config {
@@ -89,4 +94,5 @@ func init() {
 	devCmd.Flags().String("dir", "dev_dist", "the directory to output pipe contents")
 	devCmd.Flags().String("channel", "", "the channel which can be set")
 	devCmd.Flags().MarkHidden("channel")
+	devCmd.Flags().Bool("historical", false, "force a historical export")
 }

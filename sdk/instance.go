@@ -2,10 +2,16 @@ package sdk
 
 // Instance is an instance of an integration for a specific customer and integration instance
 type Instance struct {
+	config        Config
 	state         State
 	customerID    string
 	integrationID string
 	pipe          Pipe
+}
+
+// Config is a customer specific config object for this integration and customer
+func (i *Instance) Config() Config {
+	return i.config
 }
 
 // State is a customer specific state object for this integration and customer
@@ -29,8 +35,9 @@ func (i *Instance) Pipe() Pipe {
 }
 
 // NewInstance returns a new instance of the integration
-func NewInstance(state State, pipe Pipe, customerID string, integrationID string) *Instance {
+func NewInstance(config Config, state State, pipe Pipe, customerID string, integrationID string) *Instance {
 	return &Instance{
+		config:        config,
 		state:         state,
 		pipe:          pipe,
 		customerID:    customerID,

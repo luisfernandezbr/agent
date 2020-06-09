@@ -207,7 +207,8 @@ func Main(integration sdk.Integration, args ...string) {
 				} else {
 					pipe = console.New(logger)
 				}
-				exp, err := devexport.New(logger, intconfig, stateobj, "9999", "1234", pipe)
+				historical, _ := cmd.Flags().GetBool("historical")
+				exp, err := devexport.New(logger, intconfig, stateobj, "9999", "1234", "1", historical, pipe)
 				if err != nil {
 					log.Fatal(logger, "export failed", "err", err)
 				}
@@ -250,8 +251,10 @@ func Main(integration sdk.Integration, args ...string) {
 	serverCmd.Flags().Bool("dev", false, "running in dev mode, do a fake integration")
 	serverCmd.Flags().String("dir", "", "directory to place files when in dev mode")
 	serverCmd.Flags().StringSlice("set", []string{}, "set a config value from the command line")
+	serverCmd.Flags().Bool("historical", false, "force a historical export")
 	serverCmd.Flags().MarkHidden("dev")
 	serverCmd.Flags().MarkHidden("dir")
+	serverCmd.Flags().MarkHidden("historical")
 	if err := serverCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
