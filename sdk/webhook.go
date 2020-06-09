@@ -13,7 +13,7 @@ type WebHook interface {
 	// RefID will return the ref id from when the hook was created
 	RefID() string
 	// Pipe returns a pipe for sending data back to pinpoint from the web hook data
-	Pipe() (Pipe, error)
+	Pipe() Pipe
 	// Data is the data payload for the web hook
 	Data() map[string]interface{}
 	// Headers are the headers that came from the web hook

@@ -143,14 +143,17 @@ func (p *eventAPIPipe) send(model string, f *wrapperFile) error {
 		JobID:      p.jobid,
 		Objects:    pjson.Stringify(map[string]string{model: base64.StdEncoding.EncodeToString(buf)}),
 	}
+	headers := map[string]string{
+		"customer_id": p.customerID,
+		"uuid":        p.uuid,
+	}
+	if p.jobid != "" {
+		headers["jobid"] = p.jobid
+	}
 	evt := event.PublishEvent{
-		Logger: p.logger,
-		Object: object,
-		Headers: map[string]string{
-			"customer_id": p.customerID,
-			"uuid":        p.uuid,
-			"jobid":       p.jobid,
-		},
+		Logger:  p.logger,
+		Object:  object,
+		Headers: headers,
 	}
 	opts := make([]event.Option, 0)
 	if p.secret != "" {

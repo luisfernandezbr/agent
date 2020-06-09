@@ -5,6 +5,7 @@ type Instance struct {
 	state         State
 	customerID    string
 	integrationID string
+	pipe          Pipe
 }
 
 // State is a customer specific state object for this integration and customer
@@ -22,10 +23,16 @@ func (i *Instance) IntegrationID() string {
 	return i.integrationID
 }
 
+// Pipe returns a pipe in the case the integration wants to send data back to pinpoint
+func (i *Instance) Pipe() Pipe {
+	return i.pipe
+}
+
 // NewInstance returns a new instance of the integration
-func NewInstance(state State, customerID string, integrationID string) *Instance {
+func NewInstance(state State, pipe Pipe, customerID string, integrationID string) *Instance {
 	return &Instance{
 		state:         state,
+		pipe:          pipe,
 		customerID:    customerID,
 		integrationID: integrationID,
 	}

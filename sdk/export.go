@@ -15,7 +15,7 @@ type Export interface {
 	// IntegrationID will return the unique instance id for this integration for a customer
 	IntegrationID() string
 	// Pipe should be called to get the pipe for streaming data back to pinpoint
-	Pipe() (Pipe, error)
+	Pipe() Pipe
 	// Paused must be called when the integration is paused for any reason such as rate limiting
 	Paused(resetAt time.Time) error
 	// Resumed must be called when a paused integration is resumed

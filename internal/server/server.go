@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -68,13 +69,49 @@ func (s *Server) newState(customerID string, integrationID string) (sdk.State, e
 	return state, nil
 }
 
+func (s *Server) newPipe(logger sdk.Logger, dir string, customerID string, jobID string) sdk.Pipe {
+	var p sdk.Pipe
+	if s.config.DevMode {
+		p = s.config.DevPipe
+	} else {
+		p = pipe.New(pipe.Config{
+			Ctx:        s.config.Ctx,
+			Logger:     logger,
+			Dir:        dir,
+			CustomerID: customerID,
+			UUID:       s.config.UUID,
+			JobID:      jobID,
+			Channel:    s.config.Channel,
+			APIKey:     s.config.APIKey,
+			Secret:     s.config.Secret,
+			RefType:    s.config.Integration.Descriptor.RefType,
+		})
+	}
+	return p
+}
+
+func (s *Server) newTempDir(jobID string) string {
+	if jobID == "" {
+		jobID = strconv.Itoa(int(time.Now().Unix()))
+	}
+	dir := filepath.Join(s.config.Dir, jobID)
+	os.MkdirAll(dir, 0700)
+	return dir
+}
+
 func (s *Server) handleAddIntegration(logger log.Logger, req agent.IntegrationRequest) error {
 	if s.config.Integration.Descriptor.RefType == req.Integration.RefType {
 		state, err := s.newState(req.CustomerID, req.Integration.ID)
 		if err != nil {
 			return err
 		}
-		instance := sdk.NewInstance(state, req.CustomerID, req.Integration.ID)
+		dir := s.newTempDir("")
+		pipe := s.newPipe(logger, dir, req.CustomerID, "")
+		defer func() {
+			pipe.Close()
+			os.RemoveAll(dir)
+		}()
+		instance := sdk.NewInstance(state, pipe, req.CustomerID, req.Integration.ID)
 		log.Info(logger, "running add integration")
 		if err := s.config.Integration.Integration.Enroll(*instance); err != nil {
 			return err
@@ -84,8 +121,8 @@ func (s *Server) handleAddIntegration(logger log.Logger, req agent.IntegrationRe
 }
 
 func (s *Server) handleExport(logger log.Logger, req agent.ExportRequest) error {
-	dir := filepath.Join(s.config.Dir, req.JobID)
-	os.MkdirAll(dir, 0700)
+	dir := s.newTempDir(req.JobID)
+	defer os.RemoveAll(dir)
 	started := time.Now()
 	var found bool
 	var integration agent.ExportRequestIntegrations
@@ -113,25 +150,12 @@ func (s *Server) handleExport(logger log.Logger, req agent.ExportRequest) error 
 	if err != nil {
 		return err
 	}
-	// start the integration in it's own thread
-	var p sdk.Pipe
+	p := s.newPipe(logger, dir, req.CustomerID, req.JobID)
+	defer p.Close()
 	var e sdk.Export
 	if s.config.DevMode {
-		p = s.config.DevPipe
 		e = s.config.DevExport
 	} else {
-		p = pipe.New(pipe.Config{
-			Ctx:        s.config.Ctx,
-			Logger:     logger,
-			Dir:        dir,
-			CustomerID: req.CustomerID,
-			UUID:       s.config.UUID,
-			JobID:      req.JobID,
-			Channel:    s.config.Channel,
-			APIKey:     s.config.APIKey,
-			Secret:     s.config.Secret,
-			RefType:    s.config.Integration.Descriptor.RefType,
-		})
 		c, err := eventapi.New(eventapi.Config{
 			Ctx:           s.config.Ctx,
 			Logger:        logger,
@@ -155,12 +179,6 @@ func (s *Server) handleExport(logger log.Logger, req agent.ExportRequest) error 
 	log.Info(logger, "running export")
 	if err := s.config.Integration.Integration.Export(e); err != nil {
 		return err
-	}
-	if err := p.Flush(); err != nil {
-		log.Error(logger, "error flushing pipe", "err", err)
-	}
-	if err := p.Close(); err != nil {
-		log.Error(logger, "error closing the pipe", "err", err)
 	}
 	if err := state.Flush(); err != nil {
 		log.Error(logger, "error flushing state", "err", err)
