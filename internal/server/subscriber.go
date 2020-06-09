@@ -117,9 +117,7 @@ func NewDBChangeSubscriber(config Config, callback SubscriberCallback) (*Subscri
 
 // NewEventSubscriber will return an event subscriber
 func NewEventSubscriber(config Config, topics []string, callback SubscriberCallback) (*Subscriber, error) {
-	headers := map[string]string{
-		"integration": config.Integration.Descriptor.RefType,
-	}
+	headers := map[string]string{}
 	httpheaders := map[string]string{}
 	if config.Secret != "" {
 		httpheaders["x-api-key"] = config.Secret
@@ -137,6 +135,9 @@ func NewEventSubscriber(config Config, topics []string, callback SubscriberCallb
 		Channel:           config.Channel,
 		DisablePing:       true,
 		Headers:           headers,
+		Filter: &event.SubscriptionFilter{
+			ObjectExpr: fmt.Sprintf(`ref_type:"%s"`, config.Integration.Descriptor.RefType),
+		},
 	})
 	if err != nil {
 		return nil, err
