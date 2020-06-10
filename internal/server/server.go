@@ -304,7 +304,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent) error {
 			sdk.ConvertTimeToDateModel(time.Now(), &dt)
 			vars[agent.IntegrationInstanceModelLastExportCompletedDateColumn] = dt
 			vars[agent.IntegrationInstanceModelUpdatedAtColumn] = dt.Epoch
-			if _, err := agent.ExecIntegrationUpdateMutation(cl, req.Integration.ID, vars, false); err != nil {
+			if _, err := agent.ExecIntegrationInstanceUpdateMutation(cl, req.Integration.ID, vars, false); err != nil {
 				log.Error(s.logger, "error updating agent integration", "err", err, "id", req.Integration.ID)
 			}
 		}
