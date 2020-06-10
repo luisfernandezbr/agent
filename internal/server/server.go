@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -15,7 +14,10 @@ import (
 	pipe "github.com/pinpt/agent.next/internal/pipe/eventapi"
 	redisState "github.com/pinpt/agent.next/internal/state/redis"
 	"github.com/pinpt/agent.next/sdk"
+	"github.com/pinpt/go-common/v10/api"
 	"github.com/pinpt/go-common/v10/event"
+	"github.com/pinpt/go-common/v10/graphql"
+	"github.com/pinpt/go-common/v10/hash"
 	"github.com/pinpt/go-common/v10/log"
 	"github.com/pinpt/integration-sdk/agent"
 )
@@ -110,6 +112,7 @@ func (s *Server) newTempDir(jobID string) string {
 	os.MkdirAll(dir, 0700)
 	return dir
 }
+
 func (s *Server) newConfig(configstr *string, kv map[string]interface{}) sdk.Config {
 	var sdkconfig sdk.Config
 	if s.config.DevMode {
@@ -123,48 +126,56 @@ func (s *Server) newConfig(configstr *string, kv map[string]interface{}) sdk.Con
 	return sdkconfig
 }
 
-func (s *Server) handleAddIntegration(logger log.Logger, req agent.IntegrationRequest) error {
-	if s.config.Integration.Descriptor.RefType == req.Integration.RefType {
-		state, err := s.newState(req.CustomerID, req.Integration.ID)
-		if err != nil {
-			return err
-		}
-		dir := s.newTempDir("")
-		pipe := s.newPipe(logger, dir, req.CustomerID, "", req.Integration.ID)
-		defer func() {
-			pipe.Close()
-			os.RemoveAll(dir)
-		}()
-		config := s.newConfig(req.Integration.Config, req.Integration.Authorization.ToMap())
-		instance := sdk.NewInstance(config, state, pipe, req.CustomerID, req.Integration.ID)
-		log.Info(logger, "running add integration")
-		if err := s.config.Integration.Integration.Enroll(*instance); err != nil {
-			return err
-		}
+type cleanupFunc func()
+
+func (s *Server) toInstance(integration *agent.Integration) (*sdk.Instance, cleanupFunc, error) {
+	state, err := s.newState(integration.CustomerID, integration.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+	dir := s.newTempDir("")
+	pipe := s.newPipe(s.logger, dir, integration.CustomerID, "", integration.ID)
+	cleanup := func() {
+		pipe.Close()
+		os.RemoveAll(dir)
+	}
+	config := s.newConfig(integration.Config, make(map[string]interface{}))
+	instance := sdk.NewInstance(config, state, pipe, integration.CustomerID, integration.ID)
+	return instance, cleanup, nil
+}
+
+func (s *Server) handleAddIntegration(integration *agent.Integration) error {
+	log.Info(s.logger, "running enroll integration", "id", integration.ID, "customer_id", integration.CustomerID)
+	instance, cleanup, err := s.toInstance(integration)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+	if err := s.config.Integration.Integration.Enroll(*instance); err != nil {
+		return err
 	}
 	return nil
 }
 
-func (s *Server) handleExport(logger log.Logger, req agent.ExportRequest) error {
+func (s *Server) handleRemoveIntegration(integration *agent.Integration) error {
+	instance, cleanup, err := s.toInstance(integration)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+	log.Info(s.logger, "running dismiss integration", "id", integration.ID, "customer_id", integration.CustomerID)
+	if err := s.config.Integration.Integration.Dismiss(*instance); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Server) handleExport(logger log.Logger, req agent.Export) error {
 	dir := s.newTempDir(req.JobID)
 	defer os.RemoveAll(dir)
 	started := time.Now()
-	var found bool
-	var integration agent.ExportRequestIntegrations
-	var integrationAuth agent.ExportRequestIntegrationsAuthorization
-	// run our integrations in parallel
-	for _, i := range req.Integrations {
-		if i.Name == s.config.Integration.Descriptor.RefType {
-			found = true
-			integration = i
-			integrationAuth = i.Authorization
-			break
-		}
-	}
-	if !found {
-		return fmt.Errorf("incorrect agent.ExportRequest event, didn't match our integration")
-	}
-	sdkconfig := s.newConfig(integration.Config, integrationAuth.ToMap())
+	integration := req.Integration
+	sdkconfig := s.newConfig(integration.Config, make(map[string]interface{}))
 	state, err := s.newState(req.CustomerID, integration.ID)
 	if err != nil {
 		return err
@@ -206,13 +217,51 @@ func (s *Server) handleExport(logger log.Logger, req agent.ExportRequest) error 
 	return nil
 }
 
+func (s *Server) calculateIntegrationHashCode(integration *agent.Integration) string {
+	// since we get db change events each time we update the agent.integration table, we don't
+	// want to thrash the integration with enrolls so we are going to check specific fields for changes
+	// if any of these change, we don't need to send a enroll since the config is the same as before
+	return hash.Values(
+		integration.Config,
+		integration.Active,
+		integration.Interval,
+	)
+}
+
 func (s *Server) onDBChange(evt event.SubscriptionEvent) error {
 	ch, err := createDBChangeEvent(evt.Data)
 	if err != nil {
 		return err
 	}
-	// FIXME: handle db change
 	log.Debug(s.logger, "received db change", ch)
+	switch ch.Model {
+	case agent.IntegrationModelName.String():
+		// don't worry in dev mode
+		if !s.config.DevMode {
+			// integration has changed so we need to either enroll or dismiss
+			if integration, ok := ch.Object.(*agent.Integration); ok {
+				cachekey := "agent:" + integration.CustomerID + ":" + integration.ID + ":hashcode"
+				res, _ := s.config.RedisClient.Get(s.config.Ctx, cachekey).Result()
+				hashcode := s.calculateIntegrationHashCode(integration)
+				// check to see if this is a delete OR we've deactivated the integration
+				if ch.Action == Delete || !integration.Active {
+					// delete the integration cache key and then signal a removal
+					s.config.RedisClient.Del(s.config.Ctx, cachekey)
+					if err := s.handleRemoveIntegration(integration); err != nil {
+						log.Error(s.logger, "error removing integration", "err", err, "id", integration.ID)
+					}
+				} else {
+					if res != hashcode {
+						// update our hash key and then signal an addition
+						s.config.RedisClient.Set(s.config.Ctx, cachekey, hashcode, 0)
+						if err := s.handleAddIntegration(integration); err != nil {
+							log.Error(s.logger, "error adding integration", "err", err, "id", integration.ID)
+						}
+					}
+				}
+			}
+		}
+	}
 	evt.Commit()
 	return nil
 }
@@ -220,18 +269,45 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent) error {
 func (s *Server) onEvent(evt event.SubscriptionEvent) error {
 	log.Debug(s.logger, "received event", "evt", evt)
 	switch evt.Model {
-	case agent.ExportRequestModelName.String():
-		var req agent.ExportRequest
+	case agent.ExportModelName.String():
+		var req agent.Export
 		if err := json.Unmarshal([]byte(evt.Data), &req); err != nil {
-			log.Fatal(s.logger, "error parsing export request event", "err", err)
+			log.Fatal(s.logger, "error parsing export event", "err", err)
 		}
-		// var errmessage *string
+		var errmessage *string
 		err := s.handleExport(s.logger, req)
 		if err != nil {
 			log.Error(s.logger, "error running export request", "err", err)
-			// errmessage = sdk.StringPointer(err.Error())
+			errmessage = sdk.StringPointer(err.Error())
 		}
-		// FIXME: update the db
+		// don't worry in dev mode
+		if !s.config.DevMode {
+			// update the db with our new integration state
+			cl, err := graphql.NewClient(
+				req.CustomerID,
+				"",
+				s.config.Secret,
+				api.BackendURL(api.GraphService, s.config.Channel),
+			)
+			if err != nil {
+				log.Error(s.logger, "error creating graphql client", "err',err")
+			}
+			if s.config.APIKey != "" {
+				cl.SetHeader("Authorization", s.config.APIKey)
+			}
+			vars := make(graphql.Variables)
+			vars[agent.IntegrationModelStateColumn] = agent.IntegrationStateIdle
+			if errmessage != nil {
+				vars[agent.IntegrationModelErrorMessageColumn] = *errmessage
+			}
+			var dt agent.IntegrationLastExportCompletedDate
+			sdk.ConvertTimeToDateModel(time.Now(), &dt)
+			vars[agent.IntegrationModelLastExportCompletedDateColumn] = dt
+			vars[agent.IntegrationModelUpdatedAtColumn] = dt.Epoch
+			if _, err := agent.ExecIntegrationUpdateMutation(cl, req.Integration.ID, vars, false); err != nil {
+				log.Error(s.logger, "error updating agent integration", "err", err, "id", req.Integration.ID)
+			}
+		}
 	}
 	evt.Commit()
 	return nil
@@ -244,14 +320,11 @@ func New(config Config) (*Server, error) {
 		logger: log.With(config.Logger, "pkg", "server"),
 	}
 	if config.DevMode {
-		if err := server.handleExport(config.Logger, agent.ExportRequest{
+		if err := server.handleExport(config.Logger, agent.Export{
 			JobID:      config.DevExport.JobID(),
 			CustomerID: config.DevExport.CustomerID(),
-			Integrations: []agent.ExportRequestIntegrations{
-				agent.ExportRequestIntegrations{
-					ID:   "1",
-					Name: config.Integration.Descriptor.RefType,
-				},
+			Integration: agent.ExportIntegration{
+				ID: "1",
 			},
 		}); err != nil {
 			return nil, err
@@ -263,7 +336,7 @@ func New(config Config) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	server.event, err = NewEventSubscriber(config, []string{agent.ExportRequestModelName.String()}, server.onEvent)
+	server.event, err = NewEventSubscriber(config, []string{agent.ExportModelName.String()}, server.onEvent)
 	if err != nil {
 		return nil, err
 	}

@@ -6,7 +6,10 @@ import (
 	"time"
 
 	"github.com/pinpt/agent.next/sdk"
+	"github.com/pinpt/go-common/v10/api"
+	"github.com/pinpt/go-common/v10/datetime"
 	"github.com/pinpt/go-common/v10/event"
+	"github.com/pinpt/go-common/v10/graphql"
 	"github.com/pinpt/go-common/v10/log"
 	"github.com/pinpt/integration-sdk/agent"
 )
@@ -63,22 +66,24 @@ func (e *export) Pipe() sdk.Pipe {
 	return e.pipe
 }
 
-func (e *export) createPublishOpts() ([]event.Option, map[string]string) {
-	opts := []event.Option{
-		event.WithLogger(e.logger),
+func (e *export) updateIntegration(vars graphql.Variables) error {
+	// update the db with our new integration state
+	cl, err := graphql.NewClient(
+		e.customerID,
+		"",
+		e.secret,
+		api.BackendURL(api.GraphService, e.channel),
+	)
+	if err != nil {
+		return err
 	}
-	if e.secret != "" {
-		opts = append(opts, event.WithHeaders(map[string]string{"x-api-key": e.secret}))
+	if e.apikey != "" {
+		cl.SetHeader("Authorization", e.apikey)
 	}
-	headers := map[string]string{
-		"customer_id":    e.customerID,
-		"integration_id": e.integrationID,
-		"job_id":         e.jobID,
+	if _, err := agent.ExecIntegrationUpdateMutation(cl, e.integrationID, vars, false); err != nil {
+		return err
 	}
-	if e.uuid != "" {
-		headers["uuid"] = e.uuid
-	}
-	return opts, headers
+	return nil
 }
 
 // Paused must be called when the integration is paused for any reason such as rate limiting
@@ -92,31 +97,13 @@ func (e *export) Paused(resetAt time.Time) error {
 	e.mu.Unlock()
 	e.pipe.Flush() // flush the pipe once we're paused to go ahead and send any pending data
 	log.Info(e.logger, "paused", "reset", resetAt, "duration", time.Until(resetAt))
-	dt, _ := sdk.NewDateWithTime(time.Now())
-	rt, _ := sdk.NewDateWithTime(resetAt)
-	evt := &agent.Pause{
-		CustomerID:  e.customerID,
-		JobID:       e.jobID,
-		UUID:        e.uuid,
-		Integration: e.integrationID,
-		EventDate: agent.PauseEventDate{
-			Epoch:   dt.Epoch,
-			Offset:  dt.Offset,
-			Rfc3339: dt.Rfc3339,
-		},
-		ResumeDate: agent.PauseResumeDate{
-			Epoch:   rt.Epoch,
-			Offset:  rt.Offset,
-			Rfc3339: rt.Rfc3339,
-		},
-		Type: agent.PauseTypePause,
-	}
-	opts, headers := e.createPublishOpts()
-	return e.subscriptionChannel.Publish(event.PublishEvent{
-		Object:  evt,
-		Headers: headers,
-		Logger:  e.logger,
-	}, opts...)
+	var dt agent.IntegrationThrottledUntil
+	sdk.ConvertTimeToDateModel(resetAt, &dt)
+	return e.updateIntegration(graphql.Variables{
+		agent.IntegrationModelThrottledColumn:      true,
+		agent.IntegrationModelThrottledUntilColumn: dt,
+		agent.IntegrationModelUpdatedAtColumn:      datetime.EpochNow(),
+	})
 }
 
 // Resumed must be called when a paused integration is resumed
@@ -129,25 +116,11 @@ func (e *export) Resumed() error {
 	e.paused = false
 	e.mu.Unlock()
 	log.Info(e.logger, "pause resumed")
-	dt, _ := sdk.NewDateWithTime(time.Now())
-	evt := &agent.Resume{
-		CustomerID:  e.customerID,
-		JobID:       e.jobID,
-		UUID:        e.uuid,
-		Integration: e.integrationID,
-		EventDate: agent.ResumeEventDate{
-			Epoch:   dt.Epoch,
-			Offset:  dt.Offset,
-			Rfc3339: dt.Rfc3339,
-		},
-		Type: agent.ResumeTypeResume,
-	}
-	opts, headers := e.createPublishOpts()
-	return e.subscriptionChannel.Publish(event.PublishEvent{
-		Object:  evt,
-		Headers: headers,
-		Logger:  e.logger,
-	}, opts...)
+	return e.updateIntegration(graphql.Variables{
+		agent.IntegrationModelThrottledColumn:      false,
+		agent.IntegrationModelThrottledUntilColumn: map[string]interface{}{},
+		agent.IntegrationModelUpdatedAtColumn:      datetime.EpochNow(),
+	})
 }
 
 // Historical if true, the integration should perform a full historical export
