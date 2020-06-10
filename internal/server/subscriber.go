@@ -33,7 +33,7 @@ type DbChangeEvent struct {
 
 // these are the models we're going to listen for db change events on
 var models = []string{
-	agent.IntegrationModelName.String(),
+	agent.IntegrationInstanceModelName.String(),
 }
 
 // createDBChangeSubscriptionFilter will create the subscription filter for a specific refType

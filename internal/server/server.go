@@ -128,7 +128,7 @@ func (s *Server) newConfig(configstr *string, kv map[string]interface{}) sdk.Con
 
 type cleanupFunc func()
 
-func (s *Server) toInstance(integration *agent.Integration) (*sdk.Instance, cleanupFunc, error) {
+func (s *Server) toInstance(integration *agent.IntegrationInstance) (*sdk.Instance, cleanupFunc, error) {
 	state, err := s.newState(integration.CustomerID, integration.ID)
 	if err != nil {
 		return nil, nil, err
@@ -144,7 +144,7 @@ func (s *Server) toInstance(integration *agent.Integration) (*sdk.Instance, clea
 	return instance, cleanup, nil
 }
 
-func (s *Server) handleAddIntegration(integration *agent.Integration) error {
+func (s *Server) handleAddIntegration(integration *agent.IntegrationInstance) error {
 	log.Info(s.logger, "running enroll integration", "id", integration.ID, "customer_id", integration.CustomerID)
 	instance, cleanup, err := s.toInstance(integration)
 	if err != nil {
@@ -157,7 +157,7 @@ func (s *Server) handleAddIntegration(integration *agent.Integration) error {
 	return nil
 }
 
-func (s *Server) handleRemoveIntegration(integration *agent.Integration) error {
+func (s *Server) handleRemoveIntegration(integration *agent.IntegrationInstance) error {
 	instance, cleanup, err := s.toInstance(integration)
 	if err != nil {
 		return err
@@ -217,7 +217,7 @@ func (s *Server) handleExport(logger log.Logger, req agent.Export) error {
 	return nil
 }
 
-func (s *Server) calculateIntegrationHashCode(integration *agent.Integration) string {
+func (s *Server) calculateIntegrationHashCode(integration *agent.IntegrationInstance) string {
 	// since we get db change events each time we update the agent.integration table, we don't
 	// want to thrash the integration with enrolls so we are going to check specific fields for changes
 	// if any of these change, we don't need to send a enroll since the config is the same as before
@@ -239,7 +239,7 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent) error {
 		// don't worry in dev mode
 		if !s.config.DevMode {
 			// integration has changed so we need to either enroll or dismiss
-			if integration, ok := ch.Object.(*agent.Integration); ok {
+			if integration, ok := ch.Object.(*agent.IntegrationInstance); ok {
 				cachekey := "agent:" + integration.CustomerID + ":" + integration.ID + ":hashcode"
 				res, _ := s.config.RedisClient.Get(s.config.Ctx, cachekey).Result()
 				hashcode := s.calculateIntegrationHashCode(integration)
@@ -296,14 +296,14 @@ func (s *Server) onEvent(evt event.SubscriptionEvent) error {
 				cl.SetHeader("Authorization", s.config.APIKey)
 			}
 			vars := make(graphql.Variables)
-			vars[agent.IntegrationModelStateColumn] = agent.IntegrationStateIdle
+			vars[agent.IntegrationInstanceModelStateColumn] = agent.IntegrationStateIdle
 			if errmessage != nil {
-				vars[agent.IntegrationModelErrorMessageColumn] = *errmessage
+				vars[agent.IntegrationInstanceModelErrorMessageColumn] = *errmessage
 			}
-			var dt agent.IntegrationLastExportCompletedDate
+			var dt agent.IntegrationInstanceLastExportCompletedDate
 			sdk.ConvertTimeToDateModel(time.Now(), &dt)
-			vars[agent.IntegrationModelLastExportCompletedDateColumn] = dt
-			vars[agent.IntegrationModelUpdatedAtColumn] = dt.Epoch
+			vars[agent.IntegrationInstanceModelLastExportCompletedDateColumn] = dt
+			vars[agent.IntegrationInstanceModelUpdatedAtColumn] = dt.Epoch
 			if _, err := agent.ExecIntegrationUpdateMutation(cl, req.Integration.ID, vars, false); err != nil {
 				log.Error(s.logger, "error updating agent integration", "err", err, "id", req.Integration.ID)
 			}

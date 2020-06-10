@@ -97,12 +97,12 @@ func (e *export) Paused(resetAt time.Time) error {
 	e.mu.Unlock()
 	e.pipe.Flush() // flush the pipe once we're paused to go ahead and send any pending data
 	log.Info(e.logger, "paused", "reset", resetAt, "duration", time.Until(resetAt))
-	var dt agent.IntegrationThrottledUntil
+	var dt agent.IntegrationInstanceThrottledUntil
 	sdk.ConvertTimeToDateModel(resetAt, &dt)
 	return e.updateIntegration(graphql.Variables{
-		agent.IntegrationModelThrottledColumn:      true,
-		agent.IntegrationModelThrottledUntilColumn: dt,
-		agent.IntegrationModelUpdatedAtColumn:      datetime.EpochNow(),
+		agent.IntegrationInstanceModelThrottledColumn:      true,
+		agent.IntegrationInstanceModelThrottledUntilColumn: dt,
+		agent.IntegrationInstanceModelUpdatedAtColumn:      datetime.EpochNow(),
 	})
 }
 
