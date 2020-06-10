@@ -53,6 +53,7 @@ type eventAPIPipe struct {
 	secret        string
 	integrationID string
 	wg            sync.WaitGroup
+	started       time.Time
 }
 
 var _ sdk.Pipe = (*eventAPIPipe)(nil)
@@ -114,7 +115,7 @@ func (p *eventAPIPipe) Close() error {
 	p.cancel()
 	p.wg.Wait() // wait for our flush to finish
 	p.files = nil
-	log.Debug(p.logger, "pipe closed")
+	log.Debug(p.logger, "pipe closed", "duration", time.Since(p.started))
 	return nil
 }
 
@@ -251,6 +252,7 @@ func New(config Config) sdk.Pipe {
 		integrationID: config.IntegrationID,
 		ctx:           ctx,
 		cancel:        cancel,
+		started:       time.Now(),
 	}
 	go p.run()
 	return p
