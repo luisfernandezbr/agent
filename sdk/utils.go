@@ -75,6 +75,11 @@ func EpochNow() int64 {
 	return datetime.EpochNow()
 }
 
+// DateFromEpoch returns a time.Time from an epoch value in milliseconds
+func DateFromEpoch(t int64) time.Time {
+	return datetime.DateFromEpoch(t)
+}
+
 // ConvertTimeToDateModel will fill the dataModel struct with the current time
 func ConvertTimeToDateModel(ts time.Time, dateModel interface{}) {
 	if ts.IsZero() {
