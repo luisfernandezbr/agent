@@ -274,16 +274,11 @@ func (s *Server) onEvent(evt event.SubscriptionEvent) error {
 		if err := json.Unmarshal([]byte(evt.Data), &req); err != nil {
 			log.Fatal(s.logger, "error parsing export event", "err", err)
 		}
-		var errmessage *string
-		err := s.handleExport(s.logger, req)
-		if err != nil {
-			log.Error(s.logger, "error running export request", "err", err)
-			errmessage = sdk.StringPointer(err.Error())
-		}
+		var cl graphql.Client
 		// don't worry in dev mode
 		if !s.config.DevMode {
-			// update the db with our new integration state
-			cl, err := graphql.NewClient(
+			var err error
+			cl, err = graphql.NewClient(
 				req.CustomerID,
 				"",
 				s.config.Secret,
@@ -295,6 +290,24 @@ func (s *Server) onEvent(evt event.SubscriptionEvent) error {
 			if s.config.APIKey != "" {
 				cl.SetHeader("Authorization", s.config.APIKey)
 			}
+			// update the integration state to acknowledge that we are exporting
+			vars := make(graphql.Variables)
+			vars[agent.IntegrationInstanceModelExportAcknowledgedColumn] = true
+			// TODO(robin): add last export acknowledged date
+			if _, err := agent.ExecIntegrationInstanceUpdateMutation(cl, req.Integration.ID, vars, false); err != nil {
+				log.Error(s.logger, "error updating agent integration", "err", err, "id", req.Integration.ID)
+			}
+			log.Debug(s.logger, "acknowledged export", "integration", req.Integration.ID)
+		}
+		var errmessage *string
+		err := s.handleExport(s.logger, req)
+		if err != nil {
+			log.Error(s.logger, "error running export request", "err", err)
+			errmessage = sdk.StringPointer(err.Error())
+		}
+		// don't worry in dev mode
+		if !s.config.DevMode {
+			// update the db with our new integration state
 			vars := make(graphql.Variables)
 			vars[agent.IntegrationInstanceModelStateColumn] = agent.IntegrationStateIdle
 			if errmessage != nil {
@@ -303,7 +316,6 @@ func (s *Server) onEvent(evt event.SubscriptionEvent) error {
 			var dt agent.IntegrationInstanceLastExportCompletedDate
 			sdk.ConvertTimeToDateModel(time.Now(), &dt)
 			vars[agent.IntegrationInstanceModelLastExportCompletedDateColumn] = dt
-			vars[agent.IntegrationInstanceModelUpdatedAtColumn] = dt.Epoch
 			if _, err := agent.ExecIntegrationInstanceUpdateMutation(cl, req.Integration.ID, vars, false); err != nil {
 				log.Error(s.logger, "error updating agent integration", "err", err, "id", req.Integration.ID)
 			}
