@@ -297,7 +297,6 @@ func (s *Server) onEvent(evt event.SubscriptionEvent) error {
 			if _, err := agent.ExecIntegrationInstanceUpdateMutation(cl, req.Integration.ID, vars, false); err != nil {
 				log.Error(s.logger, "error updating agent integration", "err", err, "id", req.Integration.ID)
 			}
-			log.Debug(s.logger, "acknowledged export", "integration", req.Integration.ID)
 		}
 		var errmessage *string
 		err := s.handleExport(s.logger, req)
