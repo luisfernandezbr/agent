@@ -128,7 +128,7 @@ func NewEventSubscriber(config Config, topics []string, callback SubscriberCallb
 	ch, err := event.NewSubscription(config.Ctx, event.Subscription{
 		Logger:            config.Logger,
 		Topics:            topics,
-		GroupID:           config.GroupID,
+		GroupID:           config.GroupID + "-" + config.Integration.Descriptor.RefType,
 		HTTPHeaders:       httpheaders,
 		APIKey:            config.APIKey,
 		DisableAutoCommit: true,
