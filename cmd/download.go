@@ -142,7 +142,7 @@ var downloadCmd = &cobra.Command{
 				if !fileutil.FileExists(f) {
 					log.Fatal(logger, "cannot find file in the bundle checksum but not in the bundle", "file", f)
 				}
-				cs, err := checksum(f)
+				cs, err := fileutil.Checksum(f)
 				if err != nil {
 					log.Fatal(logger, "error performing checksum on file", "file", f, "err", err)
 				}

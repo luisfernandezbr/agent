@@ -1,120 +1,16 @@
 package cmd
 
 import (
-	"archive/zip"
-	"crypto/sha512"
-	"encoding/hex"
-	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strings"
 
 	"github.com/pinpt/go-common/v10/fileutil"
 	"github.com/pinpt/go-common/v10/log"
 	"github.com/spf13/cobra"
 )
-
-func zipDir(filename string, dir string, pattern *regexp.Regexp) (int, error) {
-	filenames, err := fileutil.FindFiles(dir, pattern)
-	if err != nil {
-		return 0, err
-	}
-	newZipFile, err := os.Create(filename)
-	if err != nil {
-		return 0, err
-	}
-	defer newZipFile.Close()
-
-	zipWriter := zip.NewWriter(newZipFile)
-	defer zipWriter.Close()
-
-	for _, file := range filenames {
-		stat, _ := os.Stat(file)
-		if !stat.IsDir() {
-			if err = addFileToZip(zipWriter, dir, file); err != nil {
-				return 0, err
-			}
-		}
-	}
-	return len(filenames), nil
-}
-
-func addFileToZip(zipWriter *zip.Writer, dir string, filename string) error {
-
-	fileToZip, err := os.Open(filename)
-	if err != nil {
-		return err
-	}
-	defer fileToZip.Close()
-
-	// Get the file information
-	info, err := fileToZip.Stat()
-	if err != nil {
-		return err
-	}
-
-	header, err := zip.FileInfoHeader(info)
-	if err != nil {
-		return err
-	}
-
-	// Using FileInfoHeader() above only uses the basename of the file. If we want
-	// to preserve the folder structure we can overwrite this with the full path.
-	header.Name, _ = filepath.Rel(dir, filename)
-
-	// Change to deflate to gain better compression
-	// see http://golang.org/pkg/archive/zip/#pkg-constants
-	header.Method = zip.Deflate
-
-	writer, err := zipWriter.CreateHeader(header)
-	if err != nil {
-		return err
-	}
-	_, err = io.Copy(writer, fileToZip)
-	return err
-}
-
-func checksum(fn string) (string, error) {
-	hasher := sha512.New()
-	of, err := os.Open(fn)
-	if err != nil {
-		return "", err
-	}
-	for {
-		buf := make([]byte, 8096)
-		n, err := of.Read(buf)
-		if err == io.EOF || n == 0 {
-			break
-		}
-		hasher.Write(buf[0:n])
-	}
-	of.Close()
-	sha := hex.EncodeToString(hasher.Sum(nil))
-	return sha, nil
-}
-
-func shaFiles(dir string, outfile string, re *regexp.Regexp) error {
-	filenames, err := fileutil.FindFiles(dir, re)
-	if err != nil {
-		return err
-	}
-	var shas strings.Builder
-	for _, fn := range filenames {
-		stat, _ := os.Stat(fn)
-		if !stat.IsDir() {
-			sha, err := checksum(fn)
-			if err != nil {
-				return err
-			}
-			relfn, _ := filepath.Rel(dir, fn)
-			shas.WriteString(sha + "  " + relfn + "\n")
-		}
-	}
-	return ioutil.WriteFile(outfile, []byte(shas.String()), 0644)
-}
 
 // packageCmd represents the package command
 var packageCmd = &cobra.Command{
@@ -168,14 +64,14 @@ var packageCmd = &cobra.Command{
 
 		// write out the sha sum512 for each file in the zip for integrity checking
 		shafilename := filepath.Join(bundleDir, "sha512sum.txt.asc")
-		if err := shaFiles(dataDir, shafilename, regexp.MustCompile(".*")); err != nil {
+		if err := fileutil.ShaFiles(dataDir, shafilename, regexp.MustCompile(".*")); err != nil {
 			log.Fatal(logger, "error generating sha sums", "err", err)
 		}
 
-		if _, err := zipDir(dataFn, dataDir, regexp.MustCompile(".*")); err != nil {
+		if _, err := fileutil.ZipDir(dataFn, dataDir, regexp.MustCompile(".*")); err != nil {
 			log.Fatal(logger, "error building zip file", "err", err)
 		}
-		if _, err := zipDir(bundleFn, bundleDir, regexp.MustCompile(".(zip|asc|txt)$")); err != nil {
+		if _, err := fileutil.ZipDir(bundleFn, bundleDir, regexp.MustCompile(".(zip|asc|txt)$")); err != nil {
 			log.Fatal(logger, "error building zip file", "err", err)
 		}
 		os.RemoveAll(bundleDir)
