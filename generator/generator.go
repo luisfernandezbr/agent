@@ -40,9 +40,10 @@ type Info struct {
 	PublisherAvatar  string   `json:"publisher_avatar" survey:"publisher_avatar"`
 	Identifier       string   `json:"identifier" survey:"identifier"`
 	IntegrationTypes []string `json:"integration_types" survey:"integration_types"`
+	Pkg              string   `json:"pkg" survey:"pkg"`
 
 	Capabilities  []datamodel.ModelNameType
-	PKG           string
+	Dir           string
 	TitleCaseName string
 	LowerCaseName string
 	Date          string
@@ -92,28 +93,28 @@ func Generate(path string, info Info) error {
 	info.LowerCaseName = strings.ToLower(info.Name)
 	info.Date = time.Now().String()
 
-	if err := generate(path, "integration.go", info); err != nil {
-		return handleError(err)
+	for _, name := range AssetNames() {
+		// trim off template/
+		thename := strings.Replace(name[9:], ".tmpl", "", -1)
+		if err := generate(path, thename, info); err != nil {
+			return handleError(err)
+		}
 	}
-	if err := generate(path, "go.mod", info); err != nil {
-		return handleError(err)
-	}
-	if err := generate(path, "README.md", info); err != nil {
-		return handleError(err)
-	}
-	if err := generate(path, "integration.yaml", info); err != nil {
-		return handleError(err)
-	}
-	if err := generate(path, "internal/root.go", info); err != nil {
-		return handleError(err)
-	}
+
 	return nil
 }
 
 func generate(path string, tmplfile string, info Info) error {
 	b, err := Asset("template/" + tmplfile + ".tmpl")
 	if err != nil {
-		return err
+		if !strings.Contains(err.Error(), "not found") {
+			return err
+		}
+		// not all files are tmpl so check and see if an as-is file
+		b, err = Asset("template/" + tmplfile)
+		if err != nil {
+			return err
+		}
 	}
 	tmpl, err := template.New(tmplfile).Parse(string(b))
 	if err != nil {
@@ -122,7 +123,9 @@ func generate(path string, tmplfile string, info Info) error {
 	if tmplfile == "internal/root.go" {
 		tmplfile = "internal/" + info.LowerCaseName + ".go"
 	}
-	file, err := os.Create(filepath.Join(path, tmplfile))
+	fn := filepath.Join(path, tmplfile)
+	os.MkdirAll(filepath.Dir(fn), 0700)
+	file, err := os.Create(fn)
 	if err != nil {
 		return err
 	}

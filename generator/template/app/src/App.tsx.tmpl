@@ -1,0 +1,35 @@
+import React from 'react';
+import { SimulatorInstaller, Integration } from '@pinpt/agent.websdk';
+import IntegrationUI from './integration';
+
+function App() {
+	// check to see if we are running local and need to run in simulation mode
+	if (window === window.parent && window.location.href.indexOf('localhost') > 0) {
+		const integration: Integration = {
+			name: '{{ .PublisherName }}',
+			description: 'This is the {{ .TitleCaseName }} integration for Pinpoint',
+			tags: [
+				{{- range $val := .IntegrationTypes }}
+					'{{ $val }}',
+			  	{{- end}}
+			],
+			installed: false,
+			refType: '{{.LowerCaseName}}',
+			icon: '',
+			publisher: {
+				name: '{{.PublisherName}}',
+				avatar: '{{.PublisherAvatar}}',
+				url: '{{.PublisherURL}}'
+			},
+			uiURL: 'http://localhost:3000'
+		};
+		return <SimulatorInstaller integration={integration} />;
+	}
+	return (
+		<div className="App">
+			<IntegrationUI />
+		</div>
+	);
+}
+
+export default App;

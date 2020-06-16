@@ -5,20 +5,23 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
 	"github.com/pinpt/agent.next/generator"
+	"github.com/pinpt/go-common/v10/fileutil"
 	"github.com/pinpt/go-common/v10/log"
 	"github.com/spf13/cobra"
 )
 
 // genCmd represents the dev command
 var genCmd = &cobra.Command{
-	Use:   "generate <project_name>",
+	Use:   "generate",
 	Short: "generates an integration",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 
 		fmt.Print(color.New(color.FgHiBlue).Sprint(`
@@ -37,36 +40,53 @@ var genCmd = &cobra.Command{
 		var err error
 		var result generator.Info
 
-		if result.PKG, err = checkProjectPath(args[0]); err != nil {
-			log.Error(logger, "error with project path", "err", err)
-			os.Exit(1)
-		}
 		if err = promptSettings(&result); err != nil {
 			log.Error(logger, "error with settings", "err", err)
 			os.Exit(1)
 		}
 
-		if err = generator.Generate(args[0], result); err != nil {
-			log.Error(logger, "error with generator", "err", err)
-			os.Exit(1)
+		gopath := os.Getenv("GOPATH")
+		if gopath == "" {
+			var buf strings.Builder
+			c := exec.Command("go", "env", "GOPATH")
+			c.Stdout = &buf
+			if err := c.Run(); err != nil {
+				log.Fatal(logger, "error finding your GOPATH. is Golang installed and on your PATH?", "err", err)
+			}
+			gopath = strings.TrimSpace(buf.String())
 		}
+
+		result.Dir = filepath.Join(gopath, "src", result.Pkg)
+		if !fileutil.FileExists(result.Dir) {
+			os.MkdirAll(result.Dir, 0700)
+		}
+
+		if err = generator.Generate(result.Dir, result); err != nil {
+			log.Fatal(logger, "error with generator", "err", err)
+		}
+
+		appDir := filepath.Join(result.Dir, "app")
+
+		// install the latest websdk
+		sdkInstall := exec.Command("npm", "install", "@pinpt/agent.websdk", "--save")
+		sdkInstall.Dir = appDir
+		sdkInstall.Stderr = os.Stderr
+		sdkInstall.Stdin = os.Stdin
+		sdkInstall.Stdin = os.Stdin
+		sdkInstall.Run()
+
+		// run the npm install
+		npmInstall := exec.Command("npm", "install")
+		npmInstall.Dir = appDir
+		npmInstall.Stderr = os.Stderr
+		npmInstall.Stdin = os.Stdin
+		npmInstall.Stdin = os.Stdin
+		npmInstall.Run()
+
 		fmt.Println()
-		fmt.Println("🎉 project created! open ./" + args[0] + " in VSCode and start coding!")
+		fmt.Println("🎉 project created! open " + result.Dir + " in your editor and start coding!")
 		fmt.Println()
 	},
-}
-
-func checkProjectPath(projname string) (string, error) {
-	gopath := os.Getenv("GOPATH") + "/src/"
-	pwd, _ := os.Getwd()
-	if !strings.HasPrefix(pwd, gopath) {
-		return "", errors.New("the project must be in the GOPATH")
-	}
-	pkg := strings.TrimPrefix(pwd, gopath) + "/" + projname
-	if len(strings.Split(pkg, "/")) != 3 {
-		return "", errors.New("cd to your org folder path, ie: gopath/src/github.com/{{orgname}}")
-	}
-	return pkg, nil
 }
 
 func promptSettings(result *generator.Info) error {
@@ -87,11 +107,19 @@ func promptSettings(result *generator.Info) error {
 		}
 		return nil
 	}
-	err := survey.Ask([]*survey.Question{
+	return survey.Ask([]*survey.Question{
+		{
+			Name: "pkg",
+			Prompt: &survey.Input{
+				Message: "Go Package Name:",
+				Help:    "Your Go package such as github.com/pinpt/myintegration",
+			},
+			Validate: survey.Required,
+		},
 		{
 			Name: "integration_name",
 			Prompt: &survey.Input{
-				Message: "Name of the integration",
+				Message: "Name of the integration:",
 			},
 			Transform: survey.Title,
 			Validate: func(val interface{}) error {
@@ -108,7 +136,7 @@ func promptSettings(result *generator.Info) error {
 		{
 			Name: "publisher_name",
 			Prompt: &survey.Input{
-				Message: "Your name, or your company's name",
+				Message: "Your company's name:",
 			},
 			Validate:  survey.Required,
 			Transform: survey.Title,
@@ -116,7 +144,7 @@ func promptSettings(result *generator.Info) error {
 		{
 			Name: "publisher_url",
 			Prompt: &survey.Input{
-				Message: "Your company's url",
+				Message: "Your company's url:",
 			},
 			Validate: func(val interface{}) error {
 				return validateURL(val, true)
@@ -126,17 +154,16 @@ func promptSettings(result *generator.Info) error {
 		{
 			Name: "identifier",
 			Prompt: &survey.Input{
-				Message: "Your company's identifier",
-				Help:    "For Pinpoint this would be pinpt",
+				Message: "Your company's short, unique identifier:",
+				Help:    "For example, for Pinpoint we use pinpt. Make sure you choose a unique value",
 			},
 			Validate:  survey.Required,
 			Transform: survey.ToLower,
 		},
-
 		{
 			Name: "publisher_avatar",
 			Prompt: &survey.Input{
-				Message: "Your avatar url, or your company's avatar url",
+				Message: "Your company's avatar url:",
 			},
 			Validate: func(val interface{}) error {
 				return validateURL(val, false)
@@ -146,7 +173,7 @@ func promptSettings(result *generator.Info) error {
 		{
 			Name: "integration_types",
 			Prompt: &survey.MultiSelect{
-				Message: "Choose capabilities:",
+				Message: "Choose integration capabilities:",
 				Options: []string{
 					generator.IntegrationTypeIssueTracking.String(),
 					generator.IntegrationTypeSourcecode.String(),
@@ -156,11 +183,6 @@ func promptSettings(result *generator.Info) error {
 			},
 		},
 	}, result)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func init() {
