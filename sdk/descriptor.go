@@ -41,29 +41,19 @@ const (
 // Installation is metadata about the installation
 type Installation struct {
 	Modes       []InstallationMode  `json:"modes" yaml:"modes"`
-	Cloud       *InstallationConfig `json:"cloud" yaml:"cloud"`
-	SelfManaged *InstallationConfig `json:"selfmanaged" yaml:"selfmanaged"`
+	Cloud       *InstallationConfig `json:"cloud,omitempty" yaml:"cloud"`
+	SelfManaged *InstallationConfig `json:"selfmanaged,omitempty" yaml:"selfmanaged"`
 }
 
 // InstallationConfig is metadata about a specific installation mode
 type InstallationConfig struct {
-	Network      Network            `json:"network" yaml:"network"`
-	Capabilities []string           `json:"capabilities" yaml:"capabilities"`
-	Description  string             `json:"description" yaml:"description"`
-	Options      InstallationOption `json:"options" yaml:"options"`
+	Network      Network  `json:"network,omitempty" yaml:"network"`
+	Capabilities []string `json:"capabilities,omitempty" yaml:"capabilities"`
 }
 
 // Network specific environment details
 type Network struct {
-	Hostnames []string `json:"hostnames" yaml:"hostnames"`
-}
-
-// InstallationOption is metadata for the installation to be captured at configuration time
-type InstallationOption struct {
-	Name        string `json:"name" yaml:"name"`
-	Description string `json:"description" yaml:"description"`
-	Type        string `json:"type" yaml:"type"`
-	Required    bool   `json:"required" yaml:"required"`
+	Hostnames []string `json:"hostnames,omitempty" yaml:"hostnames"`
 }
 
 // LoadDescriptor will load a descriptor from an integration

@@ -1,13 +1,16 @@
 package cmd
 
 import (
+	"encoding/base64"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 
+	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/fileutil"
+	pjson "github.com/pinpt/go-common/v10/json"
 	"github.com/pinpt/go-common/v10/log"
 	"github.com/spf13/cobra"
 )
@@ -26,6 +29,7 @@ var packageCmd = &cobra.Command{
 		distDir, _ = filepath.Abs(distDir)
 		bundleDir := filepath.Join(distDir, "bundle")
 		dataDir := filepath.Join(bundleDir, "data")
+		appDir := filepath.Join(integrationDir, "app")
 		os.MkdirAll(bundleDir, 0700)
 		os.MkdirAll(dataDir, 0700)
 
@@ -34,9 +38,14 @@ var packageCmd = &cobra.Command{
 			log.Fatal(logger, "error loading integration.yaml", "err", err)
 		}
 
-		ioutil.WriteFile(filepath.Join(dataDir, "integration.yaml"), buf, 0644)
+		descriptor, err := sdk.LoadDescriptor(base64.StdEncoding.EncodeToString(buf), "", "")
+		if err != nil {
+			log.Fatal(logger, "error loading descriptor", "err", err)
+		}
+		ioutil.WriteFile(filepath.Join(bundleDir, "integration.json"), []byte(pjson.Stringify(descriptor)), 0644)
 
 		dataFn := filepath.Join(bundleDir, "data.zip")
+		uiFn := filepath.Join(bundleDir, "ui.zip")
 		bundleFn := filepath.Join(distDir, "bundle.zip")
 
 		oss, _ := cmd.Flags().GetStringSlice("os")
@@ -57,6 +66,19 @@ var packageCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// build the application
+		c = exec.Command("npm", "run", "build")
+		c.Dir = appDir
+		c.Stdout = os.Stdout
+		c.Stderr = os.Stderr
+		c.Stdin = os.Stdin
+		if err := c.Run(); err != nil {
+			os.Exit(1)
+		}
+		if _, err := fileutil.ZipDir(uiFn, filepath.Join(appDir, "build"), regexp.MustCompile(".*")); err != nil {
+			log.Fatal(logger, "error building zip file", "err", err)
+		}
+
 		sha := getBuildCommitForIntegration(integrationDir)
 
 		// write out our version file
@@ -71,7 +93,7 @@ var packageCmd = &cobra.Command{
 		if _, err := fileutil.ZipDir(dataFn, dataDir, regexp.MustCompile(".*")); err != nil {
 			log.Fatal(logger, "error building zip file", "err", err)
 		}
-		if _, err := fileutil.ZipDir(bundleFn, bundleDir, regexp.MustCompile(".(zip|asc|txt)$")); err != nil {
+		if _, err := fileutil.ZipDir(bundleFn, bundleDir, regexp.MustCompile(".(zip|asc|txt|json)$")); err != nil {
 			log.Fatal(logger, "error building zip file", "err", err)
 		}
 		os.RemoveAll(bundleDir)
