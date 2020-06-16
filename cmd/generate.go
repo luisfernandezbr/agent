@@ -68,7 +68,7 @@ var genCmd = &cobra.Command{
 		appDir := filepath.Join(result.Dir, "app")
 
 		// install the latest websdk
-		sdkInstall := exec.Command("npm", "install", "@pinpt/agent.websdk", "--save")
+		sdkInstall := exec.Command("npm", "install", "@pinpt/agent.websdk", "--save", "--loglevel", "error")
 		sdkInstall.Dir = appDir
 		sdkInstall.Stderr = os.Stderr
 		sdkInstall.Stdin = os.Stdin
@@ -76,7 +76,7 @@ var genCmd = &cobra.Command{
 		sdkInstall.Run()
 
 		// run the npm install
-		npmInstall := exec.Command("npm", "install")
+		npmInstall := exec.Command("npm", "install", "--loglevel", "error")
 		npmInstall.Dir = appDir
 		npmInstall.Stderr = os.Stderr
 		npmInstall.Stdin = os.Stdin
