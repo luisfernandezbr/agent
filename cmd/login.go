@@ -19,8 +19,10 @@ import (
 )
 
 type devConfig struct {
-	CustomerID string `json:"customer_id"`
-	APIKey     string `json:"apikey"`
+	CustomerID  string `json:"customer_id"`
+	APIKey      string `json:"apikey"`
+	PrivateKey  string `json:"private_key"`
+	Certificate string `json:"certificate"`
 }
 
 func (c *devConfig) remove() {
