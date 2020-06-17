@@ -42,7 +42,9 @@ var packageCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(logger, "error loading descriptor", "err", err)
 		}
-		ioutil.WriteFile(filepath.Join(bundleDir, "integration.json"), []byte(pjson.Stringify(descriptor)), 0644)
+		if err := ioutil.WriteFile(filepath.Join(bundleDir, "integration.json"), []byte(pjson.Stringify(descriptor)), 0644); err != nil {
+			log.Fatal(logger, "error writing integration json", "err", err)
+		}
 
 		dataFn := filepath.Join(bundleDir, "data.zip")
 		uiFn := filepath.Join(bundleDir, "ui.zip")
