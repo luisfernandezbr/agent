@@ -21,7 +21,7 @@ function App() {
 				avatar: '{{.PublisherAvatar}}',
 				url: '{{.PublisherURL}}'
 			},
-			uiURL: window.location.toString()
+			uiURL: window.location.href
 		};
 		return <SimulatorInstaller integration={integration} />;
 	}
