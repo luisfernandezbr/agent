@@ -2,22 +2,38 @@ package cmd
 
 import (
 	"context"
+	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/api"
 	"github.com/pinpt/go-common/v10/fileutil"
+	"github.com/pinpt/go-common/v10/hash"
 	"github.com/pinpt/go-common/v10/log"
 	pnum "github.com/pinpt/go-common/v10/number"
 	"github.com/spf13/cobra"
 )
+
+func getSignature(filename string, privateKey *rsa.PrivateKey) (string, error) {
+	sum, err := hash.Checksum(filename)
+	if err != nil {
+		return "", fmt.Errorf("error creating checksum: %w", err)
+	}
+	sigBuf, err := rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA256, sum)
+	if err != nil {
+		return "", fmt.Errorf("error signing checksum of bundle: %w", err)
+	}
+	return hex.EncodeToString(sigBuf), nil
+}
 
 // publishCmd represents the publish command
 var publishCmd = &cobra.Command{
@@ -30,17 +46,32 @@ var publishCmd = &cobra.Command{
 		defer logger.Close()
 		tmpdir := os.TempDir()
 		defer os.RemoveAll(tmpdir)
+		c, err := loadDevConfig()
+		if err != nil {
+			log.Fatal(logger, "error opening developer config", "err", err)
+		}
+		if c.PrivateKey == "" {
+			log.Fatal(logger, "missing private key in config, please enroll before publishing")
+		}
+		privateKey, err := parsePrivateKey(c.PrivateKey)
+		if err != nil {
+			log.Fatal(logger, "unable to parse private key in config")
+		}
 		log.Info(logger, "building package")
-		c := exec.Command(os.Args[0], "package", integrationDir, "--dir", tmpdir)
-		c.Stdout = os.Stdout
-		c.Stderr = os.Stderr
-		c.Stdin = os.Stdin
-		if err := c.Run(); err != nil {
+		cm := exec.Command(os.Args[0], "package", integrationDir, "--dir", tmpdir)
+		cm.Stdout = os.Stdout
+		cm.Stderr = os.Stderr
+		cm.Stdin = os.Stdin
+		if err := cm.Run(); err != nil {
 			os.Exit(1)
 		}
 		bundle := filepath.Join(tmpdir, "bundle.zip")
 		if !fileutil.FileExists(bundle) {
 			os.Exit(1)
+		}
+		signature, err := getSignature(bundle, privateKey)
+		if err != nil {
+			log.Fatal(logger, "error getting signature for bundle", "err", err)
 		}
 		of, err := os.Open(bundle)
 		if err != nil {
@@ -53,7 +84,7 @@ var publishCmd = &cobra.Command{
 		channel, _ := cmd.Flags().GetString("channel")
 		opts := []api.WithOption{
 			api.WithContentType("application/zip"),
-			api.WithHeader("Content-Length", strconv.Itoa(int(stat.Size()))),
+			api.WithHeader("x-pinpt-signature", signature),
 			func(req *http.Request) error {
 				req.ContentLength = stat.Size()
 				return nil
@@ -64,10 +95,6 @@ var publishCmd = &cobra.Command{
 		if secret != "" {
 			opts = append(opts, api.WithHeader("x-api-key", secret))
 		} else if apikey == "" {
-			c, err := loadDevConfig()
-			if err != nil {
-				log.Fatal(logger, "error opening developer config", "err", err)
-			}
 			apikey = c.APIKey
 			if apikey == "" {
 				log.Fatal(logger, "you must login or provide the apikey using --apikey before continuing")

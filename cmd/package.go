@@ -67,6 +67,14 @@ var packageCmd = &cobra.Command{
 		}
 
 		// build the application
+		c = exec.Command("npm", "install")
+		c.Dir = appDir
+		c.Stdout = os.Stdout
+		c.Stderr = os.Stderr
+		c.Stdin = os.Stdin
+		if err := c.Run(); err != nil {
+			os.Exit(1)
+		}
 		c = exec.Command("npm", "run", "build")
 		c.Dir = appDir
 		c.Stdout = os.Stdout
