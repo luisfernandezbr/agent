@@ -13,19 +13,11 @@ type Descriptor struct {
 	Name           string       `json:"name" yaml:"name"`
 	RefType        string       `json:"ref_type" yaml:"ref_type"`
 	Description    string       `json:"description" yaml:"description"`
-	Publisher      Publisher    `json:"publisher" yaml:"publisher"`
+	AvatarURL      string       `json:"avatar_url" yaml:"avatar_url"`
 	Capabilities   []string     `json:"capabilities" yaml:"capabilities"`
 	Installation   Installation `json:"installation" yaml:"installation"`
 	BuildDate      time.Time    `json:"-" yaml:"-"`
 	BuildCommitSHA string       `json:"-" yaml:"-"`
-}
-
-// Publisher is the metadata about the publisher
-type Publisher struct {
-	Name       string `json:"name" yaml:"name"`
-	Identifier string `json:"identifier" yaml:"identifier"`
-	URL        string `json:"url" yaml:"url"`
-	AvatarURL  string `json:"avatar_url" yaml:"avatar_url"`
 }
 
 // InstallationMode is the type of installation
