@@ -1,6 +1,11 @@
 package cmd
 
 import (
+	"crypto"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/hex"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -17,6 +22,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func openCert(pemFilename string) (*x509.Certificate, error) {
+	buf, err := ioutil.ReadFile(pemFilename)
+	if err != nil {
+		return nil, fmt.Errorf("error openning file: %w", err)
+	}
+	block, _ := pem.Decode(buf)
+	if block == nil {
+		return nil, fmt.Errorf("no pem data in file %s", pemFilename)
+	}
+	return x509.ParseCertificate(block.Bytes)
+}
+
 // downloadCmd represents the download command
 var downloadCmd = &cobra.Command{
 	Use:   "download <destination> <integration> <version>",
@@ -25,7 +42,10 @@ var downloadCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		logger := log.NewCommandLogger(cmd)
 		defer logger.Close()
-		tmpdir := os.TempDir()
+		tmpdir, err := ioutil.TempDir("", "")
+		if err != nil {
+			log.Fatal(logger, "error creating temp dir", "err", err)
+		}
 		defer os.RemoveAll(tmpdir)
 		// FIXME once we get list from the registry
 		destDir := args[0]
@@ -56,6 +76,14 @@ var downloadCmd = &cobra.Command{
 			log.Fatal(logger, "error downloading request", "err", err, "code", resp.StatusCode)
 		}
 		defer resp.Body.Close()
+		signature := resp.Header.Get("x-pinpt-signature")
+		if signature == "" {
+			log.Fatal(logger, "no signature from server, cannot verify bundle")
+		}
+		sigBuf, err := hex.DecodeString(signature)
+		if err != nil {
+			log.Fatal(logger, "error decoding signature", "err", err)
+		}
 		src := filepath.Join(tmpdir, "bundle.zip")
 		dest := filepath.Join(tmpdir, "bundle")
 		of, err := os.Create(src)
@@ -63,15 +91,41 @@ var downloadCmd = &cobra.Command{
 			log.Fatal(logger, "error opening download file", "err", err)
 		}
 		defer of.Close()
-		io.Copy(of, resp.Body)
+		_, err = io.Copy(of, resp.Body)
+		if err != nil {
+			log.Fatal(logger, "error copying bundle data", "err", err)
+		}
 		of.Close()
 		resp.Body.Close()
+		// TODO(robin): figure out why we cant use hash.ChecksumCopy
+		sum, err := fileutil.Checksum(src)
+		if err != nil {
+			log.Fatal(logger, "error taking checksum of downloaded bundle", "err", err)
+		}
+		checksum, err := hex.DecodeString(sum)
+		if err != nil {
+			log.Fatal(logger, "error decoding checksum", "err", err)
+		}
 		if err := fileutil.Unzip(src, dest); err != nil {
 			log.Fatal(logger, "error performing unzip for integration", "err", err)
 		}
-		shasum := filepath.Join(dest, "sha512sum.txt.asc")
-		if !fileutil.FileExists(shasum) {
-			log.Fatal(logger, "error finding integration checksums for bundle", "file", shasum)
+		certfile := filepath.Join(dest, "cert.pem")
+		if !fileutil.FileExists(certfile) {
+			log.Fatal(logger, "error finding integration developer certificate for bundle", "file", certfile)
+		}
+		cert, err := openCert(certfile)
+		if err != nil {
+			log.Fatal(logger, "error opening certificate from bundle", "err", err)
+		}
+		pub, ok := cert.PublicKey.(*rsa.PublicKey)
+		if !ok {
+			log.Fatal(logger, "certificate public key was not rsa")
+		}
+		if err := rsa.VerifyPKCS1v15(pub, crypto.SHA256, checksum, sigBuf); err != nil {
+			if err == rsa.ErrVerification {
+				log.Fatal(logger, "invalid signature or certificate")
+			}
+			log.Fatal(logger, "error verifying bundle signature", "err", err)
 		}
 		datafn := filepath.Join(dest, "data.zip")
 		if err := fileutil.Unzip(datafn, dest); err != nil {
@@ -80,32 +134,6 @@ var downloadCmd = &cobra.Command{
 		destfn := filepath.Join(dest, runtime.GOOS, runtime.GOARCH, integration)
 		if !fileutil.FileExists(destfn) {
 			log.Fatal(logger, "error finding integration binary for bundle", "file", destfn)
-		}
-		shas, err := ioutil.ReadFile(shasum)
-		if err != nil {
-			log.Fatal(logger, "error reading integration checksums for bundle", "file", shasum, "err", err)
-		}
-		if len(shas) == 0 {
-			log.Fatal(logger, "error reading integration checksums for bundle", "file", shasum, "err", "file was empty")
-		}
-		for _, line := range strings.Split(string(shas), "\n") {
-			tok := strings.Split(strings.TrimSpace(line), "  ")
-			if len(tok) == 2 {
-				expected := tok[0]
-				basepath := tok[1]
-				f := filepath.Join(dest, basepath)
-				if !fileutil.FileExists(f) {
-					log.Fatal(logger, "cannot find file in the bundle checksum but not in the bundle", "file", f)
-				}
-				cs, err := fileutil.Checksum(f)
-				if err != nil {
-					log.Fatal(logger, "error performing checksum on file", "file", f, "err", err)
-				}
-				if cs != expected {
-					log.Fatal(logger, "checksum doesn't match from the bundle", "file", f, "expected", expected, "was", cs)
-				}
-				log.Debug(logger, "validating checksum", "path", basepath, "sha", expected)
-			}
 		}
 		sf, err := os.Open(destfn)
 		if err != nil {
