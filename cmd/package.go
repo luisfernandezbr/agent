@@ -69,7 +69,7 @@ var packageCmd = &cobra.Command{
 		}
 
 		// build the application
-		c = exec.Command("npm", "install")
+		c = exec.Command("npm", "install", "--loglevel", "error")
 		c.Dir = appDir
 		c.Stdout = os.Stdout
 		c.Stderr = os.Stderr
@@ -77,7 +77,7 @@ var packageCmd = &cobra.Command{
 		if err := c.Run(); err != nil {
 			os.Exit(1)
 		}
-		c = exec.Command("npm", "run", "build")
+		c = exec.Command("npm", "run", "build", "--loglevel", "error")
 		c.Dir = appDir
 		c.Stdout = os.Stdout
 		c.Stderr = os.Stderr

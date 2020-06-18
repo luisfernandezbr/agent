@@ -53,6 +53,13 @@ var publishCmd = &cobra.Command{
 		if c.PrivateKey == "" {
 			log.Fatal(logger, "missing private key in config, please enroll before publishing")
 		}
+		if c.expired() {
+			log.Fatal(logger, "your login session has expired. please login again")
+		}
+		channel, _ := cmd.Flags().GetString("channel")
+		if c.Channel != channel {
+			log.Fatal(logger, "your login session was for a different channel. please login again")
+		}
 		privateKey, err := parsePrivateKey(c.PrivateKey)
 		if err != nil {
 			log.Fatal(logger, "unable to parse private key in config")
@@ -81,7 +88,6 @@ var publishCmd = &cobra.Command{
 		stat, _ := os.Stat(bundle)
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		channel, _ := cmd.Flags().GetString("channel")
 		opts := []api.WithOption{
 			api.WithContentType("application/zip"),
 			api.WithHeader("x-pinpt-signature", signature),

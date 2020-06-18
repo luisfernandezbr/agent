@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/api"
@@ -22,10 +23,16 @@ import (
 )
 
 type devConfig struct {
-	CustomerID  string `json:"customer_id"`
-	APIKey      string `json:"apikey"`
-	PrivateKey  string `json:"private_key"`
-	Certificate string `json:"certificate"`
+	CustomerID  string    `json:"customer_id"`
+	APIKey      string    `json:"apikey"`
+	PrivateKey  string    `json:"private_key"`
+	Certificate string    `json:"certificate"`
+	Expires     time.Time `json:"expires"`
+	Channel     string    `json:"channel"`
+}
+
+func (c *devConfig) expired() bool {
+	return c.Expires.Before(time.Now())
 }
 
 func (c *devConfig) remove() {
@@ -114,6 +121,8 @@ var loginCmd = &cobra.Command{
 			q := r.URL.Query()
 			config.APIKey = q.Get("apikey")
 			config.CustomerID = q.Get("customer_id")
+			config.Expires = time.Now().Add(time.Hour * 23)
+			config.Channel = channel
 			if err := config.save(); err != nil {
 				log.Error(logger, "error saving config", "err", err)
 			}

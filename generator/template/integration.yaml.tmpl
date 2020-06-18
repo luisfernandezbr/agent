@@ -1,11 +1,7 @@
 name: "{{.TitleCaseName}}"
 ref_type: "{{.LowerCaseName}}"
 description: "This is the {{ .TitleCaseName }} integration for Pinpoint"
-publisher:
-  name: "{{.PublisherName}}"
-  url: "{{.PublisherURL}}"
-  avatar_url: "{{.PublisherAvatar}}"
-  identifier: "{{.Identifier}}"
+avatar_url: ""
 capabilities:
 {{- range $val := .Capabilities }}
   - {{ $val }}

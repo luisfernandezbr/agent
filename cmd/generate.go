@@ -17,14 +17,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// genCmd represents the dev command
-var genCmd = &cobra.Command{
-	Use:   "generate",
-	Short: "generates an integration",
-	Args:  cobra.NoArgs,
-	Run: func(cmd *cobra.Command, args []string) {
+func banner() {
 
-		fmt.Print(color.New(color.FgHiBlue).Sprint(`
+	fmt.Print(color.New(color.FgHiBlue).Sprint(`
     ____  _                   _       __ 
    / __ \(_)___  ____  ____  (_)___  / /_
   / /_/ / / __ \/ __ \/ __ \/ / __ \/ __/
@@ -32,6 +27,15 @@ var genCmd = &cobra.Command{
 /_/   /_/_/ /_/ .___/\____/_/_/ /_/\__/  
              /_/                         
 `))
+}
+
+// genCmd represents the dev command
+var genCmd = &cobra.Command{
+	Use:   "generate",
+	Short: "generates an integration",
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		banner()
 		fmt.Println("Welcome to the Pinpoint Integration generator!")
 		fmt.Println()
 
