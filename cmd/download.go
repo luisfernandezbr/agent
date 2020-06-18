@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"archive/zip"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -17,50 +16,6 @@ import (
 	pstr "github.com/pinpt/go-common/v10/strings"
 	"github.com/spf13/cobra"
 )
-
-func unzip(logger log.Logger, src, dest string) error {
-	log.Debug(logger, "unzipping", "src", src, "dest", dest)
-	r, err := zip.OpenReader(src)
-	if err != nil {
-		return err
-	}
-	defer r.Close()
-	for _, f := range r.File {
-		// Store filename/path for returning and using later on
-		/* #nosec */
-		fpath := filepath.Join(dest, f.Name)
-		// Check for ZipSlip. More Info: http://bit.ly/2MsjAWE
-		if !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
-			return fmt.Errorf("%s: illegal file path", fpath)
-		}
-		if f.FileInfo().IsDir() {
-			// Make Folder
-			os.MkdirAll(fpath, os.ModePerm)
-			continue
-		}
-		// Make File
-		if err = os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
-			return err
-		}
-		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
-		if err != nil {
-			return err
-		}
-		rc, err := f.Open()
-		if err != nil {
-			return err
-		}
-		n, err := io.Copy(outFile, rc)
-		// Close the file without defer to close before next iteration of loop
-		outFile.Close()
-		rc.Close()
-		if err != nil {
-			return err
-		}
-		log.Debug(logger, "unzipped", "file", outFile.Name(), "size", n)
-	}
-	return nil
-}
 
 // downloadCmd represents the download command
 var downloadCmd = &cobra.Command{
@@ -111,7 +66,7 @@ var downloadCmd = &cobra.Command{
 		io.Copy(of, resp.Body)
 		of.Close()
 		resp.Body.Close()
-		if err := unzip(logger, src, dest); err != nil {
+		if err := fileutil.Unzip(src, dest); err != nil {
 			log.Fatal(logger, "error performing unzip for integration", "err", err)
 		}
 		shasum := filepath.Join(dest, "sha512sum.txt.asc")
@@ -119,7 +74,7 @@ var downloadCmd = &cobra.Command{
 			log.Fatal(logger, "error finding integration checksums for bundle", "file", shasum)
 		}
 		datafn := filepath.Join(dest, "data.zip")
-		if err := unzip(logger, datafn, dest); err != nil {
+		if err := fileutil.Unzip(datafn, dest); err != nil {
 			log.Fatal(logger, "error performing unzip for integration data", "err", err)
 		}
 		destfn := filepath.Join(dest, runtime.GOOS, runtime.GOARCH, integration)
