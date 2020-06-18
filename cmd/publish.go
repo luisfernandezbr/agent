@@ -116,7 +116,7 @@ var publishCmd = &cobra.Command{
 			log.Fatal(logger, "error loading descriptor", "err", err, "file", descriptorFn)
 		}
 		version := getBuildCommitForIntegration(integrationDir)
-		basepath := fmt.Sprintf("publish/%s/%s/%s", "pinpt", descriptor.RefType, version)
+		basepath := fmt.Sprintf("publish/%s/%s/%s", c.PublisherRefType, descriptor.RefType, version)
 		log.Info(logger, "uploading", "size", pnum.ToBytesSize(stat.Size()))
 		resp, err := api.Put(ctx, channel, api.RegistryService, basepath, apikey, of, opts...)
 		if err != nil || resp.StatusCode != http.StatusAccepted {

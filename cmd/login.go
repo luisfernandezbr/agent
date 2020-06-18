@@ -23,12 +23,13 @@ import (
 )
 
 type devConfig struct {
-	CustomerID  string    `json:"customer_id"`
-	APIKey      string    `json:"apikey"`
-	PrivateKey  string    `json:"private_key"`
-	Certificate string    `json:"certificate"`
-	Expires     time.Time `json:"expires"`
-	Channel     string    `json:"channel"`
+	CustomerID       string    `json:"customer_id"`
+	APIKey           string    `json:"apikey"`
+	PrivateKey       string    `json:"private_key"`
+	Certificate      string    `json:"certificate"`
+	Expires          time.Time `json:"expires"`
+	Channel          string    `json:"channel"`
+	PublisherRefType string    `json:"publisher_ref_type"`
 }
 
 func (c *devConfig) expired() bool {

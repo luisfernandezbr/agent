@@ -238,6 +238,7 @@ var enrollCmd = &cobra.Command{
 		}
 		log.Info(logger, "recieved certificate from Pinpoint")
 		config.Certificate = string(respBuf)
+		config.PublisherRefType = result.Identifier
 		if err := config.save(); err != nil {
 			log.Fatal(logger, "error saving config", "err", err)
 		}
