@@ -92,18 +92,27 @@ var packageCmd = &cobra.Command{
 		sha := getBuildCommitForIntegration(integrationDir)
 
 		// write out our version file
-		ioutil.WriteFile(filepath.Join(bundleDir, "version.txt"), []byte(sha), 0644)
+		if err := ioutil.WriteFile(filepath.Join(bundleDir, "version.txt"), []byte(sha), 0644); err != nil {
+			log.Fatal(logger, "error writing version file to bundle dir", "err", err)
+		}
 
-		// write out the sha sum512 for each file in the zip for integrity checking
-		shafilename := filepath.Join(bundleDir, "sha512sum.txt.asc")
-		if err := fileutil.ShaFiles(dataDir, shafilename, regexp.MustCompile(".*")); err != nil {
-			log.Fatal(logger, "error generating sha sums", "err", err)
+		// write out dev certificate (if we have one)
+		if devCfg, err := loadDevConfig(); err == nil {
+			if devCfg.Certificate != "" {
+				if err := ioutil.WriteFile(filepath.Join(bundleDir, "cert.pem"), []byte(devCfg.Certificate), 0644); err != nil {
+					log.Fatal(logger, "error writing developer certificate to bundle dir", "err", err)
+				}
+			} else {
+				log.Debug(logger, "no developer certificate found, not including in bundle", "err", err)
+			}
+		} else {
+			log.Warn(logger, "unable to load developer config, the bundle will not contain your developer certificate", "err", err)
 		}
 
 		if _, err := fileutil.ZipDir(dataFn, dataDir, regexp.MustCompile(".*")); err != nil {
 			log.Fatal(logger, "error building zip file", "err", err)
 		}
-		if _, err := fileutil.ZipDir(bundleFn, bundleDir, regexp.MustCompile(".(zip|asc|txt|json)$")); err != nil {
+		if _, err := fileutil.ZipDir(bundleFn, bundleDir, regexp.MustCompile(".(zip|asc|txt|pem|json)$")); err != nil {
 			log.Fatal(logger, "error building zip file", "err", err)
 		}
 		os.RemoveAll(bundleDir)

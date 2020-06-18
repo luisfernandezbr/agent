@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func getSignature(filename string, privateKey *rsa.PrivateKey) (string, error) {
+func signFile(filename string, privateKey *rsa.PrivateKey) (string, error) {
 	sum, err := hash.Checksum(filename)
 	if err != nil {
 		return "", fmt.Errorf("error creating checksum: %w", err)
@@ -76,7 +76,7 @@ var publishCmd = &cobra.Command{
 		if !fileutil.FileExists(bundle) {
 			os.Exit(1)
 		}
-		signature, err := getSignature(bundle, privateKey)
+		signature, err := signFile(bundle, privateKey)
 		if err != nil {
 			log.Fatal(logger, "error getting signature for bundle", "err", err)
 		}
