@@ -1,7 +1,11 @@
 package cmd
 
 import (
-	"archive/zip"
+	"crypto"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/hex"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -18,48 +22,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func unzip(logger log.Logger, src, dest string) error {
-	log.Debug(logger, "unzipping", "src", src, "dest", dest)
-	r, err := zip.OpenReader(src)
+func openCert(pemFilename string) (*x509.Certificate, error) {
+	buf, err := ioutil.ReadFile(pemFilename)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("error openning file: %w", err)
 	}
-	defer r.Close()
-	for _, f := range r.File {
-		// Store filename/path for returning and using later on
-		/* #nosec */
-		fpath := filepath.Join(dest, f.Name)
-		// Check for ZipSlip. More Info: http://bit.ly/2MsjAWE
-		if !strings.HasPrefix(fpath, filepath.Clean(dest)+string(os.PathSeparator)) {
-			return fmt.Errorf("%s: illegal file path", fpath)
-		}
-		if f.FileInfo().IsDir() {
-			// Make Folder
-			os.MkdirAll(fpath, os.ModePerm)
-			continue
-		}
-		// Make File
-		if err = os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
-			return err
-		}
-		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
-		if err != nil {
-			return err
-		}
-		rc, err := f.Open()
-		if err != nil {
-			return err
-		}
-		n, err := io.Copy(outFile, rc)
-		// Close the file without defer to close before next iteration of loop
-		outFile.Close()
-		rc.Close()
-		if err != nil {
-			return err
-		}
-		log.Debug(logger, "unzipped", "file", outFile.Name(), "size", n)
+	block, _ := pem.Decode(buf)
+	if block == nil {
+		return nil, fmt.Errorf("no pem data in file %s", pemFilename)
 	}
-	return nil
+	return x509.ParseCertificate(block.Bytes)
 }
 
 // downloadCmd represents the download command
@@ -70,7 +42,10 @@ var downloadCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		logger := log.NewCommandLogger(cmd)
 		defer logger.Close()
-		tmpdir := os.TempDir()
+		tmpdir, err := ioutil.TempDir("", "")
+		if err != nil {
+			log.Fatal(logger, "error creating temp dir", "err", err)
+		}
 		defer os.RemoveAll(tmpdir)
 		// FIXME once we get list from the registry
 		destDir := args[0]
@@ -101,6 +76,14 @@ var downloadCmd = &cobra.Command{
 			log.Fatal(logger, "error downloading request", "err", err, "code", resp.StatusCode)
 		}
 		defer resp.Body.Close()
+		signature := resp.Header.Get("x-pinpt-signature")
+		if signature == "" {
+			log.Fatal(logger, "no signature from server, cannot verify bundle")
+		}
+		sigBuf, err := hex.DecodeString(signature)
+		if err != nil {
+			log.Fatal(logger, "error decoding signature", "err", err)
+		}
 		src := filepath.Join(tmpdir, "bundle.zip")
 		dest := filepath.Join(tmpdir, "bundle")
 		of, err := os.Create(src)
@@ -108,49 +91,49 @@ var downloadCmd = &cobra.Command{
 			log.Fatal(logger, "error opening download file", "err", err)
 		}
 		defer of.Close()
-		io.Copy(of, resp.Body)
+		_, err = io.Copy(of, resp.Body)
+		if err != nil {
+			log.Fatal(logger, "error copying bundle data", "err", err)
+		}
 		of.Close()
 		resp.Body.Close()
-		if err := unzip(logger, src, dest); err != nil {
+		// TODO(robin): figure out why we cant use hash.ChecksumCopy
+		sum, err := fileutil.Checksum(src)
+		if err != nil {
+			log.Fatal(logger, "error taking checksum of downloaded bundle", "err", err)
+		}
+		checksum, err := hex.DecodeString(sum)
+		if err != nil {
+			log.Fatal(logger, "error decoding checksum", "err", err)
+		}
+		if err := fileutil.Unzip(src, dest); err != nil {
 			log.Fatal(logger, "error performing unzip for integration", "err", err)
 		}
-		shasum := filepath.Join(dest, "sha512sum.txt.asc")
-		if !fileutil.FileExists(shasum) {
-			log.Fatal(logger, "error finding integration checksums for bundle", "file", shasum)
+		certfile := filepath.Join(dest, "cert.pem")
+		if !fileutil.FileExists(certfile) {
+			log.Fatal(logger, "error finding integration developer certificate for bundle", "file", certfile)
+		}
+		cert, err := openCert(certfile)
+		if err != nil {
+			log.Fatal(logger, "error opening certificate from bundle", "err", err)
+		}
+		pub, ok := cert.PublicKey.(*rsa.PublicKey)
+		if !ok {
+			log.Fatal(logger, "certificate public key was not rsa")
+		}
+		if err := rsa.VerifyPKCS1v15(pub, crypto.SHA256, checksum, sigBuf); err != nil {
+			if err == rsa.ErrVerification {
+				log.Fatal(logger, "invalid signature or certificate")
+			}
+			log.Fatal(logger, "error verifying bundle signature", "err", err)
 		}
 		datafn := filepath.Join(dest, "data.zip")
-		if err := unzip(logger, datafn, dest); err != nil {
+		if err := fileutil.Unzip(datafn, dest); err != nil {
 			log.Fatal(logger, "error performing unzip for integration data", "err", err)
 		}
 		destfn := filepath.Join(dest, runtime.GOOS, runtime.GOARCH, integration)
 		if !fileutil.FileExists(destfn) {
 			log.Fatal(logger, "error finding integration binary for bundle", "file", destfn)
-		}
-		shas, err := ioutil.ReadFile(shasum)
-		if err != nil {
-			log.Fatal(logger, "error reading integration checksums for bundle", "file", shasum, "err", err)
-		}
-		if len(shas) == 0 {
-			log.Fatal(logger, "error reading integration checksums for bundle", "file", shasum, "err", "file was empty")
-		}
-		for _, line := range strings.Split(string(shas), "\n") {
-			tok := strings.Split(strings.TrimSpace(line), "  ")
-			if len(tok) == 2 {
-				expected := tok[0]
-				basepath := tok[1]
-				f := filepath.Join(dest, basepath)
-				if !fileutil.FileExists(f) {
-					log.Fatal(logger, "cannot find file in the bundle checksum but not in the bundle", "file", f)
-				}
-				cs, err := fileutil.Checksum(f)
-				if err != nil {
-					log.Fatal(logger, "error performing checksum on file", "file", f, "err", err)
-				}
-				if cs != expected {
-					log.Fatal(logger, "checksum doesn't match from the bundle", "file", f, "expected", expected, "was", cs)
-				}
-				log.Debug(logger, "validating checksum", "path", basepath, "sha", expected)
-			}
 		}
 		sf, err := os.Open(destfn)
 		if err != nil {

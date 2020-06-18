@@ -24,7 +24,12 @@ import (
 )
 
 func signFile(filename string, privateKey *rsa.PrivateKey) (string, error) {
-	sum, err := hash.Checksum(filename)
+	f, err := os.Open(filename)
+	if err != nil {
+		return "", fmt.Errorf("error openning bundle: %w", err)
+	}
+	defer f.Close()
+	sum, err := hash.Sha256Checksum(f)
 	if err != nil {
 		return "", fmt.Errorf("error creating checksum: %w", err)
 	}
