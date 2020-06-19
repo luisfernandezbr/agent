@@ -21,6 +21,7 @@ import (
 	"github.com/pinpt/go-common/v10/api"
 	pjson "github.com/pinpt/go-common/v10/json"
 	"github.com/pinpt/go-common/v10/log"
+	pos "github.com/pinpt/go-common/v10/os"
 	"github.com/spf13/cobra"
 )
 
@@ -248,5 +249,5 @@ var enrollCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(enrollCmd)
-	enrollCmd.Flags().String("channel", "stable", "the channel which can be set")
+	enrollCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "stable"), "the channel which can be set")
 }

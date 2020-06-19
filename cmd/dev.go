@@ -92,7 +92,7 @@ func init() {
 	rootCmd.AddCommand(devCmd)
 	devCmd.Flags().StringSlice("config", []string{}, "a config key/value pair such as a=b")
 	devCmd.Flags().String("dir", "dev_dist", "the directory to output pipe contents")
-	devCmd.Flags().String("channel", "", "the channel which can be set")
+	devCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "stable"), "the channel which can be set")
 	devCmd.Flags().MarkHidden("channel")
 	devCmd.Flags().Bool("historical", false, "force a historical export")
 }

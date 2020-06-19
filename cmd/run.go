@@ -94,6 +94,6 @@ var runCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(runCmd)
-	runCmd.Flags().String("channel", "stable", "the channel which can be set")
+	runCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "stable"), "the channel which can be set")
 	runCmd.Flags().StringP("dir", "d", "", "directory inside of which to run the integration")
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/pinpt/go-common/v10/api"
 	"github.com/pinpt/go-common/v10/fileutil"
 	"github.com/pinpt/go-common/v10/log"
+	pos "github.com/pinpt/go-common/v10/os"
 	pstr "github.com/pinpt/go-common/v10/strings"
 	"github.com/spf13/cobra"
 )
@@ -174,5 +175,5 @@ var downloadCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(downloadCmd)
-	downloadCmd.Flags().String("channel", "stable", "the channel which can be set")
+	downloadCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "stable"), "the channel which can be set")
 }

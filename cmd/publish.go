@@ -20,6 +20,7 @@ import (
 	"github.com/pinpt/go-common/v10/hash"
 	"github.com/pinpt/go-common/v10/log"
 	pnum "github.com/pinpt/go-common/v10/number"
+	pos "github.com/pinpt/go-common/v10/os"
 	"github.com/spf13/cobra"
 )
 
@@ -134,7 +135,7 @@ var publishCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(publishCmd)
-	publishCmd.Flags().String("channel", "stable", "the channel which can be set")
+	publishCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "stable"), "the channel which can be set")
 	publishCmd.Flags().String("apikey", "", "api key")
 	publishCmd.Flags().String("secret", "", "internal shared secret")
 	publishCmd.Flags().MarkHidden("secret")
