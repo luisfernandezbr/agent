@@ -58,13 +58,16 @@ func serveCommand(logger log.Logger, c *exec.Cmd) error {
 var runCmd = &cobra.Command{
 	Use:   "run <integration> <version>",
 	Short: "run a published integration",
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		logger := log.NewCommandLogger(cmd)
 		defer logger.Close()
 		ctx, cancel := context.WithCancel(context.Background())
 		fullIntegration := args[0]
-		version := args[1]
+		var version string
+		if len(args) > 1 {
+			version = args[1]
+		}
 		tok := strings.Split(fullIntegration, "/")
 		if len(tok) != 2 {
 			log.Fatal(logger, "integration should be in the format: publisher/integration such as pinpt/github")
