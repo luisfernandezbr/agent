@@ -56,7 +56,7 @@ func downloadIntegration(logger log.Logger, channel string, toDir string, publis
 		return "", fmt.Errorf("error executing request: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("error downloading request", "err", err, "code", resp.StatusCode)
+		return "", fmt.Errorf("error downloading request status %d", resp.StatusCode)
 	}
 	defer resp.Body.Close()
 	signature := resp.Header.Get("x-pinpt-signature")
