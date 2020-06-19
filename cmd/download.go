@@ -150,7 +150,7 @@ func downloadIntegration(logger log.Logger, channel string, toDir string, publis
 var downloadCmd = &cobra.Command{
 	Use:   "download <destination> <integration> <version>",
 	Short: "download an integration from the registry",
-	Args:  cobra.ExactArgs(3),
+	Args:  cobra.MinimumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		logger := log.NewCommandLogger(cmd)
 		defer logger.Close()
