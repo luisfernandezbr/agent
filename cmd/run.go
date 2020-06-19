@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -13,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func startIntegration(logger log.Logger, channel string, dir string, publisher string, integration string, version string) (*exec.Cmd, error) {
+func getIntegration(ctx context.Context, logger log.Logger, channel string, dir string, publisher string, integration string, version string) (*exec.Cmd, error) {
 	longName := fmt.Sprintf("%s/%s/%s", publisher, integration, version)
 	integrationExecutable, _ := filepath.Abs(filepath.Join(dir, integration))
 	if !fileutil.FileExists(integrationExecutable) {
@@ -26,16 +27,31 @@ func startIntegration(logger log.Logger, channel string, dir string, publisher s
 		log.Info(logger, "downloaded", "integration", integrationExecutable)
 	}
 	// NOTE: We probably dont have to inject channel
-	cm := exec.Command(integrationExecutable, "--channel", channel)
+	cm := exec.CommandContext(ctx, integrationExecutable, "--channel", channel)
 	cm.Stdout = os.Stdout
 	cm.Stderr = os.Stderr
 	cm.Stdin = os.Stdin
-	err := cm.Start()
-	if err != nil {
-		return nil, fmt.Errorf("error starting integration %s: %w", longName, err)
-	}
-	log.Debug(logger, "started integration", "pid", cm.Process.Pid)
 	return cm, nil
+}
+
+func serveCommand(logger log.Logger, c *exec.Cmd) error {
+	if err := c.Start(); err != nil {
+		return fmt.Errorf("error starting integration %s: %w", c.String(), err)
+	}
+	log.Debug(logger, "started integration", "pid", c.Process.Pid)
+	go func(logger log.Logger, c *exec.Cmd) {
+		status, err := c.Process.Wait()
+		if err != nil {
+			log.Fatal(logger, "error waiting for process to finish", "err", err)
+		}
+		if status.Success() {
+			log.Info(logger, "integration exited sucessfully")
+		} else {
+			log.Error(logger, "integration exited with error code", "code", status.ExitCode())
+		}
+		os.Exit(status.ExitCode())
+	}(logger, c)
+	return nil
 }
 
 // runCmd represents the run command
@@ -46,6 +62,7 @@ var runCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		logger := log.NewCommandLogger(cmd)
 		defer logger.Close()
+		ctx, cancel := context.WithCancel(context.Background())
 		fullIntegration := args[0]
 		version := args[1]
 		tok := strings.Split(fullIntegration, "/")
@@ -55,17 +72,20 @@ var runCmd = &cobra.Command{
 		publisher := tok[0]
 		integration := tok[1]
 		channel, _ := cmd.Flags().GetString("channel")
-		dir := "."
+		dir, _ := cmd.Flags().GetString("dir")
 
-		c, err := startIntegration(logger, channel, dir, publisher, integration, version)
+		c, err := getIntegration(ctx, logger, channel, dir, publisher, integration, version)
 		if err != nil {
-			log.Fatal(logger, "error starting integration", "err", err)
+			log.Fatal(logger, "error creating integration exec", "err", err)
+		}
+		if err := serveCommand(logger, c); err != nil {
+			log.Fatal(logger, "error serving command", "err", err)
 		}
 
 		done := make(chan bool)
 		pos.OnExit(func(_ int) {
 			log.Info(logger, "shutdown")
-			c.Process.Kill()
+			cancel()
 			done <- true
 		})
 		<-done
