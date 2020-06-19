@@ -34,6 +34,117 @@ func openCert(pemFilename string) (*x509.Certificate, error) {
 	return x509.ParseCertificate(block.Bytes)
 }
 
+func downloadIntegration(logger log.Logger, channel string, toDir string, publisher string, integration string, version string) (string, error) {
+	tmpdir, err := ioutil.TempDir("", "")
+	if err != nil {
+		return "", fmt.Errorf("error creating temp dir: %w", err)
+	}
+	defer os.RemoveAll(tmpdir)
+
+	cl, err := api.NewHTTPAPIClientDefault()
+	if err != nil {
+		return "", fmt.Errorf("error creating client: %w", err)
+	}
+	url := pstr.JoinURL(api.BackendURL(api.RegistryService, channel), fmt.Sprintf("/fetch/%s/%s/%s", publisher, integration, version))
+	log.Debug(logger, "downloading", "url", url)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return "", fmt.Errorf("error creating request: %w", err)
+	}
+	resp, err := cl.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("error executing request: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("error downloading request", "err", err, "code", resp.StatusCode)
+	}
+	defer resp.Body.Close()
+	signature := resp.Header.Get("x-pinpt-signature")
+	if signature == "" {
+		return "", fmt.Errorf("no signature from server, cannot verify bundle")
+	}
+	sigBuf, err := hex.DecodeString(signature)
+	if err != nil {
+		return "", fmt.Errorf("error decoding signature: %w", err)
+	}
+	src := filepath.Join(tmpdir, "bundle.zip")
+	dest := filepath.Join(tmpdir, "bundle")
+	of, err := os.Create(src)
+	if err != nil {
+		return "", fmt.Errorf("error opening download file: %w", err)
+	}
+	defer of.Close()
+
+	if _, err := io.Copy(of, resp.Body); err != nil {
+		return "", fmt.Errorf("error copying bundle data: %w", err)
+	}
+	if err := of.Close(); err != nil {
+		return "", fmt.Errorf("error closing bundle.zip: %w", err)
+	}
+	if err := resp.Body.Close(); err != nil {
+		return "", fmt.Errorf("error closing response body: %w", err)
+	}
+	// TODO(robin): figure out why we cant use hash.ChecksumCopy
+	sum, err := fileutil.Checksum(src)
+	if err != nil {
+		return "", fmt.Errorf("error taking checksum of downloaded bundle: %w", err)
+	}
+	checksum, err := hex.DecodeString(sum)
+	if err != nil {
+		return "", fmt.Errorf("error decoding checksum: %w", err)
+	}
+	if err := fileutil.Unzip(src, dest); err != nil {
+		return "", fmt.Errorf("error performing unzip for integration: %w", err)
+	}
+	certfile := filepath.Join(dest, "cert.pem")
+	if !fileutil.FileExists(certfile) {
+		return "", fmt.Errorf("error finding integration developer certificate (%s) for bundle", certfile)
+	}
+	cert, err := openCert(certfile)
+	if err != nil {
+		return "", fmt.Errorf("error opening certificate from bundle: %w", err)
+	}
+	pub, ok := cert.PublicKey.(*rsa.PublicKey)
+	if !ok {
+		return "", fmt.Errorf("certificate public key was not rsa")
+	}
+	if err := rsa.VerifyPKCS1v15(pub, crypto.SHA256, checksum, sigBuf); err != nil {
+		if err == rsa.ErrVerification {
+			return "", fmt.Errorf("invalid signature or certificate")
+		}
+		return "", fmt.Errorf("error verifying bundle signature: %w", err)
+	}
+	datafn := filepath.Join(dest, "data.zip")
+	if err := fileutil.Unzip(datafn, dest); err != nil {
+		return "", fmt.Errorf("error performing unzip for integration data: %w", err)
+	}
+	destfn := filepath.Join(dest, runtime.GOOS, runtime.GOARCH, integration)
+	if !fileutil.FileExists(destfn) {
+		return "", fmt.Errorf("error finding integration binary (%s) in bundle", destfn)
+	}
+	sf, err := os.Open(destfn)
+	if err != nil {
+		return "", fmt.Errorf("error opening file (%s): %w", destfn, err)
+	}
+	defer sf.Close()
+	outfn := filepath.Join(toDir, integration)
+	os.Remove(outfn)
+	df, err := os.Create(outfn)
+	if err != nil {
+		return "", fmt.Errorf("error creating file (%s): %w", outfn, err)
+	}
+	defer df.Close()
+	if _, err := io.Copy(df, sf); err != nil {
+		return "", fmt.Errorf("error copying binary data: %w", err)
+	}
+	if err := df.Close(); err != nil {
+		return "", fmt.Errorf("error closing output file (%s): %w", outfn, err)
+	}
+	os.Chmod(outfn, 0500) // make it executable
+	outfn, _ = filepath.Abs(outfn)
+	return outfn, nil
+}
+
 // downloadCmd represents the download command
 var downloadCmd = &cobra.Command{
 	Use:   "download <destination> <integration> <version>",
@@ -42,115 +153,21 @@ var downloadCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		logger := log.NewCommandLogger(cmd)
 		defer logger.Close()
-		tmpdir, err := ioutil.TempDir("", "")
-		if err != nil {
-			log.Fatal(logger, "error creating temp dir", "err", err)
-		}
-		defer os.RemoveAll(tmpdir)
-		// FIXME once we get list from the registry
 		destDir := args[0]
 		fullIntegration := args[1]
 		version := args[2]
 		os.MkdirAll(destDir, 0700)
 		channel, _ := cmd.Flags().GetString("channel")
-		cl, err := api.NewHTTPAPIClientDefault()
-		if err != nil {
-			log.Fatal(logger, "error creating client", "err", err)
-		}
 		tok := strings.Split(fullIntegration, "/")
 		if len(tok) != 2 {
 			log.Fatal(logger, "integration should be in the format: publisher/integration such as pinpt/github")
 		}
+		publisher := tok[0]
 		integration := tok[1]
-		url := pstr.JoinURL(api.BackendURL(api.RegistryService, channel), fmt.Sprintf("/fetch/%s/%s", fullIntegration, version))
-		log.Debug(logger, "downloading", "url", url)
-		req, err := http.NewRequest(http.MethodGet, url, nil)
+		outfn, err := downloadIntegration(logger, channel, destDir, publisher, integration, version)
 		if err != nil {
-			log.Fatal(logger, "error creating request", "err", err)
+			log.Fatal(logger, "error downloading integration", "err", err)
 		}
-		resp, err := cl.Do(req)
-		if err != nil {
-			log.Fatal(logger, "error executing request", "err", err)
-		}
-		if resp.StatusCode != http.StatusOK {
-			log.Fatal(logger, "error downloading request", "err", err, "code", resp.StatusCode)
-		}
-		defer resp.Body.Close()
-		signature := resp.Header.Get("x-pinpt-signature")
-		if signature == "" {
-			log.Fatal(logger, "no signature from server, cannot verify bundle")
-		}
-		sigBuf, err := hex.DecodeString(signature)
-		if err != nil {
-			log.Fatal(logger, "error decoding signature", "err", err)
-		}
-		src := filepath.Join(tmpdir, "bundle.zip")
-		dest := filepath.Join(tmpdir, "bundle")
-		of, err := os.Create(src)
-		if err != nil {
-			log.Fatal(logger, "error opening download file", "err", err)
-		}
-		defer of.Close()
-		_, err = io.Copy(of, resp.Body)
-		if err != nil {
-			log.Fatal(logger, "error copying bundle data", "err", err)
-		}
-		of.Close()
-		resp.Body.Close()
-		// TODO(robin): figure out why we cant use hash.ChecksumCopy
-		sum, err := fileutil.Checksum(src)
-		if err != nil {
-			log.Fatal(logger, "error taking checksum of downloaded bundle", "err", err)
-		}
-		checksum, err := hex.DecodeString(sum)
-		if err != nil {
-			log.Fatal(logger, "error decoding checksum", "err", err)
-		}
-		if err := fileutil.Unzip(src, dest); err != nil {
-			log.Fatal(logger, "error performing unzip for integration", "err", err)
-		}
-		certfile := filepath.Join(dest, "cert.pem")
-		if !fileutil.FileExists(certfile) {
-			log.Fatal(logger, "error finding integration developer certificate for bundle", "file", certfile)
-		}
-		cert, err := openCert(certfile)
-		if err != nil {
-			log.Fatal(logger, "error opening certificate from bundle", "err", err)
-		}
-		pub, ok := cert.PublicKey.(*rsa.PublicKey)
-		if !ok {
-			log.Fatal(logger, "certificate public key was not rsa")
-		}
-		if err := rsa.VerifyPKCS1v15(pub, crypto.SHA256, checksum, sigBuf); err != nil {
-			if err == rsa.ErrVerification {
-				log.Fatal(logger, "invalid signature or certificate")
-			}
-			log.Fatal(logger, "error verifying bundle signature", "err", err)
-		}
-		datafn := filepath.Join(dest, "data.zip")
-		if err := fileutil.Unzip(datafn, dest); err != nil {
-			log.Fatal(logger, "error performing unzip for integration data", "err", err)
-		}
-		destfn := filepath.Join(dest, runtime.GOOS, runtime.GOARCH, integration)
-		if !fileutil.FileExists(destfn) {
-			log.Fatal(logger, "error finding integration binary for bundle", "file", destfn)
-		}
-		sf, err := os.Open(destfn)
-		if err != nil {
-			log.Fatal(logger, "error opening file", "file", destfn, "err", err)
-		}
-		defer sf.Close()
-		outfn := filepath.Join(destDir, integration)
-		os.Remove(outfn)
-		df, err := os.Create(outfn)
-		if err != nil {
-			log.Fatal(logger, "error opening file", "file", outfn, "err", err)
-		}
-		defer df.Close()
-		io.Copy(df, sf)
-		df.Close()
-		os.Chmod(outfn, 0500) // make it executable
-		outfn, _ = filepath.Abs(outfn)
 		log.Info(logger, "platform integration available at "+outfn)
 	},
 }
