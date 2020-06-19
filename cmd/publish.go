@@ -50,7 +50,10 @@ var publishCmd = &cobra.Command{
 		integrationDir := args[0]
 		logger := log.NewCommandLogger(cmd)
 		defer logger.Close()
-		tmpdir := os.TempDir()
+		tmpdir, err := ioutil.TempDir("", "")
+		if err != nil {
+			log.Fatal(logger, "error creating temp dir", "err", err)
+		}
 		defer os.RemoveAll(tmpdir)
 		c, err := loadDevConfig()
 		if err != nil {
@@ -76,11 +79,11 @@ var publishCmd = &cobra.Command{
 		cm.Stderr = os.Stderr
 		cm.Stdin = os.Stdin
 		if err := cm.Run(); err != nil {
-			os.Exit(1)
+			log.Fatal(logger, "error running package command", "err", err)
 		}
 		bundle := filepath.Join(tmpdir, "bundle.zip")
 		if !fileutil.FileExists(bundle) {
-			os.Exit(1)
+			log.Fatal(logger, "error bundle does not exist", "err", err)
 		}
 		signature, err := signFile(bundle, privateKey)
 		if err != nil {

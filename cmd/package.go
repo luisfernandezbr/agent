@@ -65,7 +65,7 @@ var packageCmd = &cobra.Command{
 		c.Stderr = os.Stderr
 		c.Stdin = os.Stdin
 		if err := c.Run(); err != nil {
-			os.Exit(1)
+			log.Fatal(logger, "error running command", "command", c.String(), "err", err)
 		}
 
 		// build the application
@@ -75,7 +75,7 @@ var packageCmd = &cobra.Command{
 		c.Stderr = os.Stderr
 		c.Stdin = os.Stdin
 		if err := c.Run(); err != nil {
-			os.Exit(1)
+			log.Fatal(logger, "error running command", "command", c.String(), "err", err)
 		}
 		c = exec.Command("npm", "run", "build", "--loglevel", "error")
 		c.Dir = appDir
@@ -83,7 +83,7 @@ var packageCmd = &cobra.Command{
 		c.Stderr = os.Stderr
 		c.Stdin = os.Stdin
 		if err := c.Run(); err != nil {
-			os.Exit(1)
+			log.Fatal(logger, "error running command", "command", c.String(), "err", err)
 		}
 		if _, err := fileutil.ZipDir(uiFn, filepath.Join(appDir, "build"), regexp.MustCompile(".*")); err != nil {
 			log.Fatal(logger, "error building zip file", "err", err)
