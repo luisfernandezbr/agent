@@ -11,3 +11,5 @@ FROM alpine:edge
 RUN apk add openssl-dev cyrus-sasl-dev ca-certificates && rm -rf /var/cache/apk/*
 WORKDIR /
 COPY --from=builder /bin/agent.next /bin/agent.next
+
+ENTRYPOINT [ "/bin/agent.next" ]
