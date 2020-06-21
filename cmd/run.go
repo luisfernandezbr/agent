@@ -364,7 +364,6 @@ var runCmd = &cobra.Command{
 			if channel == "" {
 				channel = config.Channel
 			}
-			// customerID := config.CustomerID
 			ch, err = event.NewSubscription(ctx, event.Subscription{
 				GroupID:     "agent-run-" + publisher + "-" + integration,
 				Topics:      []string{"ops.db.Change"},
@@ -419,14 +418,15 @@ var runCmd = &cobra.Command{
 				json.Unmarshal([]byte(evt.Data), &dbchange)
 				var instance Integration
 				json.Unmarshal([]byte(dbchange.Data), &instance)
+				log.Debug(logger, "db change event received", "ref_type", instance.RefType, "integration", integration)
 				if instance.RefType == integration {
 					switch dbchange.Action {
-					case "update", "upsert":
+					case "update", "UPDATE", "upsert", "UPSERT":
 						restartLock.Lock()
 						restarting = true
 						restart <- true // force a new download
 						restartLock.Unlock()
-					case "DELETE":
+					case "delete", "DELETE":
 						// TODO -- exit with a special code to indicate we don't need to restart this integration
 					}
 				}
