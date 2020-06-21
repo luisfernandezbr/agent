@@ -424,6 +424,7 @@ var runCmd = &cobra.Command{
 					case "update", "UPDATE", "upsert", "UPSERT":
 						restartLock.Lock()
 						restarting = true
+						version = instance.Version
 						restart <- true // force a new download
 						restartLock.Unlock()
 					case "delete", "DELETE":
