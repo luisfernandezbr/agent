@@ -2,3 +2,6 @@ dist
 vendor
 /dev_dist
 .DS_Store
+*.state.json
+jira
+github

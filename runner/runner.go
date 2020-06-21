@@ -23,12 +23,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type configFile struct {
+// ConfigFile is the configuration file for the r
+type ConfigFile struct {
 	Channel    string `json:"channel"`
 	CustomerID string `json:"customer_id"`
 	DeviceID   string `json:"device_id"`
 	SystemID   string `json:"system_id"`
-	APIKey     string `json:"api_key"`
+	APIKey     string `json:"apikey"`
 }
 
 // Main is the main entrypoint for an integration
@@ -64,13 +65,16 @@ func Main(integration sdk.Integration, args ...string) {
 			}
 			devMode, _ := cmd.Flags().GetBool("dev")
 			intconfig := sdk.NewConfig(kv)
-			var channel, uuid, apikey, groupid string
+			var uuid, apikey, groupid string
 			var redisClient *redis.Client
+			channel, _ := cmd.Flags().GetString("channel")
 
 			if !devMode {
-				if secret != "" {
+				if secret != "" && cfg == "" {
 					// running in multi agent mode
-					channel, _ = cmd.Flags().GetString("channel")
+					if channel == "" {
+						channel = "dev"
+					}
 					groupid = "agent"
 
 					// we must connect to redis in multi mode
@@ -99,20 +103,31 @@ func Main(integration sdk.Integration, args ...string) {
 					if err != nil {
 						log.Fatal(logger, "error loading config file at "+cfg, "err", err)
 					}
-					var config configFile
+					var config ConfigFile
 					if err := json.NewDecoder(of).Decode(&config); err != nil {
 						of.Close()
 						log.Fatal(logger, "error parsing config file at "+cfg, "err", err)
 					}
 					of.Close()
-					channel = config.Channel
+					if channel == "" {
+						channel = config.Channel
+					}
 					uuid = config.DeviceID
 					apikey = config.APIKey
+					if uuid == "" {
+						config.DeviceID = config.CustomerID
+					}
 					groupid = "agent-" + config.DeviceID
-					log.Info(logger, "running in single agent mode", "uuid", config.DeviceID, "customer_id", config.CustomerID, "channel", config.Channel)
+					outdir, _ := cmd.Flags().GetString("dir")
+					statefn := filepath.Join(outdir, descriptor.RefType+".state.json")
+					stateobj, err := devstate.New(statefn)
+					if err != nil {
+						log.Fatal(logger, "error opening state file", "err", err)
+					}
+					state = stateobj
+					defer stateobj.Close()
+					log.Info(logger, "running in single agent mode", "uuid", config.DeviceID, "customer_id", config.CustomerID, "channel", channel)
 				}
-			} else {
-				channel, _ = cmd.Flags().GetString("channel")
 			}
 
 			manager := emanager.New(logger, channel)
@@ -201,8 +216,8 @@ func Main(integration sdk.Integration, args ...string) {
 	}
 	log.RegisterFlags(serverCmd)
 	serverCmd.Flags().String("config", "", "the config file location")
-	serverCmd.Flags().String("secret", pos.Getenv("PP_AUTH_SHARED_SECRET", "fa0s8f09a8sd09f8iasdlkfjalsfm,.m,xf"), "the secret which is only useful when running in the cloud")
-	serverCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "dev"), "the channel configuration")
+	serverCmd.Flags().String("secret", pos.Getenv("PP_AUTH_SHARED_SECRET", ""), "the secret which is only useful when running in the cloud")
+	serverCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", ""), "the channel configuration")
 	serverCmd.Flags().String("tempdir", "dist/export", "the directory to place files")
 	serverCmd.Flags().String("redis", pos.Getenv("PP_REDIS_URL", "0.0.0.0:6379"), "the redis endpoint url")
 	serverCmd.Flags().Int("redisDB", 15, "the redis db")
