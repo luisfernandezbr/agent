@@ -5,9 +5,13 @@ import (
 
 	"github.com/pinpt/agent.next/runner"
 	"github.com/pinpt/agent.next/sdk"
+	"github.com/pinpt/agent.next/sysinfo"
 	"github.com/pinpt/go-common/v10/api"
+	"github.com/pinpt/go-common/v10/datetime"
+	"github.com/pinpt/go-common/v10/graphql"
 	"github.com/pinpt/go-common/v10/log"
 	pos "github.com/pinpt/go-common/v10/os"
+	"github.com/pinpt/integration-sdk/agent"
 	"github.com/spf13/cobra"
 )
 
@@ -35,6 +39,33 @@ var enrollAgentCmd = &cobra.Command{
 		}
 		log.Info(logger, "logged in", "customer_id", config.CustomerID)
 
+		log.Info(logger, "enrolling agent...", "customer_id", config.CustomerID)
+		client, err := graphql.NewClient(config.CustomerID, "", "", api.BackendURL(api.GraphService, channel))
+		if err != nil {
+			log.Fatal(logger, "error creating graphql client", "err", err)
+		}
+		client.SetHeader("Authorization", config.APIKey)
+		info, err := sysinfo.GetSystemInfo()
+		if err != nil {
+			log.Fatal(logger, "error getting system info", "err", err)
+		}
+		created := agent.EnrollmentCreatedDate(datetime.NewDateNow())
+		enr := agent.Enrollment{
+			// AgentVersion // TODO(robin): figure these out
+			// UserID
+			CreatedDate:  created,
+			SystemID:     info.ID,
+			Hostname:     info.Hostname,
+			NumCPU:       info.NumCPU,
+			OS:           info.OS,
+			Architecture: info.Architecture,
+			GoVersion:    info.GoVersion,
+			CustomerID:   config.CustomerID,
+		}
+		if err := agent.CreateEnrollment(client, enr); err != nil {
+			log.Fatal(logger, "error creating enrollment", "err", err)
+		}
+		log.Info(logger, "agent enrolled 🎉", "customer_id", config.CustomerID)
 	},
 }
 

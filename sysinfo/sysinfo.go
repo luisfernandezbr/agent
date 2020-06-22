@@ -12,7 +12,7 @@ import (
 type SystemInfo struct {
 	ID           string `json:"system_id"`
 	Hostname     string `json:"hostname"`
-	NumCPU       int    `json:"num_cpu"`
+	NumCPU       int64  `json:"num_cpu"`
 	OS           string `json:"os"`
 	Architecture string `json:"architecture"`
 	GoVersion    string `json:"go_version"`
@@ -33,7 +33,7 @@ func GetSystemInfo() (*SystemInfo, error) {
 	s.ID = id
 	s.Hostname = hostname
 	s.OS = runtime.GOOS
-	s.NumCPU = runtime.NumCPU()
+	s.NumCPU = int64(runtime.NumCPU())
 	s.Architecture = runtime.GOARCH
 	s.GoVersion = runtime.Version()[2:]
 	s.AgentVersion = os.Getenv("PP_AGENT_VERSION") + "-" + os.Getenv("PP_AGENT_COMMIT")
