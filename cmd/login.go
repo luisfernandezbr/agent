@@ -98,6 +98,45 @@ func parsePrivateKey(pemData string) (*rsa.PrivateKey, error) {
 	return key, nil
 }
 
+// waitForRedirect will wa
+func waitForRedirect(rawURL string, handler func(w http.ResponseWriter, r *http.Request)) error {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return err
+	}
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		return fmt.Errorf("error listening to port: %w", err)
+	}
+
+	port := listener.Addr().(*net.TCPAddr).Port
+
+	q := u.Query()
+	q.Del("redirect_to")
+	q.Add("redirect_to", fmt.Sprintf("http://localhost:%d/", port))
+	u.RawQuery = q.Encode()
+
+	done := make(chan bool, 1)
+
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		handler(w, r)
+		done <- true
+	})
+
+	server := &http.Server{
+		Addr: fmt.Sprintf(":%d", port),
+	}
+	defer server.Close()
+	go server.Serve(listener)
+
+	if err := browser.OpenURL(u.String()); err != nil {
+		return fmt.Errorf("error opening url: %w", err)
+	}
+
+	<-done
+	return nil
+}
+
 // loginCmd represents the login command
 var loginCmd = &cobra.Command{
 	Use:   "login",
@@ -109,17 +148,10 @@ var loginCmd = &cobra.Command{
 		var config devConfig
 
 		channel, _ := cmd.Flags().GetString("channel")
+		baseurl := api.BackendURL(api.AuthService, channel)
+		url := sdk.JoinURL(baseurl, "/login?apikey=true")
 
-		listener, err := net.Listen("tcp", ":0")
-		if err != nil {
-			log.Fatal(logger, "error listening to port", "err", err)
-		}
-
-		port := listener.Addr().(*net.TCPAddr).Port
-
-		done := make(chan bool, 1)
-
-		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		err := waitForRedirect(url, func(w http.ResponseWriter, r *http.Request) {
 			q := r.URL.Query()
 			config.APIKey = q.Get("apikey")
 			config.CustomerID = q.Get("customer_id")
@@ -129,23 +161,11 @@ var loginCmd = &cobra.Command{
 				log.Error(logger, "error saving config", "err", err)
 			}
 			httpmessage.RenderStatus(w, r, http.StatusOK, "Login Success", "You have logged in successfully and can now close this window")
-			done <- true
 		})
-
-		server := &http.Server{
-			Addr: fmt.Sprintf(":%d", port),
-		}
-		defer server.Close()
-		go server.Serve(listener)
-
-		baseurl := api.BackendURL(api.AuthService, channel)
-		url := sdk.JoinURL(baseurl, "/login?apikey=true&redirect_to="+url.QueryEscape(fmt.Sprintf("http://localhost:%d/", port)))
-
-		if err := browser.OpenURL(url); err != nil {
-			log.Fatal(logger, "error opening url", "err", err)
+		if err != nil {
+			log.Fatal(logger, "error waiting for browser", "err", err)
 		}
 
-		<-done
 		log.Info(logger, "logged in", "customer_id", config.CustomerID)
 	},
 }
