@@ -186,9 +186,6 @@ type WorkConfig = work.Config
 // WorkConfigStatuses is the work config status type
 type WorkConfigStatuses = work.ConfigStatuses
 
-// WorkConfigTopLevelIssue is the work config top level issue type
-type WorkConfigTopLevelIssue = work.ConfigTopLevelIssue
-
 // NewWorkProjectID will return the work project id
 func NewWorkProjectID(customerID string, refID string, refType string) string {
 	return work.NewProjectID(customerID, refID, refType)

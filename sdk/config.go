@@ -1,12 +1,60 @@
 package sdk
 
 import (
+	"encoding/json"
+	"strings"
+
 	pn "github.com/pinpt/go-common/v10/number"
 	ps "github.com/pinpt/go-common/v10/strings"
+	gi "github.com/sabhiram/go-gitignore"
 )
+
+type auth struct {
+	URL string `json:"url,omitempty"`
+}
+
+type basicAuth struct {
+	auth
+	Username string `json:"username,omitempty"`
+	Password string `json:"password,omitempty"`
+}
+
+type oauth2Auth struct {
+	auth
+	AccessToken  string  `json:"access_token"`
+	RefreshToken *string `json:"refresh_token"`
+}
+
+type apikeyAuth struct {
+	auth
+	APIKey string `json:"apikey"`
+}
+
+type config struct {
+	Exclusions *string     `json:"exclusions,omitempty"`
+	Inclusions *string     `json:"inclusions,omitempty"`
+	OAuth2Auth *oauth2Auth `json:"oauth2_auth,omitempty"`
+	BasicAuth  *basicAuth  `json:"basic_auth,omitempty"`
+	APIKeyAuth *apikeyAuth `json:"apikey_auth,omitempty"`
+}
+
+type matchList struct {
+	parser gi.IgnoreParser
+}
+
+// Matches returns true if the name matches the exclusion list
+func (l *matchList) Matches(name string) bool {
+	return l.parser.MatchesPath(name)
+}
 
 // Config is the integration configuration
 type Config struct {
+	OAuth2Auth *oauth2Auth `json:"oauth2_auth,omitempty"`
+	BasicAuth  *basicAuth  `json:"basic_auth,omitempty"`
+	APIKeyAuth *apikeyAuth `json:"apikey_auth,omitempty"`
+	Inclusions *matchList  `json:"-"`
+	Exclusions *matchList  `json:"-"`
+
 	kv map[string]interface{}
 }
 
@@ -45,13 +93,46 @@ func (c Config) GetBool(key string) (bool, bool) {
 
 // NewConfig will return a new Config
 func NewConfig(kv map[string]interface{}) Config {
-	return Config{kv}
+	if kv == nil {
+		kv = make(map[string]interface{})
+	}
+	return Config{kv: kv}
 }
 
 // Merge in new config
-func (c Config) Merge(kv map[string]interface{}) Config {
+func (c *Config) Merge(kv map[string]interface{}) {
 	for k, v := range kv {
 		c.kv[k] = v
 	}
-	return c
+}
+
+// Parse detail from a buffer into the config
+func (c *Config) Parse(buf []byte) error {
+	var cfg config
+	if err := json.Unmarshal(buf, &c.kv); err != nil {
+		return err
+	}
+	if err := json.Unmarshal(buf, &cfg); err != nil {
+		return err
+	}
+	if cfg.Exclusions != nil {
+		lines := strings.Split(*cfg.Exclusions, "\n")
+		i, err := gi.CompileIgnoreLines(lines...)
+		if err != nil {
+			return err
+		}
+		c.Exclusions = &matchList{i}
+	}
+	if cfg.Inclusions != nil {
+		lines := strings.Split(*cfg.Inclusions, "\n")
+		i, err := gi.CompileIgnoreLines(lines...)
+		if err != nil {
+			return err
+		}
+		c.Inclusions = &matchList{i}
+	}
+	c.APIKeyAuth = cfg.APIKeyAuth
+	c.BasicAuth = cfg.BasicAuth
+	c.OAuth2Auth = cfg.OAuth2Auth
+	return nil
 }

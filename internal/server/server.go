@@ -113,17 +113,19 @@ func (s *Server) newTempDir(jobID string) string {
 	return dir
 }
 
-func (s *Server) newConfig(configstr *string, kv map[string]interface{}) sdk.Config {
+func (s *Server) newConfig(configstr *string, kv map[string]interface{}) (sdk.Config, error) {
 	var sdkconfig sdk.Config
 	if s.config.DevMode {
 		sdkconfig = s.config.DevExport.Config()
 	} else {
-		if configstr != nil && *configstr != "" {
-			json.Unmarshal([]byte(*configstr), &kv)
-		}
 		sdkconfig = sdk.NewConfig(kv)
+		if configstr != nil && *configstr != "" {
+			if err := sdkconfig.Parse([]byte(*configstr)); err != nil {
+				return sdkconfig, err
+			}
+		}
 	}
-	return sdkconfig
+	return sdkconfig, nil
 }
 
 type cleanupFunc func()
@@ -139,7 +141,10 @@ func (s *Server) toInstance(integration *agent.IntegrationInstance) (*sdk.Instan
 		pipe.Close()
 		os.RemoveAll(dir)
 	}
-	config := s.newConfig(integration.Config, make(map[string]interface{}))
+	config, err := s.newConfig(integration.Config, make(map[string]interface{}))
+	if err != nil {
+		return nil, nil, err
+	}
 	instance := sdk.NewInstance(config, state, pipe, integration.CustomerID, integration.ID)
 	return instance, cleanup, nil
 }
@@ -175,7 +180,10 @@ func (s *Server) handleExport(logger log.Logger, req agent.Export) error {
 	defer os.RemoveAll(dir)
 	started := time.Now()
 	integration := req.Integration
-	sdkconfig := s.newConfig(integration.Config, make(map[string]interface{}))
+	sdkconfig, err := s.newConfig(integration.Config, make(map[string]interface{}))
+	if err != nil {
+		return err
+	}
 	state, err := s.newState(req.CustomerID, integration.ID)
 	if err != nil {
 		return err
