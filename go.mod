@@ -9,6 +9,7 @@ require (
 	github.com/pinpt/go-common/v10 v10.0.9
 	github.com/pinpt/integration-sdk v0.0.1034
 	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
+	github.com/russross/blackfriday/v2 v2.0.1
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.6.1
