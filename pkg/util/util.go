@@ -1,6 +1,10 @@
 package util
 
-import "github.com/russross/blackfriday/v2"
+import (
+	"strings"
+
+	"github.com/russross/blackfriday/v2"
+)
 
 const extensions = blackfriday.NoIntraEmphasis |
 	blackfriday.Tables |
@@ -11,6 +15,7 @@ const extensions = blackfriday.NoIntraEmphasis |
 	blackfriday.NoEmptyLineBeforeBlock
 
 func ConvertMarkdownToHTML(text string) string {
-	output := blackfriday.Run([]byte(text), blackfriday.WithExtensions(extensions))
+	input := strings.ReplaceAll(text, "\r", "")
+	output := blackfriday.Run([]byte(input), blackfriday.WithExtensions(extensions))
 	return string(output)
 }
