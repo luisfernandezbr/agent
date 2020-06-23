@@ -1,4 +1,4 @@
-package cmd
+package dev
 
 import (
 	"context"
@@ -41,8 +41,8 @@ func signFile(filename string, privateKey *rsa.PrivateKey) (string, error) {
 	return hex.EncodeToString(sigBuf), nil
 }
 
-// publishCmd represents the publish command
-var publishCmd = &cobra.Command{
+// PublishCmd represents the publish command
+var PublishCmd = &cobra.Command{
 	Use:   "publish <integration dir>",
 	Short: "publish an integration to the registry",
 	Args:  cobra.ExactArgs(1),
@@ -137,9 +137,8 @@ var publishCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(publishCmd)
-	publishCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "stable"), "the channel which can be set")
-	publishCmd.Flags().String("apikey", "", "api key")
-	publishCmd.Flags().String("secret", "", "internal shared secret")
-	publishCmd.Flags().MarkHidden("secret")
+	PublishCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "stable"), "the channel which can be set")
+	PublishCmd.Flags().String("apikey", "", "api key")
+	PublishCmd.Flags().String("secret", "", "internal shared secret")
+	PublishCmd.Flags().MarkHidden("secret")
 }

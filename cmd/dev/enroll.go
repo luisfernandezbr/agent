@@ -1,4 +1,4 @@
-package cmd
+package dev
 
 import (
 	"context"
@@ -124,8 +124,8 @@ func validateURL(val interface{}) error {
 	return errors.New("invalid type")
 }
 
-// enrollCmd represents the enroll command
-var enrollCmd = &cobra.Command{
+// EnrollCmd represents the enroll command
+var EnrollCmd = &cobra.Command{
 	Use:   "enroll",
 	Short: "enroll to create a developer account",
 	Args:  cobra.NoArgs,
@@ -248,6 +248,6 @@ var enrollCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(enrollCmd)
-	enrollCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "stable"), "the channel which can be set")
+	// add command to root in ../dev.go
+	EnrollCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "stable"), "the channel which can be set")
 }

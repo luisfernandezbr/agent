@@ -1,4 +1,4 @@
-package cmd
+package dev
 
 import (
 	"crypto/rsa"
@@ -6,20 +6,18 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/pinpt/agent.next/pkg/util"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/api"
 	"github.com/pinpt/go-common/v10/fileutil"
 	"github.com/pinpt/go-common/v10/httpmessage"
 	"github.com/pinpt/go-common/v10/log"
 	pos "github.com/pinpt/go-common/v10/os"
-	"github.com/pkg/browser"
 	"github.com/spf13/cobra"
 )
 
@@ -98,46 +96,8 @@ func parsePrivateKey(pemData string) (*rsa.PrivateKey, error) {
 	return key, nil
 }
 
-// waitForRedirect will open a url with a `redirect_to` query string param that gets handled by handler
-func waitForRedirect(rawURL string, handler func(w http.ResponseWriter, r *http.Request)) error {
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return err
-	}
-	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		return fmt.Errorf("error listening to port: %w", err)
-	}
-
-	port := listener.Addr().(*net.TCPAddr).Port
-
-	q := u.Query()
-	q.Set("redirect_to", fmt.Sprintf("http://localhost:%d/", port))
-	u.RawQuery = q.Encode()
-
-	done := make(chan bool, 1)
-
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		handler(w, r)
-		done <- true
-	})
-
-	server := &http.Server{
-		Addr: fmt.Sprintf(":%d", port),
-	}
-	defer server.Close()
-	go server.Serve(listener)
-
-	if err := browser.OpenURL(u.String()); err != nil {
-		return fmt.Errorf("error opening url: %w", err)
-	}
-
-	<-done
-	return nil
-}
-
-// loginCmd represents the login command
-var loginCmd = &cobra.Command{
+// LoginCmd represents the login command
+var LoginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "login to your developer account",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -150,7 +110,7 @@ var loginCmd = &cobra.Command{
 		baseurl := api.BackendURL(api.AuthService, channel)
 		url := sdk.JoinURL(baseurl, "/login?apikey=true")
 
-		err := waitForRedirect(url, func(w http.ResponseWriter, r *http.Request) {
+		err := util.WaitForRedirect(url, func(w http.ResponseWriter, r *http.Request) {
 			q := r.URL.Query()
 			config.APIKey = q.Get("apikey")
 			config.CustomerID = q.Get("customer_id")
@@ -170,6 +130,6 @@ var loginCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(loginCmd)
-	loginCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "stable"), "the channel which can be set")
+	// add command to root in ../dev.go
+	LoginCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "stable"), "the channel which can be set")
 }
