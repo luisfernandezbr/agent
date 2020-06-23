@@ -92,7 +92,7 @@ func init() {
 	// add command to root in ../dev.go
 	DevCmd.Flags().StringSlice("config", []string{}, "a config key/value pair such as a=b")
 	DevCmd.Flags().String("dir", "dev_dist", "the directory to output pipe contents")
-	DevCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "stable"), "the channel which can be set")
+	DevCmd.Flags().String("channel", "dev", "the channel which can be set")
 	DevCmd.Flags().MarkHidden("channel")
 	DevCmd.Flags().Bool("historical", false, "force a historical export")
 }
