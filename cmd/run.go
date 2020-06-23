@@ -129,6 +129,17 @@ var integrationQuery = `query findIntegration($id: ID!) {
 	}
 }`
 
+func pingEnrollment(logger log.Logger, client graphql.Client, enrollmentID string, datefield string) error {
+	log.Debug(logger, "updating enrollment", "setting", datefield)
+	now := datetime.NewDateNow()
+	vars := make(graphql.Variables)
+	if datefield != "" {
+		vars[datefield] = now
+	}
+	vars[agent.EnrollmentModelLastPingDateColumn] = now
+	return agent.ExecEnrollmentSilentUpdateMutation(client, enrollmentID, vars, false)
+}
+
 func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Command) {
 	channel, _ := cmd.Flags().GetString("channel")
 	secret, _ := cmd.Flags().GetString("secret")
@@ -174,6 +185,12 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 			log.Fatal(logger, "error creating graphql client", "err", err)
 		}
 		gclient.SetHeader("Authorization", config.APIKey)
+		// set startup date
+		if err := pingEnrollment(logger, gclient, config.EnrollmentID, agent.EnrollmentModelLastStartupDateColumn); err != nil {
+			log.Error(logger, "unable to update enrollment", "enrollment_id", config.EnrollmentID, "err", err)
+		}
+		// set shutdown date
+		defer pingEnrollment(logger, gclient, config.EnrollmentID, agent.EnrollmentModelLastShutdownDateColumn)
 		ch, err = event.NewSubscription(ctx, event.Subscription{
 			GroupID:     "agent-run-monitor",
 			Topics:      []string{"ops.db.Change"},
@@ -366,7 +383,9 @@ func enrollAgent(logger log.Logger, channel string, configFileName string) (*run
 		GoVersion:    info.GoVersion,
 		CustomerID:   config.CustomerID,
 		UserID:       userID,
+		ID:           agent.NewEnrollmentID(config.CustomerID, info.ID),
 	}
+	config.EnrollmentID = enr.ID
 	if err := agent.CreateEnrollment(client, enr); err != nil {
 		if strings.Contains(err.Error(), "duplicate key error") {
 			log.Info(logger, "looks like this system has already been enrolled, recreating local config")
