@@ -98,7 +98,7 @@ func parsePrivateKey(pemData string) (*rsa.PrivateKey, error) {
 	return key, nil
 }
 
-// waitForRedirect will wa
+// waitForRedirect will open a url with a `redirect_to` query string param that gets handled by handler
 func waitForRedirect(rawURL string, handler func(w http.ResponseWriter, r *http.Request)) error {
 	u, err := url.Parse(rawURL)
 	if err != nil {
@@ -112,8 +112,7 @@ func waitForRedirect(rawURL string, handler func(w http.ResponseWriter, r *http.
 	port := listener.Addr().(*net.TCPAddr).Port
 
 	q := u.Query()
-	q.Del("redirect_to")
-	q.Add("redirect_to", fmt.Sprintf("http://localhost:%d/", port))
+	q.Set("redirect_to", fmt.Sprintf("http://localhost:%d/", port))
 	u.RawQuery = q.Encode()
 
 	done := make(chan bool, 1)

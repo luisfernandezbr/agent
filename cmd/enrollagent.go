@@ -51,8 +51,8 @@ var enrollAgentCmd = &cobra.Command{
 		}
 		created := agent.EnrollmentCreatedDate(datetime.NewDateNow())
 		enr := agent.Enrollment{
-			// AgentVersion // TODO(robin): figure these out
-			// UserID
+			AgentVersion: commit, // TODO(robin): when we start versioning, switch this to version
+			// UserID // TODO(robin)
 			CreatedDate:  created,
 			SystemID:     info.ID,
 			Hostname:     info.Hostname,

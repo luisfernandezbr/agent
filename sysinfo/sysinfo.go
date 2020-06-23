@@ -16,7 +16,6 @@ type SystemInfo struct {
 	OS           string `json:"os"`
 	Architecture string `json:"architecture"`
 	GoVersion    string `json:"go_version"`
-	AgentVersion string `json:"agent_version"`
 }
 
 // GetSystemInfo returns info about the system
@@ -36,6 +35,5 @@ func GetSystemInfo() (*SystemInfo, error) {
 	s.NumCPU = int64(runtime.NumCPU())
 	s.Architecture = runtime.GOARCH
 	s.GoVersion = runtime.Version()[2:]
-	s.AgentVersion = os.Getenv("PP_AGENT_VERSION") + "-" + os.Getenv("PP_AGENT_COMMIT")
 	return &s, nil
 }
