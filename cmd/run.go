@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,10 +15,14 @@ import (
 	"time"
 
 	"github.com/pinpt/agent.next/runner"
+	"github.com/pinpt/agent.next/sdk"
+	"github.com/pinpt/agent.next/sysinfo"
 	"github.com/pinpt/go-common/v10/api"
+	"github.com/pinpt/go-common/v10/datetime"
 	"github.com/pinpt/go-common/v10/event"
 	"github.com/pinpt/go-common/v10/fileutil"
 	"github.com/pinpt/go-common/v10/graphql"
+	pjson "github.com/pinpt/go-common/v10/json"
 	"github.com/pinpt/go-common/v10/log"
 	pos "github.com/pinpt/go-common/v10/os"
 	"github.com/pinpt/integration-sdk/agent"
@@ -66,27 +72,38 @@ func getIntegration(ctx context.Context, logger log.Logger, channel string, dir 
 	return cm, nil
 }
 
-func loadConfig(cmd *cobra.Command, logger log.Logger) (string, *runner.ConfigFile) {
-	var config runner.ConfigFile
-	cfg, _ := cmd.Flags().GetString("config")
-	if cfg == "" {
-		configfile := filepath.Join(os.Getenv("HOME"), ".pinpoint-agent/config.json")
-		cfg = configfile
+func configFilename(cmd *cobra.Command) (string, error) {
+	fn, _ := cmd.Flags().GetString("config")
+	if fn == "" {
+		fn = filepath.Join(os.Getenv("HOME"), ".pinpoint-agent/config.json")
 	}
-	cfg, _ = filepath.Abs(cfg)
-	if !fileutil.FileExists(cfg) {
-		log.Fatal(logger, "couldn't find a config file at "+cfg)
-	}
-	of, err := os.Open(cfg)
+	return filepath.Abs(fn)
+}
+
+func loadConfig(cmd *cobra.Command, logger log.Logger, channel string) (string, *runner.ConfigFile) {
+	cfg, err := configFilename(cmd)
 	if err != nil {
-		log.Fatal(logger, "error opening config file at "+cfg, "err", err)
+		log.Fatal(logger, "error getting config file name", "err", err)
 	}
-	defer of.Close()
-	if err := json.NewDecoder(of).Decode(&config); err != nil {
-		log.Fatal(logger, "error parsing config file at "+cfg, "err", err)
+	if fileutil.FileExists(cfg) {
+		var config runner.ConfigFile
+		of, err := os.Open(cfg)
+		if err != nil {
+			log.Fatal(logger, "error opening config file at "+cfg, "err", err)
+		}
+		defer of.Close()
+		if err := json.NewDecoder(of).Decode(&config); err != nil {
+			log.Fatal(logger, "error parsing config file at "+cfg, "err", err)
+		}
+		of.Close()
+		return cfg, &config
 	}
-	of.Close()
-	return cfg, &config
+	log.Info(logger, "no agent configuration found, enrolling now", "path", cfg)
+	config, err := enrollAgent(logger, channel, cfg)
+	if err != nil {
+		log.Fatal(logger, "error enrolling new agent", "err", err)
+	}
+	return cfg, config
 }
 
 type integrationResult struct {
@@ -146,7 +163,7 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 		return val, nil
 	}
 	if secret == "" {
-		cfg, config := loadConfig(cmd, logger)
+		cfg, config := loadConfig(cmd, logger, channel)
 		if channel == "" {
 			channel = config.Channel
 		}
@@ -306,6 +323,83 @@ completed:
 	finished <- true
 }
 
+func enrollAgent(logger log.Logger, channel string, configFileName string) (*runner.ConfigFile, error) {
+	var config runner.ConfigFile
+	config.Channel = channel
+
+	url := sdk.JoinURL(api.BackendURL(api.AppService, channel), "/enroll")
+
+	var userID string
+	err := waitForRedirect(url, func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		config.APIKey = q.Get("apikey")
+		config.CustomerID = q.Get("customer_id")
+		userID = q.Get("user_id")
+		w.WriteHeader(http.StatusOK)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error waiting for browser: %w", err)
+	}
+	log.Info(logger, "logged in", "customer_id", config.CustomerID)
+
+	log.Info(logger, "enrolling agent...", "customer_id", config.CustomerID)
+	client, err := graphql.NewClient(config.CustomerID, "", "", api.BackendURL(api.GraphService, channel))
+	if err != nil {
+		return nil, fmt.Errorf("error creating graphql client: %w", err)
+	}
+	client.SetHeader("Authorization", config.APIKey)
+	info, err := sysinfo.GetSystemInfo()
+	if err != nil {
+		return nil, fmt.Errorf("error getting system info: %w", err)
+	}
+	config.SystemID = info.ID
+	created := agent.EnrollmentCreatedDate(datetime.NewDateNow())
+	enr := agent.Enrollment{
+		AgentVersion: commit, // TODO(robin): when we start versioning, switch this to version
+		CreatedDate:  created,
+		SystemID:     info.ID,
+		Hostname:     info.Hostname,
+		NumCPU:       info.NumCPU,
+		OS:           info.OS,
+		Architecture: info.Architecture,
+		GoVersion:    info.GoVersion,
+		CustomerID:   config.CustomerID,
+		UserID:       userID,
+	}
+	if err := agent.CreateEnrollment(client, enr); err != nil {
+		if strings.Contains(err.Error(), "duplicate key error") {
+			log.Info(logger, "looks like this system has already been enrolled, recreating local config")
+		} else {
+			return nil, fmt.Errorf("error creating enrollment: %w", err)
+		}
+	}
+	os.MkdirAll(filepath.Dir(configFileName), 0700)
+	if err := ioutil.WriteFile(configFileName, []byte(pjson.Stringify(config)), 0644); err != nil {
+		return nil, fmt.Errorf("error writing config file: %w", err)
+	}
+	log.Info(logger, "agent enrolled 🎉", "customer_id", config.CustomerID)
+	return &config, nil
+}
+
+// enrollAgentCmd will authenticate with pinpoint and create an agent enrollment
+var enrollAgentCmd = &cobra.Command{
+	Use:    "enroll-agent",
+	Short:  "connect this agent to Pinpoint's backend",
+	Hidden: true,
+	Run: func(cmd *cobra.Command, args []string) {
+		logger := log.NewCommandLogger(cmd)
+		defer logger.Close()
+		channel, _ := cmd.Flags().GetString("channel")
+		fn, err := configFilename(cmd)
+		if err != nil {
+			log.Fatal(logger, "error getting config file name", "err", err)
+		}
+		if _, err := enrollAgent(logger, channel, fn); err != nil {
+			log.Fatal(logger, "error enrolling this agent", "err", err)
+		}
+	},
+}
+
 // runCmd represents the run command
 var runCmd = &cobra.Command{
 	Use:   "run <integration> <version>",
@@ -359,7 +453,7 @@ var runCmd = &cobra.Command{
 			})
 			cmdargs = append(cmdargs, "--secret="+secret, "--channel="+channel)
 		} else {
-			cfg, config := loadConfig(cmd, logger)
+			cfg, config := loadConfig(cmd, logger, channel)
 			apikey = config.APIKey
 			if channel == "" {
 				channel = config.Channel
