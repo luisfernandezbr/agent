@@ -1,7 +1,11 @@
 package cmd
 
 import (
+	"io/ioutil"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/pinpt/agent.next/runner"
 	"github.com/pinpt/agent.next/sdk"
@@ -9,6 +13,7 @@ import (
 	"github.com/pinpt/go-common/v10/api"
 	"github.com/pinpt/go-common/v10/datetime"
 	"github.com/pinpt/go-common/v10/graphql"
+	pjson "github.com/pinpt/go-common/v10/json"
 	"github.com/pinpt/go-common/v10/log"
 	pos "github.com/pinpt/go-common/v10/os"
 	"github.com/pinpt/integration-sdk/agent"
@@ -25,13 +30,16 @@ var enrollAgentCmd = &cobra.Command{
 		channel, _ := cmd.Flags().GetString("channel")
 
 		var config runner.ConfigFile
+		config.Channel = channel
 
 		url := sdk.JoinURL(api.BackendURL(api.AppService, channel), "/enroll")
 
+		var userID string
 		err := waitForRedirect(url, func(w http.ResponseWriter, r *http.Request) {
 			q := r.URL.Query()
 			config.APIKey = q.Get("apikey")
 			config.CustomerID = q.Get("customer_id")
+			userID = q.Get("user_id")
 			w.WriteHeader(http.StatusOK)
 		})
 		if err != nil {
@@ -49,10 +57,10 @@ var enrollAgentCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(logger, "error getting system info", "err", err)
 		}
+		config.SystemID = info.ID
 		created := agent.EnrollmentCreatedDate(datetime.NewDateNow())
 		enr := agent.Enrollment{
 			AgentVersion: commit, // TODO(robin): when we start versioning, switch this to version
-			// UserID // TODO(robin)
 			CreatedDate:  created,
 			SystemID:     info.ID,
 			Hostname:     info.Hostname,
@@ -61,9 +69,19 @@ var enrollAgentCmd = &cobra.Command{
 			Architecture: info.Architecture,
 			GoVersion:    info.GoVersion,
 			CustomerID:   config.CustomerID,
+			UserID:       userID,
 		}
 		if err := agent.CreateEnrollment(client, enr); err != nil {
+			if strings.Contains(err.Error(), "duplicate key error") {
+				// TODO(robin): find out how someone might fix this and then update the error message with an action to take
+				log.Fatal(logger, "this system has already been enrolled")
+			}
 			log.Fatal(logger, "error creating enrollment", "err", err)
+		}
+		fn := configFilename(cmd)
+		os.MkdirAll(filepath.Dir(fn), 0700)
+		if err := ioutil.WriteFile(fn, []byte(pjson.Stringify(config)), 0644); err != nil {
+			log.Fatal(logger, "error writing config file", "err", err)
 		}
 		log.Info(logger, "agent enrolled 🎉", "customer_id", config.CustomerID)
 	},
@@ -71,5 +89,6 @@ var enrollAgentCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(enrollAgentCmd)
+	enrollAgentCmd.Flags().String("config", "", "the location of the config file")
 	enrollAgentCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "stable"), "the channel which can be set")
 }

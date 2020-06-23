@@ -66,13 +66,17 @@ func getIntegration(ctx context.Context, logger log.Logger, channel string, dir 
 	return cm, nil
 }
 
+func configFilename(cmd *cobra.Command) string {
+	fn, _ := cmd.Flags().GetString("config")
+	if fn == "" {
+		fn = filepath.Join(os.Getenv("HOME"), ".pinpoint-agent/config.json")
+	}
+	return fn
+}
+
 func loadConfig(cmd *cobra.Command, logger log.Logger) (string, *runner.ConfigFile) {
 	var config runner.ConfigFile
-	cfg, _ := cmd.Flags().GetString("config")
-	if cfg == "" {
-		configfile := filepath.Join(os.Getenv("HOME"), ".pinpoint-agent/config.json")
-		cfg = configfile
-	}
+	cfg := configFilename(cmd)
 	cfg, _ = filepath.Abs(cfg)
 	if !fileutil.FileExists(cfg) {
 		log.Fatal(logger, "couldn't find a config file at "+cfg)
