@@ -1,4 +1,4 @@
-package cmd
+package dev
 
 import (
 	"bytes"
@@ -47,8 +47,8 @@ func generateMainTemplate(filename, content, descriptor, build, sha string) (str
 
 type rewriteFunc func()
 
-// buildCmd represents the build command
-var buildCmd = &cobra.Command{
+// BuildCmd represents the build command
+var BuildCmd = &cobra.Command{
 	Use:   "build",
 	Short: "build an integration",
 	Args:  cobra.ExactArgs(1),
@@ -139,9 +139,9 @@ var buildCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(buildCmd)
-	buildCmd.Flags().String("dir", "dist", "the output directory to place the generated file")
-	buildCmd.Flags().Bool("bundle", true, "bundle artifacts into the library")
-	buildCmd.Flags().StringSlice("os", []string{pos.Getenv("GOOS", runtime.GOOS)}, "the OS to build for")
-	buildCmd.Flags().StringSlice("arch", []string{pos.Getenv("GOARCH", runtime.GOARCH)}, "the architecture to build for")
+	// add command to root in ../dev.go
+	BuildCmd.Flags().String("dir", "dist", "the output directory to place the generated file")
+	BuildCmd.Flags().Bool("bundle", true, "bundle artifacts into the library")
+	BuildCmd.Flags().StringSlice("os", []string{pos.Getenv("GOOS", runtime.GOOS)}, "the OS to build for")
+	BuildCmd.Flags().StringSlice("arch", []string{pos.Getenv("GOARCH", runtime.GOARCH)}, "the architecture to build for")
 }

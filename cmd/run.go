@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/pinpt/agent.next/pkg/util"
 	"github.com/pinpt/agent.next/runner"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/agent.next/sysinfo"
@@ -330,7 +331,7 @@ func enrollAgent(logger log.Logger, channel string, configFileName string) (*run
 	url := sdk.JoinURL(api.BackendURL(api.AppService, channel), "/enroll")
 
 	var userID string
-	err := waitForRedirect(url, func(w http.ResponseWriter, r *http.Request) {
+	err := util.WaitForRedirect(url, func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		config.APIKey = q.Get("apikey")
 		config.CustomerID = q.Get("customer_id")

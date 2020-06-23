@@ -1,11 +1,11 @@
-package cmd
+package dev
 
 import (
 	"github.com/spf13/cobra"
 )
 
-// logoutCmd represents the logout command
-var logoutCmd = &cobra.Command{
+// LogoutCmd represents the logout command
+var LogoutCmd = &cobra.Command{
 	Use:   "logout",
 	Short: "logout of your developer account",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -15,5 +15,5 @@ var logoutCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(logoutCmd)
+	// add command to root in ../dev.go
 }

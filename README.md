@@ -16,8 +16,9 @@ This is a working concept prototype for the next generation of the Agent.  It's 
 You can build like this:
 
 ```
-go install
+go install -tags dev
 ```
+**NOTE:** Include the `dev` build tag do have access to the developer tools.
 
 This will build the agent.next binary and install it in your `$GOPATH/bin` folder. Make this this folder is on your `$PATH`.
 
@@ -52,7 +53,7 @@ git clone git@github.com:pinpt/agent.next.github
 Then run:
 
 ```
-go run . dev ../agent.next.github --log-level=debug --config api_key=$PP_GITHUB_TOKEN
+agent.next dev ../agent.next.github --log-level=debug --config api_key=$PP_GITHUB_TOKEN
 ```
 
 This will print each exported model to the console.
@@ -60,7 +61,7 @@ This will print each exported model to the console.
 You can run and have exports go to a directory such as:
 
 ```
-go run . dev ../agent.next.github --log-level=debug --config api_key=$PP_GITHUB_TOKEN --dir exports
+agent.next dev ../agent.next.github --log-level=debug --config api_key=$PP_GITHUB_TOKEN --dir exports
 ```
 
 The `--dir` takes a folder to place the exported models (all data per model goes into one file JSON new line delimited).
@@ -74,7 +75,7 @@ The server mode can either run in standalone or multi agent mode.  Standalone mo
 You must first build integrations:
 
 ```
-go run . build ../agent.next.github
+agent.next build ../agent.next.github
 ```
 
 This will be placed in your `dist` folder as a file named `github`.

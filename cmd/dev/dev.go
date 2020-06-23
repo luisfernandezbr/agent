@@ -1,4 +1,4 @@
-package cmd
+package dev
 
 import (
 	"os"
@@ -15,8 +15,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// devCmd represents the dev command
-var devCmd = &cobra.Command{
+// DevCmd represents the dev command
+var DevCmd = &cobra.Command{
 	Use:   "dev",
 	Short: "run an integration in development mode",
 	Args:  cobra.ExactArgs(1),
@@ -89,10 +89,10 @@ var devCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(devCmd)
-	devCmd.Flags().StringSlice("config", []string{}, "a config key/value pair such as a=b")
-	devCmd.Flags().String("dir", "dev_dist", "the directory to output pipe contents")
-	devCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "stable"), "the channel which can be set")
-	devCmd.Flags().MarkHidden("channel")
-	devCmd.Flags().Bool("historical", false, "force a historical export")
+	// add command to root in ../dev.go
+	DevCmd.Flags().StringSlice("config", []string{}, "a config key/value pair such as a=b")
+	DevCmd.Flags().String("dir", "dev_dist", "the directory to output pipe contents")
+	DevCmd.Flags().String("channel", "dev", "the channel which can be set")
+	DevCmd.Flags().MarkHidden("channel")
+	DevCmd.Flags().Bool("historical", false, "force a historical export")
 }

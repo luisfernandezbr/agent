@@ -1,4 +1,4 @@
-package cmd
+package dev
 
 import (
 	"encoding/base64"
@@ -15,8 +15,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// packageCmd represents the package command
-var packageCmd = &cobra.Command{
+// PackageCmd represents the package command
+var PackageCmd = &cobra.Command{
 	Use:   "package",
 	Short: "package an integration",
 	Args:  cobra.ExactArgs(1),
@@ -121,8 +121,7 @@ var packageCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(packageCmd)
-	packageCmd.Flags().String("dir", "dist", "the output directory to place the generated file")
-	packageCmd.Flags().StringSlice("os", []string{"darwin", "linux"}, "the OS to build for")
-	packageCmd.Flags().StringSlice("arch", []string{"amd64"}, "the architecture to build for")
+	PackageCmd.Flags().String("dir", "dist", "the output directory to place the generated file")
+	PackageCmd.Flags().StringSlice("os", []string{"darwin", "linux"}, "the OS to build for")
+	PackageCmd.Flags().StringSlice("arch", []string{"amd64"}, "the architecture to build for")
 }

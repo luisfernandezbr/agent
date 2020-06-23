@@ -1,4 +1,4 @@
-package cmd
+package dev
 
 import (
 	"errors"
@@ -29,8 +29,8 @@ func banner() {
 `))
 }
 
-// genCmd represents the dev command
-var genCmd = &cobra.Command{
+// GenCmd represents the dev command
+var GenCmd = &cobra.Command{
 	Use:   "generate",
 	Short: "generates an integration",
 	Args:  cobra.NoArgs,
@@ -190,5 +190,5 @@ func promptSettings(result *generator.Info) error {
 }
 
 func init() {
-	rootCmd.AddCommand(genCmd)
+	// add command to root in ../dev.go
 }

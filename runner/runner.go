@@ -50,8 +50,9 @@ func Main(integration sdk.Integration, args ...string) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			cfg, _ := cmd.Flags().GetString("config")
+			dev, _ := cmd.Flags().GetBool("config")
 			secret, _ := cmd.Flags().GetString("secret")
-			if cfg == "" && secret == "" {
+			if cfg == "" && secret == "" && !dev {
 				log.Fatal(logger, "missing --config")
 			}
 			var state sdk.State
