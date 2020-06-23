@@ -46,6 +46,7 @@ func Main(integration sdk.Integration, args ...string) {
 		Run: func(cmd *cobra.Command, args []string) {
 			logger := log.NewCommandLogger(cmd)
 			defer logger.Close()
+			log.Info(logger, "starting", "ref_type", descriptor.RefType, "version", descriptor.BuildCommitSHA)
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			cfg, _ := cmd.Flags().GetString("config")
