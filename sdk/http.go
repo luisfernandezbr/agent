@@ -97,7 +97,7 @@ func WithGetQueryParameters(variables url.Values) WithHTTPOption {
 	return func(req *HTTPRequest) error {
 		q := req.Request.URL.Query()
 		for k, v := range variables {
-			q.Set(k, v[0])
+			q[k] = v
 		}
 		req.Request.URL.RawQuery = q.Encode()
 		return nil
