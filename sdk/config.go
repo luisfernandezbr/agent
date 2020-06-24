@@ -23,6 +23,7 @@ type oauth2Auth struct {
 	auth
 	AccessToken  string  `json:"access_token"`
 	RefreshToken *string `json:"refresh_token"`
+	Scopes       *string `json:"scopes"`
 }
 
 type apikeyAuth struct {
@@ -30,30 +31,49 @@ type apikeyAuth struct {
 	APIKey string `json:"apikey"`
 }
 
+type matchListKV map[string]string
+
 type config struct {
-	Exclusions *string     `json:"exclusions,omitempty"`
-	Inclusions *string     `json:"inclusions,omitempty"`
-	OAuth2Auth *oauth2Auth `json:"oauth2_auth,omitempty"`
-	BasicAuth  *basicAuth  `json:"basic_auth,omitempty"`
-	APIKeyAuth *apikeyAuth `json:"apikey_auth,omitempty"`
+	IntegrationType IntegrationType `json:"integrationType"`
+	Exclusions      *matchListKV    `json:"exclusions,omitempty"`
+	Inclusions      *matchListKV    `json:"inclusions,omitempty"`
+	OAuth2Auth      *oauth2Auth     `json:"oauth2_auth,omitempty"`
+	BasicAuth       *basicAuth      `json:"basic_auth,omitempty"`
+	APIKeyAuth      *apikeyAuth     `json:"apikey_auth,omitempty"`
 }
 
 type matchList struct {
-	parser gi.IgnoreParser
+	defaultValue bool
+	parsers      map[string]gi.IgnoreParser
 }
 
-// Matches returns true if the name matches the exclusion list
-func (l *matchList) Matches(name string) bool {
-	return l.parser.MatchesPath(name)
+// Matches returns true if the name matches the list
+func (l *matchList) Matches(entity, name string) bool {
+	parser := l.parsers[entity]
+	if parser == nil {
+		return l.defaultValue
+	}
+	return parser.MatchesPath(name)
 }
+
+// IntegrationType is the integration type
+type IntegrationType string
+
+const (
+	// CloudIntegration is a cloud managed integration
+	CloudIntegration IntegrationType = "CLOUD"
+	// SelfManagedIntegration is a self-managed integration
+	SelfManagedIntegration IntegrationType = "SELFMANAGED"
+)
 
 // Config is the integration configuration
 type Config struct {
-	OAuth2Auth *oauth2Auth `json:"oauth2_auth,omitempty"`
-	BasicAuth  *basicAuth  `json:"basic_auth,omitempty"`
-	APIKeyAuth *apikeyAuth `json:"apikey_auth,omitempty"`
-	Inclusions *matchList  `json:"-"`
-	Exclusions *matchList  `json:"-"`
+	IntegrationType IntegrationType `json:"integrationType"`
+	OAuth2Auth      *oauth2Auth     `json:"oauth2_auth,omitempty"`
+	BasicAuth       *basicAuth      `json:"basic_auth,omitempty"`
+	APIKeyAuth      *apikeyAuth     `json:"apikey_auth,omitempty"`
+	Inclusions      *matchList      `json:"-"`
+	Exclusions      *matchList      `json:"-"`
 
 	kv map[string]interface{}
 }
@@ -116,23 +136,38 @@ func (c *Config) Parse(buf []byte) error {
 		return err
 	}
 	if cfg.Exclusions != nil {
-		lines := strings.Split(*cfg.Exclusions, "\n")
-		i, err := gi.CompileIgnoreLines(lines...)
-		if err != nil {
-			return err
+		ml := &matchList{
+			defaultValue: false,
+			parsers:      make(map[string]gi.IgnoreParser),
 		}
-		c.Exclusions = &matchList{i}
+		for entity, ex := range *cfg.Exclusions {
+			lines := strings.Split(ex, "\n")
+			i, err := gi.CompileIgnoreLines(lines...)
+			if err != nil {
+				return err
+			}
+			ml.parsers[entity] = i
+		}
+		c.Exclusions = ml
 	}
 	if cfg.Inclusions != nil {
-		lines := strings.Split(*cfg.Inclusions, "\n")
-		i, err := gi.CompileIgnoreLines(lines...)
-		if err != nil {
-			return err
+		ml := &matchList{
+			defaultValue: false,
+			parsers:      make(map[string]gi.IgnoreParser),
 		}
-		c.Inclusions = &matchList{i}
+		for entity, ex := range *cfg.Inclusions {
+			lines := strings.Split(ex, "\n")
+			i, err := gi.CompileIgnoreLines(lines...)
+			if err != nil {
+				return err
+			}
+			ml.parsers[entity] = i
+		}
+		c.Inclusions = ml
 	}
 	c.APIKeyAuth = cfg.APIKeyAuth
 	c.BasicAuth = cfg.BasicAuth
 	c.OAuth2Auth = cfg.OAuth2Auth
+	c.IntegrationType = cfg.IntegrationType
 	return nil
 }
