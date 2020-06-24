@@ -110,9 +110,9 @@ var BuildCmd = &cobra.Command{
 			defer bundleRewriter()
 		}
 		theenv := os.Environ()
-		oses, _ := cmd.Flags().GetStringSlice("os")
+		oses, _ := cmd.Flags().GetStringArray("os")
 		for _, theos := range oses {
-			arches, _ := cmd.Flags().GetStringSlice("arch")
+			arches, _ := cmd.Flags().GetStringArray("arch")
 			for _, arch := range arches {
 				env := append(theenv, []string{"GOOS=" + theos, "GOARCH=" + arch}...)
 				outfn := filepath.Join(dist, theos, arch, integration)
@@ -142,6 +142,6 @@ func init() {
 	// add command to root in ../dev.go
 	BuildCmd.Flags().String("dir", "dist", "the output directory to place the generated file")
 	BuildCmd.Flags().Bool("bundle", true, "bundle artifacts into the library")
-	BuildCmd.Flags().StringSlice("os", []string{pos.Getenv("GOOS", runtime.GOOS)}, "the OS to build for")
-	BuildCmd.Flags().StringSlice("arch", []string{pos.Getenv("GOARCH", runtime.GOARCH)}, "the architecture to build for")
+	BuildCmd.Flags().StringArray("os", []string{pos.Getenv("GOOS", runtime.GOOS)}, "the OS to build for")
+	BuildCmd.Flags().StringArray("arch", []string{pos.Getenv("GOARCH", runtime.GOARCH)}, "the architecture to build for")
 }

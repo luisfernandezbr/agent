@@ -62,8 +62,8 @@ var DevCmd = &cobra.Command{
 			devargs = append(devargs, "--historical=true")
 		}
 
-		config, _ := cmd.Flags().GetStringSlice("config")
-		for _, str := range config {
+		set, _ := cmd.Flags().GetStringArray("set")
+		for _, str := range set {
 			devargs = append(devargs, "--set", str)
 		}
 
@@ -90,7 +90,7 @@ var DevCmd = &cobra.Command{
 
 func init() {
 	// add command to root in ../dev.go
-	DevCmd.Flags().StringSlice("config", []string{}, "a config key/value pair such as a=b")
+	DevCmd.Flags().StringArray("set", []string{}, "a config key/value pair such as a=b")
 	DevCmd.Flags().String("dir", "dev_dist", "the directory to output pipe contents")
 	DevCmd.Flags().String("channel", "dev", "the channel which can be set")
 	DevCmd.Flags().MarkHidden("channel")

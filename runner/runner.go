@@ -50,14 +50,14 @@ func Main(integration sdk.Integration, args ...string) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			cfg, _ := cmd.Flags().GetString("config")
-			dev, _ := cmd.Flags().GetBool("config")
+			dev, _ := cmd.Flags().GetBool("dev")
 			secret, _ := cmd.Flags().GetString("secret")
 			if cfg == "" && secret == "" && !dev {
 				log.Fatal(logger, "missing --config")
 			}
 			var state sdk.State
 			var kv map[string]interface{}
-			setargs, _ := cmd.Flags().GetStringSlice("set")
+			setargs, _ := cmd.Flags().GetStringArray("set")
 			if len(setargs) > 0 {
 				kv = make(map[string]interface{})
 				for _, setarg := range setargs {
@@ -225,7 +225,7 @@ func Main(integration sdk.Integration, args ...string) {
 	serverCmd.Flags().Int("redisDB", 15, "the redis db")
 	serverCmd.Flags().Bool("dev", false, "running in dev mode, do a fake integration")
 	serverCmd.Flags().String("dir", "", "directory to place files when in dev mode")
-	serverCmd.Flags().StringSlice("set", []string{}, "set a config value from the command line")
+	serverCmd.Flags().StringArray("set", []string{}, "set a config value from the command line")
 	serverCmd.Flags().Bool("historical", false, "force a historical export")
 	serverCmd.Flags().MarkHidden("dev")
 	serverCmd.Flags().MarkHidden("dir")

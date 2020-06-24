@@ -53,7 +53,7 @@ git clone git@github.com:pinpt/agent.next.github
 Then run:
 
 ```
-agent.next dev ../agent.next.github --log-level=debug --config api_key=$PP_GITHUB_TOKEN
+agent.next dev ../agent.next.github --log-level=debug --set api_key=$PP_GITHUB_TOKEN
 ```
 
 This will print each exported model to the console.
@@ -61,7 +61,7 @@ This will print each exported model to the console.
 You can run and have exports go to a directory such as:
 
 ```
-agent.next dev ../agent.next.github --log-level=debug --config api_key=$PP_GITHUB_TOKEN --dir exports
+agent.next dev ../agent.next.github --log-level=debug --set api_key=$PP_GITHUB_TOKEN --dir exports
 ```
 
 The `--dir` takes a folder to place the exported models (all data per model goes into one file JSON new line delimited).

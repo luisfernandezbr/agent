@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	pn "github.com/pinpt/go-common/v10/number"
@@ -116,7 +117,30 @@ func NewConfig(kv map[string]interface{}) Config {
 	if kv == nil {
 		kv = make(map[string]interface{})
 	}
-	return Config{kv: kv}
+	c := Config{kv: kv}
+	if exclusions, ok := kv["exclusions"].(string); ok {
+		var kv matchListKV
+		if err := json.Unmarshal([]byte(exclusions), &kv); err != nil {
+			panic(fmt.Errorf("error parsing exclusion: %w", err))
+		}
+		ml, err := c.parseML(kv)
+		if err != nil {
+			panic(err)
+		}
+		c.Exclusions = ml
+	}
+	if inclusions, ok := kv["inclusions"].(string); ok {
+		var kv matchListKV
+		if err := json.Unmarshal([]byte(inclusions), &kv); err != nil {
+			panic(fmt.Errorf("error parsing inclusion: %w", err))
+		}
+		ml, err := c.parseML(kv)
+		if err != nil {
+			panic(err)
+		}
+		c.Inclusions = ml
+	}
+	return c
 }
 
 // Merge in new config
@@ -124,6 +148,22 @@ func (c *Config) Merge(kv map[string]interface{}) {
 	for k, v := range kv {
 		c.kv[k] = v
 	}
+}
+
+func (c *Config) parseML(val matchListKV) (*matchList, error) {
+	ml := &matchList{
+		defaultValue: false,
+		parsers:      make(map[string]gi.IgnoreParser),
+	}
+	for entity, ex := range val {
+		lines := strings.Split(ex, "\n")
+		i, err := gi.CompileIgnoreLines(lines...)
+		if err != nil {
+			return nil, err
+		}
+		ml.parsers[entity] = i
+	}
+	return ml, nil
 }
 
 // Parse detail from a buffer into the config
@@ -136,32 +176,16 @@ func (c *Config) Parse(buf []byte) error {
 		return err
 	}
 	if cfg.Exclusions != nil {
-		ml := &matchList{
-			defaultValue: false,
-			parsers:      make(map[string]gi.IgnoreParser),
-		}
-		for entity, ex := range *cfg.Exclusions {
-			lines := strings.Split(ex, "\n")
-			i, err := gi.CompileIgnoreLines(lines...)
-			if err != nil {
-				return err
-			}
-			ml.parsers[entity] = i
+		ml, err := c.parseML(*cfg.Exclusions)
+		if err != nil {
+			return err
 		}
 		c.Exclusions = ml
 	}
 	if cfg.Inclusions != nil {
-		ml := &matchList{
-			defaultValue: false,
-			parsers:      make(map[string]gi.IgnoreParser),
-		}
-		for entity, ex := range *cfg.Inclusions {
-			lines := strings.Split(ex, "\n")
-			i, err := gi.CompileIgnoreLines(lines...)
-			if err != nil {
-				return err
-			}
-			ml.parsers[entity] = i
+		ml, err := c.parseML(*cfg.Inclusions)
+		if err != nil {
+			return err
 		}
 		c.Inclusions = ml
 	}

@@ -50,8 +50,8 @@ var PackageCmd = &cobra.Command{
 		uiFn := filepath.Join(bundleDir, "ui.zip")
 		bundleFn := filepath.Join(distDir, "bundle.zip")
 
-		oss, _ := cmd.Flags().GetStringSlice("os")
-		arches, _ := cmd.Flags().GetStringSlice("arch")
+		oss, _ := cmd.Flags().GetStringArray("os")
+		arches, _ := cmd.Flags().GetStringArray("arch")
 
 		cargs := []string{"build", integrationDir, "--dir", dataDir}
 		for _, o := range oss {
@@ -122,6 +122,6 @@ var PackageCmd = &cobra.Command{
 
 func init() {
 	PackageCmd.Flags().String("dir", "dist", "the output directory to place the generated file")
-	PackageCmd.Flags().StringSlice("os", []string{"darwin", "linux"}, "the OS to build for")
-	PackageCmd.Flags().StringSlice("arch", []string{"amd64"}, "the architecture to build for")
+	PackageCmd.Flags().StringArray("os", []string{"darwin", "linux"}, "the OS to build for")
+	PackageCmd.Flags().StringArray("arch", []string{"amd64"}, "the architecture to build for")
 }
