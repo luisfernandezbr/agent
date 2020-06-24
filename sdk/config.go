@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	pjson "github.com/pinpt/go-common/v10/json"
 	pn "github.com/pinpt/go-common/v10/number"
 	ps "github.com/pinpt/go-common/v10/strings"
 	gi "github.com/sabhiram/go-gitignore"
@@ -223,4 +224,22 @@ func (c *Config) Parse(buf []byte) error {
 		c.IntegrationType = cfg.IntegrationType
 	}
 	return nil
+}
+
+// From will serialize a JSON value at key into the interface provided
+func (c *Config) From(key string, into interface{}) error {
+	if str, ok := c.kv[key].(string); ok {
+		return json.Unmarshal([]byte(str), into)
+	}
+	if str, ok := c.kv[key].(*string); ok {
+		return json.Unmarshal([]byte(*str), into)
+	}
+	if kv, ok := c.kv[key].(map[string]interface{}); ok {
+		return json.Unmarshal([]byte(pjson.Stringify(kv)), into)
+	}
+	found, ok := c.kv[key]
+	if ok {
+		return json.Unmarshal([]byte(pjson.Stringify(found)), into)
+	}
+	return fmt.Errorf("%s not found", key)
 }
