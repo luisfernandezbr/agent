@@ -251,7 +251,7 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 completed:
 	for {
 		select {
-		case <-time.After(time.Second * 10):
+		case <-time.After(time.Minute * 5):
 			if err := pingEnrollment(logger, gclient, config.EnrollmentID, "", true); err != nil {
 				log.Error(logger, "unable to update enrollment", "enrollment_id", config.EnrollmentID, "err", err)
 			}
