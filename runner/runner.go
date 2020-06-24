@@ -23,13 +23,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ConfigFile is the configuration file for the r
+// ConfigFile is the configuration file for the runner
 type ConfigFile struct {
-	Channel    string `json:"channel"`
-	CustomerID string `json:"customer_id"`
-	DeviceID   string `json:"device_id"`
-	SystemID   string `json:"system_id"`
-	APIKey     string `json:"apikey"`
+	Channel      string `json:"channel"`
+	CustomerID   string `json:"customer_id"`
+	SystemID     string `json:"system_id"`
+	APIKey       string `json:"apikey"`
+	EnrollmentID string `json:"enrollment_id"`
 }
 
 // Main is the main entrypoint for an integration
@@ -114,12 +114,12 @@ func Main(integration sdk.Integration, args ...string) {
 					if channel == "" {
 						channel = config.Channel
 					}
-					uuid = config.DeviceID
+					uuid = config.SystemID
 					apikey = config.APIKey
 					if uuid == "" {
-						config.DeviceID = config.CustomerID
+						config.SystemID = config.CustomerID
 					}
-					groupid = "agent-" + config.DeviceID
+					groupid = "agent-" + config.SystemID
 					outdir, _ := cmd.Flags().GetString("dir")
 					statefn := filepath.Join(outdir, descriptor.RefType+".state.json")
 					stateobj, err := devstate.New(statefn)
@@ -128,7 +128,7 @@ func Main(integration sdk.Integration, args ...string) {
 					}
 					state = stateobj
 					defer stateobj.Close()
-					log.Info(logger, "running in single agent mode", "uuid", config.DeviceID, "customer_id", config.CustomerID, "channel", channel)
+					log.Info(logger, "running in single agent mode", "uuid", config.SystemID, "customer_id", config.CustomerID, "channel", channel)
 				}
 			}
 

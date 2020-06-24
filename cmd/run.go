@@ -129,16 +129,25 @@ var integrationQuery = `query findIntegration($id: ID!) {
 	}
 }`
 
+func pingEnrollment(logger log.Logger, client graphql.Client, enrollmentID string, datefield string, active bool) error {
+	log.Debug(logger, "updating enrollment", "setting", datefield)
+	now := datetime.NewDateNow()
+	vars := make(graphql.Variables)
+	if datefield != "" {
+		vars[datefield] = now
+		vars[agent.EnrollmentModelRunningColumn] = active
+	}
+	vars[agent.EnrollmentModelLastPingDateColumn] = now
+	return agent.ExecEnrollmentSilentUpdateMutation(client, enrollmentID, vars, false)
+}
+
 func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Command) {
 	channel, _ := cmd.Flags().GetString("channel")
-	secret, _ := cmd.Flags().GetString("secret")
 	args := []string{}
 	cmd.Flags().Visit(func(f *pflag.Flag) {
 		args = append(args, "--"+f.Name, f.Value.String())
 	})
-	var ch *event.SubscriptionChannel
 	var gclient graphql.Client
-	var err error
 	integrations := make(map[string]string) // id -> identifier/ref_type
 	processes := make(map[string]*exec.Cmd)
 	var processLock sync.Mutex
@@ -163,53 +172,42 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 		processLock.Unlock()
 		return val, nil
 	}
-	if secret == "" {
-		cfg, config := loadConfig(cmd, logger, channel)
-		if channel == "" {
-			channel = config.Channel
-		}
-		args = append(args, "--config", cfg)
-		gclient, err = graphql.NewClient(config.CustomerID, "", "", api.BackendURL(api.GraphService, channel))
-		if err != nil {
-			log.Fatal(logger, "error creating graphql client", "err", err)
-		}
-		gclient.SetHeader("Authorization", config.APIKey)
-		ch, err = event.NewSubscription(ctx, event.Subscription{
-			GroupID:     "agent-run-monitor",
-			Topics:      []string{"ops.db.Change"},
-			Channel:     channel,
-			APIKey:      config.APIKey,
-			DisablePing: true,
-			Filter: &event.SubscriptionFilter{
-				ObjectExpr: `model:"agent.IntegrationInstance" AND (action:"create" OR action:"delete")`,
-			},
-		})
-	} else {
-		gclient, err = graphql.NewClient("", "", secret, api.BackendURL(api.GraphService, channel))
-		if err != nil {
-			log.Fatal(logger, "error creating graphql client", "err", err)
-		}
-		ch, err = event.NewSubscription(ctx, event.Subscription{
-			GroupID:     "agent-run-monitor",
-			Topics:      []string{"ops.db.Change"},
-			Channel:     channel,
-			HTTPHeaders: map[string]string{"x-api-key": secret},
-			DisablePing: true,
-			Filter: &event.SubscriptionFilter{
-				ObjectExpr: `model:"agent.IntegrationInstance" AND (action:"create" OR action:"delete")`,
-			},
-		})
+	cfg, config := loadConfig(cmd, logger, channel)
+	if channel == "" {
+		channel = config.Channel
 	}
+	args = append(args, "--config", cfg)
+	gclient, err := graphql.NewClient(config.CustomerID, "", "", api.BackendURL(api.GraphService, channel))
+	if err != nil {
+		log.Fatal(logger, "error creating graphql client", "err", err)
+	}
+	gclient.SetHeader("Authorization", config.APIKey)
+
+	ch, err := event.NewSubscription(ctx, event.Subscription{
+		GroupID:     "agent-run-monitor",
+		Topics:      []string{"ops.db.Change"},
+		Channel:     channel,
+		APIKey:      config.APIKey,
+		DisablePing: true,
+		Filter: &event.SubscriptionFilter{
+			ObjectExpr: `model:"agent.IntegrationInstance" AND (action:"create" OR action:"delete")`,
+		},
+	})
 	if err != nil {
 		log.Fatal(logger, "error creating montior subscription", "err", err)
 	}
 	ch.WaitForReady()
 	defer ch.Close()
 
+	// set startup date
+	if err := pingEnrollment(logger, gclient, config.EnrollmentID, agent.EnrollmentModelLastStartupDateColumn, true); err != nil {
+		log.Error(logger, "unable to update enrollment", "enrollment_id", config.EnrollmentID, "err", err)
+	}
+
 	runIntegration := func(name string) {
 		log.Info(logger, "running integration", "name", name)
 		processLock.Lock()
-		c := exec.Command(os.Args[0], append([]string{"run", name}, args...)...)
+		c := exec.CommandContext(ctx, os.Args[0], append([]string{"run", name}, args...)...)
 		c.Stdin = os.Stdin
 		c.Stdout = os.Stdout
 		c.Stderr = os.Stderr
@@ -253,6 +251,10 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 completed:
 	for {
 		select {
+		case <-time.After(time.Minute * 5):
+			if err := pingEnrollment(logger, gclient, config.EnrollmentID, "", true); err != nil {
+				log.Error(logger, "unable to update enrollment", "enrollment_id", config.EnrollmentID, "err", err)
+			}
 		case <-done:
 			processLock.Lock()
 			for k, c := range processes {
@@ -321,6 +323,9 @@ completed:
 	}
 
 	shutdownWg.Wait()
+	if err := pingEnrollment(logger, gclient, config.EnrollmentID, agent.EnrollmentModelLastShutdownDateColumn, false); err != nil {
+		log.Error(logger, "unable to update enrollment", "enrollment_id", config.EnrollmentID, "err", err)
+	}
 	finished <- true
 }
 
@@ -366,7 +371,9 @@ func enrollAgent(logger log.Logger, channel string, configFileName string) (*run
 		GoVersion:    info.GoVersion,
 		CustomerID:   config.CustomerID,
 		UserID:       userID,
+		ID:           agent.NewEnrollmentID(config.CustomerID, info.ID),
 	}
+	config.EnrollmentID = enr.ID
 	if err := agent.CreateEnrollment(client, enr); err != nil {
 		if strings.Contains(err.Error(), "duplicate key error") {
 			log.Info(logger, "looks like this system has already been enrolled, recreating local config")
