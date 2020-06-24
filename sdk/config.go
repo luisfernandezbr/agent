@@ -140,6 +140,27 @@ func NewConfig(kv map[string]interface{}) Config {
 		}
 		c.Inclusions = ml
 	}
+	if strval, ok := kv["apikey_auth"].(string); ok {
+		var auth apikeyAuth
+		if err := json.Unmarshal([]byte(strval), &auth); err != nil {
+			panic(fmt.Errorf("error parsing apikey_auth: %w", err))
+		}
+		c.APIKeyAuth = &auth
+	}
+	if strval, ok := kv["oauth2_auth"].(string); ok {
+		var auth oauth2Auth
+		if err := json.Unmarshal([]byte(strval), &auth); err != nil {
+			panic(fmt.Errorf("error parsing oauth2_auth: %w", err))
+		}
+		c.OAuth2Auth = &auth
+	}
+	if strval, ok := kv["basic_auth"].(string); ok {
+		var auth basicAuth
+		if err := json.Unmarshal([]byte(strval), &auth); err != nil {
+			panic(fmt.Errorf("error parsing basic_auth: %w", err))
+		}
+		c.BasicAuth = &auth
+	}
 	return c
 }
 
@@ -189,9 +210,17 @@ func (c *Config) Parse(buf []byte) error {
 		}
 		c.Inclusions = ml
 	}
-	c.APIKeyAuth = cfg.APIKeyAuth
-	c.BasicAuth = cfg.BasicAuth
-	c.OAuth2Auth = cfg.OAuth2Auth
-	c.IntegrationType = cfg.IntegrationType
+	if cfg.APIKeyAuth != nil {
+		c.APIKeyAuth = cfg.APIKeyAuth
+	}
+	if cfg.BasicAuth != nil {
+		c.BasicAuth = cfg.BasicAuth
+	}
+	if cfg.OAuth2Auth != nil {
+		c.OAuth2Auth = cfg.OAuth2Auth
+	}
+	if cfg.IntegrationType != "" {
+		c.IntegrationType = cfg.IntegrationType
+	}
 	return nil
 }
