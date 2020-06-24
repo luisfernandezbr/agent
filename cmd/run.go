@@ -129,12 +129,13 @@ var integrationQuery = `query findIntegration($id: ID!) {
 	}
 }`
 
-func pingEnrollment(logger log.Logger, client graphql.Client, enrollmentID string, datefield string) error {
+func pingEnrollment(logger log.Logger, client graphql.Client, enrollmentID string, datefield string, active bool) error {
 	log.Debug(logger, "updating enrollment", "setting", datefield)
 	now := datetime.NewDateNow()
 	vars := make(graphql.Variables)
 	if datefield != "" {
 		vars[datefield] = now
+		vars[agent.EnrollmentModelRunningColumn] = active
 	}
 	vars[agent.EnrollmentModelLastPingDateColumn] = now
 	return agent.ExecEnrollmentSilentUpdateMutation(client, enrollmentID, vars, false)
@@ -174,23 +175,20 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 		processLock.Unlock()
 		return val, nil
 	}
+	var enrollmentID string
 	if secret == "" {
 		cfg, config := loadConfig(cmd, logger, channel)
 		if channel == "" {
 			channel = config.Channel
 		}
+		enrollmentID = config.EnrollmentID
 		args = append(args, "--config", cfg)
 		gclient, err = graphql.NewClient(config.CustomerID, "", "", api.BackendURL(api.GraphService, channel))
 		if err != nil {
 			log.Fatal(logger, "error creating graphql client", "err", err)
 		}
 		gclient.SetHeader("Authorization", config.APIKey)
-		// set startup date
-		if err := pingEnrollment(logger, gclient, config.EnrollmentID, agent.EnrollmentModelLastStartupDateColumn); err != nil {
-			log.Error(logger, "unable to update enrollment", "enrollment_id", config.EnrollmentID, "err", err)
-		}
-		// set shutdown date
-		defer pingEnrollment(logger, gclient, config.EnrollmentID, agent.EnrollmentModelLastShutdownDateColumn)
+
 		ch, err = event.NewSubscription(ctx, event.Subscription{
 			GroupID:     "agent-run-monitor",
 			Topics:      []string{"ops.db.Change"},
@@ -202,6 +200,7 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 			},
 		})
 	} else {
+		// it shouldnt fall into here
 		gclient, err = graphql.NewClient("", "", secret, api.BackendURL(api.GraphService, channel))
 		if err != nil {
 			log.Fatal(logger, "error creating graphql client", "err", err)
@@ -222,6 +221,11 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 	}
 	ch.WaitForReady()
 	defer ch.Close()
+
+	// set startup date
+	if err := pingEnrollment(logger, gclient, enrollmentID, agent.EnrollmentModelLastStartupDateColumn, true); err != nil {
+		log.Error(logger, "unable to update enrollment", "enrollment_id", enrollmentID, "err", err)
+	}
 
 	runIntegration := func(name string) {
 		log.Info(logger, "running integration", "name", name)
@@ -270,6 +274,10 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 completed:
 	for {
 		select {
+		case <-time.After(time.Second * 10):
+			if err := pingEnrollment(logger, gclient, enrollmentID, "", true); err != nil {
+				log.Error(logger, "unable to update enrollment", "enrollment_id", enrollmentID, "err", err)
+			}
 		case <-done:
 			processLock.Lock()
 			for k, c := range processes {
@@ -338,6 +346,9 @@ completed:
 	}
 
 	shutdownWg.Wait()
+	if err := pingEnrollment(logger, gclient, enrollmentID, agent.EnrollmentModelLastShutdownDateColumn, false); err != nil {
+		log.Error(logger, "unable to update enrollment", "enrollment_id", enrollmentID, "err", err)
+	}
 	finished <- true
 }
 
