@@ -207,7 +207,7 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 	runIntegration := func(name string) {
 		log.Info(logger, "running integration", "name", name)
 		processLock.Lock()
-		c := exec.Command(os.Args[0], append([]string{"run", name}, args...)...)
+		c := exec.CommandContext(ctx, os.Args[0], append([]string{"run", name}, args...)...)
 		c.Stdin = os.Stdin
 		c.Stdout = os.Stdout
 		c.Stderr = os.Stderr
