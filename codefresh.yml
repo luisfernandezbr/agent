@@ -40,8 +40,8 @@ steps:
       push:
         title: "Pushing image to gitlab"
         type: "push"
-        image_name: pinpt/${{CF_REPO_NAME}}
-        registry: "gitlab"
+        image_name: pinpt/agent-next
+        registry: "gitlab-pinpt"
         candidate: "${{build}}"
         tags:
           - "${{CF_BRANCH_TAG_NORMALIZED}}"
