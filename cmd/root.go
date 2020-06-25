@@ -6,6 +6,9 @@ import (
 
 	"github.com/pinpt/go-common/v10/log"
 	"github.com/spf13/cobra"
+
+	// for dump stack trace support
+	_ "github.com/songgao/stacktraces/on/SIGUSR2"
 )
 
 // these values are set from the go build, do not change them

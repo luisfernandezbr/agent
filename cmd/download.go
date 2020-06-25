@@ -141,7 +141,7 @@ func downloadIntegration(logger log.Logger, channel string, toDir string, publis
 	if err := df.Close(); err != nil {
 		return "", fmt.Errorf("error closing output file (%s): %w", outfn, err)
 	}
-	os.Chmod(outfn, 0500) // make it executable
+	os.Chmod(outfn, 0755) // make it executable
 	outfn, _ = filepath.Abs(outfn)
 	return outfn, nil
 }

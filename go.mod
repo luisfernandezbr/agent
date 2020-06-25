@@ -12,6 +12,7 @@ require (
 	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
 	github.com/russross/blackfriday/v2 v2.0.1
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
+	github.com/songgao/stacktraces v0.0.0-20170719224503-0f98d2fb7fc3
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.6.1
