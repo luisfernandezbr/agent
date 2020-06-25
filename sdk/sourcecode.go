@@ -60,6 +60,27 @@ const SourceCodeUserTypeBot = sourcecode.UserTypeBot
 // SourceCodeUserTypeDeletedSpecialUser is a Special Deleted user type for describing a deleted user account
 const SourceCodeUserTypeDeletedSpecialUser = sourcecode.UserTypeDeletedSpecialUser
 
+// SourceCodeRepoVisibility is the visibility of the repo
+type SourceCodeRepoVisibility = sourcecode.RepoVisibility
+
+// SourceCodeRepoVisibilityPrivate is the enumeration value for private
+const SourceCodeRepoVisibilityPrivate = sourcecode.RepoVisibilityPrivate
+
+// SourceCodeRepoVisibilityPublic is the enumeration value for public
+const SourceCodeRepoVisibilityPublic = sourcecode.RepoVisibilityPublic
+
+// SourceCodeRepoAffiliation is the repo affiliation
+type SourceCodeRepoAffiliation = sourcecode.RepoAffiliation
+
+// SourceCodeRepoAffiliationOrganization is the enumeration value for organization
+const SourceCodeRepoAffiliationOrganization = sourcecode.RepoAffiliationOrganization
+
+// SourceCodeRepoAffiliationUser is the enumeration value for user
+const SourceCodeRepoAffiliationUser = sourcecode.RepoAffiliationUser
+
+// SourceCodeRepoAffiliationThirdparty is the enumeration value for thirdparty
+const SourceCodeRepoAffiliationThirdparty = sourcecode.RepoAffiliationThirdparty
+
 // SourceCodePullRequestReviewState is a pull request review state enum
 type SourceCodePullRequestReviewState = sourcecode.PullRequestReviewState
 

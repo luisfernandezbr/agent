@@ -186,6 +186,27 @@ type WorkConfig = work.Config
 // WorkConfigStatuses is the work config status type
 type WorkConfigStatuses = work.ConfigStatuses
 
+// WorkProjectVisibility is the visibility of the project
+type WorkProjectVisibility = work.ProjectVisibility
+
+// WorkProjectVisibilityPrivate is the enumeration value for private
+const WorkProjectVisibilityPrivate = work.ProjectVisibilityPrivate
+
+// WorkProjectVisibilityPublic is the enumeration value for public
+const WorkProjectVisibilityPublic = work.ProjectVisibilityPublic
+
+// WorkProjectAffiliation is the project affiliation
+type WorkProjectAffiliation = work.ProjectAffiliation
+
+// WorkProjectAffiliationOrganization is the enumeration value for organization
+const WorkProjectAffiliationOrganization = work.ProjectAffiliationOrganization
+
+// WorkProjectAffiliationUser is the enumeration value for user
+const WorkProjectAffiliationUser = work.ProjectAffiliationUser
+
+// WorkProjectAffiliationThirdparty is the enumeration value for thirdparty
+const WorkProjectAffiliationThirdparty = work.ProjectAffiliationThirdparty
+
 // NewWorkProjectID will return the work project id
 func NewWorkProjectID(customerID string, refID string, refType string) string {
 	return work.NewProjectID(customerID, refID, refType)
