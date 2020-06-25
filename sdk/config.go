@@ -35,6 +35,26 @@ type apikeyAuth struct {
 
 type matchListKV map[string]string
 
+// ConfigAccountType the type of account, org or user
+type ConfigAccountType string
+
+const (
+	//ConfigAccountTypeOrg org account type
+	ConfigAccountTypeOrg ConfigAccountType = "ORG"
+	// ConfigAccountTypeUser user account type
+	ConfigAccountTypeUser ConfigAccountType = "USER"
+)
+
+// ConfigAccount single account
+type ConfigAccount struct {
+	Login  string            `json:"login"`
+	Type   ConfigAccountType `json:"type"`
+	Public bool              `json:"public"`
+}
+
+// ConfigAccounts contains accounts with projects or repos to be exported
+type ConfigAccounts map[string]*ConfigAccount
+
 type config struct {
 	IntegrationType IntegrationType `json:"integrationType"`
 	Exclusions      *matchListKV    `json:"exclusions,omitempty"`
@@ -42,6 +62,7 @@ type config struct {
 	OAuth2Auth      *oauth2Auth     `json:"oauth2_auth,omitempty"`
 	BasicAuth       *basicAuth      `json:"basic_auth,omitempty"`
 	APIKeyAuth      *apikeyAuth     `json:"apikey_auth,omitempty"`
+	Accounts        *ConfigAccounts `json:"accounts,omitempty"`
 }
 
 type matchList struct {
@@ -76,8 +97,8 @@ type Config struct {
 	APIKeyAuth      *apikeyAuth     `json:"apikey_auth,omitempty"`
 	Inclusions      *matchList      `json:"-"`
 	Exclusions      *matchList      `json:"-"`
-
-	kv map[string]interface{}
+	Accounts        *ConfigAccounts `json:"-"`
+	kv              map[string]interface{}
 }
 
 // Exists will return true if the key exists
@@ -222,6 +243,9 @@ func (c *Config) Parse(buf []byte) error {
 	}
 	if cfg.IntegrationType != "" {
 		c.IntegrationType = cfg.IntegrationType
+	}
+	if cfg.Accounts != nil {
+		c.Accounts = cfg.Accounts
 	}
 	return nil
 }

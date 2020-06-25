@@ -113,3 +113,20 @@ func TestConfigFrom(t *testing.T) {
 	assert.NoError(cfg.From("profile", &profile))
 	assert.Equal("github", profile.Provider)
 }
+
+func TestConfigAccounts(t *testing.T) {
+	assert := assert.New(t)
+	cfg := NewConfig(nil)
+	configstr := `{"accounts":{"bitbucket":{"login":"bitbucket", "type":"ORG", "public":true}, "john_smith":{"login":"john_smith", "type":"USER", "public":false}}}`
+	assert.NoError(cfg.Parse([]byte(configstr)))
+	var accounts ConfigAccounts
+	assert.NoError(cfg.From("accounts", &accounts))
+
+	assert.Equal("bitbucket", accounts["bitbucket"].Login)
+	assert.Equal(ConfigAccountTypeOrg, accounts["bitbucket"].Type)
+	assert.Equal(true, accounts["bitbucket"].Public)
+
+	assert.Equal("john_smith", accounts["john_smith"].Login)
+	assert.Equal(ConfigAccountTypeUser, accounts["john_smith"].Type)
+	assert.Equal(false, accounts["john_smith"].Public)
+}
