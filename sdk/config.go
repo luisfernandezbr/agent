@@ -47,7 +47,7 @@ const (
 
 // ConfigAccount single account
 type ConfigAccount struct {
-	Login  string            `json:"login"`
+	ID     string            `json:"id"`
 	Type   ConfigAccountType `json:"type"`
 	Public bool              `json:"public"`
 }

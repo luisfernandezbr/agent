@@ -122,11 +122,11 @@ func TestConfigAccounts(t *testing.T) {
 	var accounts ConfigAccounts
 	assert.NoError(cfg.From("accounts", &accounts))
 
-	assert.Equal("bitbucket", accounts["bitbucket"].Login)
+	assert.Equal("bitbucket", accounts["bitbucket"].ID)
 	assert.Equal(ConfigAccountTypeOrg, accounts["bitbucket"].Type)
 	assert.Equal(true, accounts["bitbucket"].Public)
 
-	assert.Equal("john_smith", accounts["john_smith"].Login)
+	assert.Equal("john_smith", accounts["john_smith"].ID)
 	assert.Equal(ConfigAccountTypeUser, accounts["john_smith"].Type)
 	assert.Equal(false, accounts["john_smith"].Public)
 }
