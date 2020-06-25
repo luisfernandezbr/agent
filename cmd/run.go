@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -61,6 +62,10 @@ func getIntegration(ctx context.Context, logger log.Logger, channel string, dir 
 		}
 		log.Info(logger, "downloaded", "integration", integrationExecutable)
 	}
+	return startIntegration(ctx, logger, integrationExecutable, cmdargs)
+}
+
+func startIntegration(ctx context.Context, logger log.Logger, integrationExecutable string, cmdargs []string) (*exec.Cmd, error) {
 	log.Info(logger, "starting", "file", integrationExecutable, "args", cmdargs)
 	cm := exec.CommandContext(ctx, integrationExecutable, cmdargs...)
 	cm.Stdout = os.Stdout
@@ -408,6 +413,21 @@ var enrollAgentCmd = &cobra.Command{
 	},
 }
 
+func copyFile(from, to string) error {
+	in, err := os.Open(from)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.Create(to)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, in)
+	return err
+}
+
 // runCmd represents the run command
 var runCmd = &cobra.Command{
 	Use:   "run <integration> <version>",
@@ -441,11 +461,15 @@ var runCmd = &cobra.Command{
 		channel, _ := cmd.Flags().GetString("channel")
 		dir, _ := cmd.Flags().GetString("dir")
 		secret, _ := cmd.Flags().GetString("secret")
+		dir, err := filepath.Abs(dir)
+		if err != nil {
+			log.Fatal(logger, "error getting dir absolute path", "err", err)
+		}
 		var apikey string
-		var err error
 		var ch *event.SubscriptionChannel
 		var cmdargs []string
 		if secret != "" {
+			log.Debug(logger, "creating internal subscription")
 			if channel == "" {
 				channel = "stable"
 			}
@@ -461,6 +485,7 @@ var runCmd = &cobra.Command{
 			})
 			cmdargs = append(cmdargs, "--secret="+secret, "--channel="+channel)
 		} else {
+			log.Debug(logger, "creating external subscription")
 			cfg, config := loadConfig(cmd, logger, channel)
 			apikey = config.APIKey
 			if channel == "" {
@@ -491,7 +516,7 @@ var runCmd = &cobra.Command{
 		var stopped, restarting bool
 		var stoppedLock, restartLock sync.Mutex
 		done := make(chan bool)
-		finished := make(chan bool)
+		finished := make(chan bool, 1)
 		restart := make(chan bool, 2)
 		exited := make(chan bool)
 		var currentCmd *exec.Cmd
@@ -505,8 +530,12 @@ var runCmd = &cobra.Command{
 			<-finished
 		})
 
+		integrationBinary := filepath.Join(dir, integration)
+		previousIntegrationBinary := filepath.Join(dir, "old-"+integration)
+
 		restart <- true // start it up
 
+	exit:
 		for {
 			stoppedLock.Lock()
 			s := stopped
@@ -524,6 +553,11 @@ var runCmd = &cobra.Command{
 				if instance.RefType == integration {
 					switch dbchange.Action {
 					case "update", "UPDATE", "upsert", "UPSERT":
+						// copy the binary so we can rollback if needed
+						if err := copyFile(integrationBinary, previousIntegrationBinary); err != nil {
+							log.Error(logger, "error copying integration", "err", err)
+							break exit
+						}
 						restartLock.Lock()
 						restarting = true
 						version = instance.Version
@@ -559,10 +593,23 @@ var runCmd = &cobra.Command{
 					restarted++
 					c, err := getIntegration(ctx, logger, channel, dir, publisher, integration, version, cmdargs, force)
 					if err != nil {
-						// TODO
-						log.Fatal(logger, "error running integration", "err", err)
+						log.Error(logger, "error running integration", "err", err)
+						if !fileutil.FileExists(previousIntegrationBinary) {
+							break exit
+						} else {
+							log.Info(logger, "attempting to roll back to previous version of integration", "integration", integration)
+							os.Remove(integrationBinary)
+							os.Rename(previousIntegrationBinary, integrationBinary)
+							os.Chmod(integrationBinary, 0775)
+							c, err = startIntegration(ctx, logger, integrationBinary, cmdargs)
+							if err != nil {
+								log.Error(logger, "error running rolled back integration", "err", err)
+								break exit
+							}
+						}
 					}
 					currentCmd = c
+					os.Remove(previousIntegrationBinary)
 					log.Info(logger, "started", "pid", c.Process.Pid)
 					go func() {
 						// monitor the exit
