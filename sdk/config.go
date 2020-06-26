@@ -183,6 +183,13 @@ func NewConfig(kv map[string]interface{}) Config {
 		}
 		c.BasicAuth = &auth
 	}
+	if strval, ok := kv["accounts"].(string); ok {
+		var accounts ConfigAccounts
+		if err := json.Unmarshal([]byte(strval), &accounts); err != nil {
+			panic(fmt.Errorf("error parsing basic_auth: %w", err))
+		}
+		c.Accounts = &accounts
+	}
 	return c
 }
 
