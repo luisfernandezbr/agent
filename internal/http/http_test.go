@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -228,4 +229,114 @@ func TestHTTPGetWithEndpoint(t *testing.T) {
 	assert.NotNil(resp)
 	assert.Equal(http.StatusOK, resp.StatusCode)
 	assert.Equal("/", kv["url"])
+}
+
+func TestHTTPBasicAuth(t *testing.T) {
+	assert := assert.New(t)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"auth": "` + r.Header.Get("Authorization") + `"}`))
+	}))
+	defer ts.Close()
+	username := "pinpoint"
+	password := "rocks!"
+	mgr := New()
+	cl := mgr.New(ts.URL, nil)
+	var out struct {
+		Auth string `json:"auth"`
+	}
+	_, err := cl.Get(&out, sdk.WithHTTPCreds(&sdk.HTTPBasicCreds{
+		Username: username,
+		Password: password,
+	}))
+	assert.NoError(err)
+	assert.Equal("Basic "+base64.StdEncoding.EncodeToString([]byte(username+":"+password)), out.Auth)
+}
+
+type fakeOAuthManager struct {
+}
+
+var _ sdk.Manager = (*fakeOAuthManager)(nil)
+
+func (f *fakeOAuthManager) GraphQLManager() sdk.GraphQLClientManager { return nil }
+func (f *fakeOAuthManager) HTTPManager() sdk.HTTPClientManager       { return nil }
+func (f *fakeOAuthManager) CreateWebHook(customerID string, refType string, integrationID string, refID string) (string, error) {
+	return "", nil
+}
+func (f *fakeOAuthManager) RefreshOAuth2Token(refType string, refreshToken string) (string, error) {
+	return "NEW_TOKEN " + refreshToken, nil
+}
+
+func TestHTTPOAuth(t *testing.T) {
+	assert := assert.New(t)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"auth": "` + r.Header.Get("Authorization") + `"}`))
+	}))
+	defer ts.Close()
+	mgr := New()
+	cl := mgr.New(ts.URL, nil)
+	var out struct {
+		Auth string `json:"auth"`
+	}
+	_, err := cl.Get(&out, sdk.WithHTTPCreds(&sdk.HTTPOAuthCreds{
+		Token:        "12345TOKEN67890",
+		RefreshToken: "12345REFRESH_TOKEN67890",
+		RefType:      "foo",
+		Manager:      &fakeOAuthManager{},
+	}))
+	assert.NoError(err)
+	assert.Equal("Bearer 12345TOKEN67890", out.Auth)
+}
+func TestHTTPOAuthRefresh(t *testing.T) {
+	assert := assert.New(t)
+	shouldfail := true
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if shouldfail {
+			shouldfail = false
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"auth": "` + r.Header.Get("Authorization") + `"}`))
+	}))
+	defer ts.Close()
+	token := "12345TOKEN67890"
+	refreshToken := "12345REFRESH_TOKEN67890"
+	mgr := New()
+	cl := mgr.New(ts.URL, nil)
+	var out struct {
+		Auth string `json:"auth"`
+	}
+	_, err := cl.Get(&out, sdk.WithHTTPCreds(&sdk.HTTPOAuthCreds{
+		Token:        token,
+		RefreshToken: refreshToken,
+		RefType:      "foo",
+		Manager:      &fakeOAuthManager{},
+	}))
+	assert.NoError(err)
+	assert.Equal("Bearer NEW_TOKEN "+refreshToken, out.Auth)
+}
+
+func TestHTTPOAuthTooMany(t *testing.T) {
+	assert := assert.New(t)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer ts.Close()
+	token := "12345TOKEN67890"
+	refreshToken := "12345REFRESH_TOKEN67890"
+	mgr := New()
+	cl := mgr.New(ts.URL, nil)
+	var out struct {
+		Auth string `json:"auth"`
+	}
+	resp, err := cl.Get(&out, sdk.WithHTTPCreds(&sdk.HTTPOAuthCreds{
+		Token:        token,
+		RefreshToken: refreshToken,
+		RefType:      "foo",
+		Manager:      &fakeOAuthManager{},
+	}))
+	assert.Error(err)
+	assert.Equal(http.StatusUnauthorized, resp.StatusCode)
 }

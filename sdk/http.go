@@ -1,11 +1,13 @@
 package sdk
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 )
 
@@ -16,6 +18,7 @@ var ErrTimedOut = errors.New("timeout")
 type HTTPRequest struct {
 	Request  *http.Request
 	Deadline time.Time
+	Creds    HTTPCreds
 }
 
 // WithHTTPOption is an option for setting details on the request
@@ -57,6 +60,61 @@ type HTTPClient interface {
 	Get(out interface{}, options ...WithHTTPOption) (*HTTPResponse, error)
 	// Post will call a HTTP POST method passing the data and set the result (if JSON) to out
 	Post(data io.Reader, out interface{}, options ...WithHTTPOption) (*HTTPResponse, error)
+}
+
+// HTTPCreds credentials object, can be OAuth2, Basic, or third party implemented
+type HTTPCreds interface {
+	Auth() string
+}
+
+var _ HTTPCreds = (*HTTPBasicCreds)(nil)
+var _ HTTPCreds = (*HTTPOAuthCreds)(nil)
+
+// HTTPBasicCreds username and password authentication
+type HTTPBasicCreds struct {
+	Username string
+	Password string
+}
+
+// Auth returns the header auth string
+func (b *HTTPBasicCreds) Auth() string {
+	auth := b.Username + ":" + b.Password
+	return "Basic " + base64.StdEncoding.EncodeToString([]byte(auth))
+}
+
+// HTTPOAuthCreds oauth2 authorization object
+type HTTPOAuthCreds struct {
+	Token        string
+	RefreshToken string
+	RefType      string
+	Manager      Manager
+	LastRetry    time.Time
+	retryMutex   sync.Mutex
+}
+
+// Auth returns the header auth string
+func (o *HTTPOAuthCreds) Auth() string {
+	return "Bearer " + o.Token
+}
+
+// Refresh calls the refresh function
+func (o *HTTPOAuthCreds) Refresh() error {
+	o.retryMutex.Lock()
+	defer o.retryMutex.Unlock()
+	token, err := o.Manager.RefreshOAuth2Token(o.RefType, o.RefreshToken)
+	if err != nil {
+		return err
+	}
+	o.Token = token
+	return nil
+}
+
+// WithHTTPCreds will add a specific header to an outgoing request
+func WithHTTPCreds(creds HTTPCreds) WithHTTPOption {
+	return func(req *HTTPRequest) error {
+		req.Creds = creds
+		return nil
+	}
 }
 
 // WithHTTPHeader will add a specific header to an outgoing request

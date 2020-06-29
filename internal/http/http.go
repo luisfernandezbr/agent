@@ -41,8 +41,13 @@ type client struct {
 
 var _ sdk.HTTPClient = (*client)(nil)
 
-func (c *client) exec(req *sdk.HTTPRequest, out interface{}, options ...sdk.WithHTTPOption) (*sdk.HTTPResponse, error) {
+func (c *client) exec(req *sdk.HTTPRequest, out interface{}) (*sdk.HTTPResponse, error) {
 
+	if req.Creds != nil {
+		// set this here in case we need to refresh the token,
+		// the Auth func will have the new token
+		req.Request.Header.Set("Authorization", req.Creds.Auth())
+	}
 	resp, err := http.DefaultClient.Do(req.Request)
 	if err != nil {
 		return nil, err
@@ -65,6 +70,21 @@ func (c *client) exec(req *sdk.HTTPRequest, out interface{}, options ...sdk.With
 			RetryAfter: tv,
 		}
 	}
+	// if unauthorized and oauth, call refresh
+	if resp.StatusCode == http.StatusUnauthorized && req.Creds != nil {
+		if creds, ok := req.Creds.(*sdk.HTTPOAuthCreds); ok {
+			// if the last time we refresh the token was less then a minute, then something is wrong
+			// only refresh if the last time was a while ago, and then try again
+			if time.Since(creds.LastRetry) > (1 * time.Minute) {
+				if err := creds.Refresh(); err != nil {
+					return nil, err
+				}
+				creds.LastRetry = time.Now()
+				return c.exec(req, out)
+			}
+		}
+	}
+
 	if resp.StatusCode != http.StatusOK {
 		var buf bytes.Buffer
 		io.Copy(&buf, resp.Body)
@@ -129,7 +149,7 @@ func (c *client) execWithRetry(maker requestMaker, out interface{}, options ...s
 			return nil, err
 		}
 		i++
-		resp, err := c.exec(httpreq, out, options...)
+		resp, err := c.exec(httpreq, out)
 		if event.IsErrorRetryable(err) || (resp != nil && isStatusRetryable(resp.StatusCode)) {
 			if time.Now().Before(httpreq.Deadline) {
 				// do an expotential backoff
