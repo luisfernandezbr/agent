@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -355,7 +356,17 @@ func New(config Config) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	server.event, err = NewEventSubscriber(config, []string{agent.ExportModelName.String()}, server.onEvent)
+	location := agent.ExportIntegrationLocationPrivate
+	if config.Secret != "" {
+		location = agent.ExportIntegrationLocationCloud
+	}
+	server.event, err = NewEventSubscriber(
+		config,
+		[]string{agent.ExportModelName.String()},
+		&event.SubscriptionFilter{
+			ObjectExpr: fmt.Sprintf(`ref_type:"%s" AND integration.location:"%s"`, config.Integration.Descriptor.RefType, location.String()),
+		},
+		server.onEvent)
 	if err != nil {
 		return nil, err
 	}

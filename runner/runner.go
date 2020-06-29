@@ -32,6 +32,14 @@ type ConfigFile struct {
 	EnrollmentID string `json:"enrollment_id"`
 }
 
+func cloudAgentGroupID(reftype string) string {
+	return fmt.Sprintf("agent-%s", reftype)
+}
+
+func onPremiseAgentGroupID(reftype, systemID string) string {
+	return fmt.Sprintf("agent-%s-%s", systemID, reftype)
+}
+
 // Main is the main entrypoint for an integration
 func Main(integration sdk.Integration, args ...string) {
 	descriptor, err := sdk.LoadDescriptor(args[0], args[1], args[2])
@@ -77,7 +85,7 @@ func Main(integration sdk.Integration, args ...string) {
 					if channel == "" {
 						channel = "dev"
 					}
-					groupid = "agent"
+					groupid = cloudAgentGroupID(descriptor.RefType)
 
 					// we must connect to redis in multi mode
 					redisURL, _ := cmd.Flags().GetString("redis")
@@ -119,6 +127,7 @@ func Main(integration sdk.Integration, args ...string) {
 					if uuid == "" {
 						config.SystemID = config.CustomerID
 					}
+					groupid = onPremiseAgentGroupID(descriptor.RefType, config.SystemID)
 					groupid = "agent-" + config.SystemID
 					outdir, _ := cmd.Flags().GetString("dir")
 					statefn := filepath.Join(outdir, descriptor.RefType+".state.json")

@@ -84,17 +84,19 @@ type SubscriberCallback func(event event.SubscriptionEvent) error
 
 // NewDBChangeSubscriber will return a db change subscriber
 func NewDBChangeSubscriber(config Config, callback SubscriberCallback) (*Subscriber, error) {
+	return NewEventSubscriber(config, []string{"ops.db.Change"}, createDBChangeSubscriptionFilter(config.Integration.Descriptor.RefType), callback)
+}
+
+// NewEventSubscriber will return an event subscriber
+func NewEventSubscriber(config Config, topics []string, filters *event.SubscriptionFilter, callback SubscriberCallback) (*Subscriber, error) {
 	headers := map[string]string{}
 	httpheaders := map[string]string{}
 	if config.Secret != "" {
 		httpheaders["x-api-key"] = config.Secret
 	}
-	if config.UUID != "" {
-		headers["uuid"] = config.UUID
-	}
 	ch, err := event.NewSubscription(config.Ctx, event.Subscription{
 		Logger:            config.Logger,
-		Topics:            []string{"ops.db.Change"},
+		Topics:            topics,
 		GroupID:           config.GroupID,
 		HTTPHeaders:       httpheaders,
 		APIKey:            config.APIKey,
@@ -102,42 +104,7 @@ func NewDBChangeSubscriber(config Config, callback SubscriberCallback) (*Subscri
 		Channel:           config.Channel,
 		DisablePing:       true,
 		Headers:           headers,
-		Filter:            createDBChangeSubscriptionFilter(config.Integration.Descriptor.RefType),
-	})
-	if err != nil {
-		return nil, err
-	}
-	s := &Subscriber{
-		ch: ch,
-		cb: callback,
-	}
-	go s.run()
-	return s, nil
-}
-
-// NewEventSubscriber will return an event subscriber
-func NewEventSubscriber(config Config, topics []string, callback SubscriberCallback) (*Subscriber, error) {
-	headers := map[string]string{}
-	httpheaders := map[string]string{}
-	if config.Secret != "" {
-		httpheaders["x-api-key"] = config.Secret
-	}
-	if config.UUID != "" {
-		headers["uuid"] = config.UUID
-	}
-	ch, err := event.NewSubscription(config.Ctx, event.Subscription{
-		Logger:            config.Logger,
-		Topics:            topics,
-		GroupID:           config.GroupID + "-" + config.Integration.Descriptor.RefType,
-		HTTPHeaders:       httpheaders,
-		APIKey:            config.APIKey,
-		DisableAutoCommit: true,
-		Channel:           config.Channel,
-		DisablePing:       true,
-		Headers:           headers,
-		Filter: &event.SubscriptionFilter{
-			ObjectExpr: fmt.Sprintf(`ref_type:"%s"`, config.Integration.Descriptor.RefType),
-		},
+		Filter:            filters,
 	})
 	if err != nil {
 		return nil, err
