@@ -128,7 +128,6 @@ func Main(integration sdk.Integration, args ...string) {
 						config.SystemID = config.CustomerID
 					}
 					groupid = onPremiseAgentGroupID(descriptor.RefType, config.SystemID)
-					groupid = "agent-" + config.SystemID
 					outdir, _ := cmd.Flags().GetString("dir")
 					statefn := filepath.Join(outdir, descriptor.RefType+".state.json")
 					stateobj, err := devstate.New(statefn)
