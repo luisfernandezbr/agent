@@ -104,16 +104,27 @@ var LoginCmd = &cobra.Command{
 		logger := log.NewCommandLogger(cmd)
 		defer logger.Close()
 
-		var config devConfig
+		var config *devConfig
 
 		channel, _ := cmd.Flags().GetString("channel")
 		baseurl := api.BackendURL(api.AuthService, channel)
 		url := sdk.JoinURL(baseurl, "/login?apikey=true")
 
 		err := util.WaitForRedirect(url, func(w http.ResponseWriter, r *http.Request) {
+			config, _ = loadDevConfig()
 			q := r.URL.Query()
+			customerID := q.Get("customer_id")
+			if config != nil {
+				if config.CustomerID == customerID {
+					log.Info(logger, "refreshing token", "customer_id", config.CustomerID)
+				} else {
+					log.Info(logger, "logging into new customer, you will need to generate a new private key before publishing 🔑", "customer_id", config.CustomerID)
+				}
+			} else {
+				config = &devConfig{}
+			}
 			config.APIKey = q.Get("apikey")
-			config.CustomerID = q.Get("customer_id")
+			config.CustomerID = customerID
 			config.Expires = time.Now().Add(time.Hour * 23)
 			config.Channel = channel
 			if err := config.save(); err != nil {
