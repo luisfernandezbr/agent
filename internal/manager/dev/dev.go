@@ -30,8 +30,7 @@ func (m *devManager) HTTPManager() sdk.HTTPClientManager {
 
 // CreateWebHook is used by the integration to create a webhook on behalf of the integration for a given customer and refid
 func (m *devManager) CreateWebHook(customerID string, integrationID string, refType string, refID string) (string, error) {
-	log.Error(m.logger, "cannot create a webhook in dev mode")
-	return "", nil
+	return "", fmt.Errorf("cannot create a webhook in dev mode")
 }
 
 // RefreshOAuth2Token will refresh the OAuth2 access token using the provided refreshToken and return a new access token

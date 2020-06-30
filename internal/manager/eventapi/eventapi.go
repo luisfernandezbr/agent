@@ -35,7 +35,7 @@ func (m *eventAPIManager) CreateWebHook(customerID string, integrationID string,
 		api.BackendURL(api.EventService, m.channel),
 		"/hook",
 	)
-	client := http.New().New(theurl, map[string]string{"Content-Type": "application/json"})
+	client := http.New().New(theurl, map[string]string{"Content-Type": "application/json", "Accept": "application/json"})
 	data := map[string]interface{}{
 		"headers": map[string]string{
 			"ref_id":         refID,
@@ -47,7 +47,11 @@ func (m *eventAPIManager) CreateWebHook(customerID string, integrationID string,
 		Success bool   `json:"success"`
 		URL     string `json:"url"`
 	}
-	_, err := client.Post(strings.NewReader(sdk.Stringify(data)), &res)
+	opts := make([]sdk.WithHTTPOption, 0)
+	if m.channel == "dev" {
+		opts = append(opts, sdk.WithHTTPHeader("x-api-key", "fa0s8f09a8sd09f8iasdlkfjalsfm,.m,xf"))
+	}
+	_, err := client.Post(strings.NewReader(sdk.Stringify(data)), &res, opts...)
 	if err != nil {
 		return "", fmt.Errorf("error creating webhook url. %w", err)
 	}

@@ -65,7 +65,7 @@ func (c *client) exec(req *sdk.HTTPRequest, out interface{}, options ...sdk.With
 			RetryAfter: tv,
 		}
 	}
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode > 299 {
 		var buf bytes.Buffer
 		io.Copy(&buf, resp.Body)
 		resp.Body.Close()
