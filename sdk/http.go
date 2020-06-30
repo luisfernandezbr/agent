@@ -19,6 +19,7 @@ type HTTPOptions struct {
 	Response    *HTTPResponse // only set in the response case or nil in the request case
 	Deadline    time.Time
 	ShouldRetry bool
+	RetryAfter  time.Duration
 }
 
 // WithHTTPOption is an option for setting details on the request

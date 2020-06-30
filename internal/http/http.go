@@ -70,9 +70,8 @@ func (c *client) exec(opt *sdk.HTTPOptions, out interface{}, options ...sdk.With
 			}
 		}
 		opt.ShouldRetry = true
-		return res, &sdk.RateLimitError{
-			RetryAfter: tv,
-		}
+		opt.RetryAfter = tv
+		return nil, nil
 	}
 	if resp.StatusCode != http.StatusOK {
 		var buf bytes.Buffer
@@ -141,8 +140,13 @@ func (c *client) execWithRetry(maker requestMaker, out interface{}, options ...s
 		resp, err := c.exec(httpreq, out, options...)
 		if httpreq.ShouldRetry || event.IsErrorRetryable(err) || (resp != nil && isStatusRetryable(resp.StatusCode)) {
 			if time.Now().Before(httpreq.Deadline) {
-				// do an expotential backoff
-				time.Sleep(time.Millisecond * time.Duration(int64(i)*rand.Int63n(backoffRange)))
+				if httpreq.RetryAfter > 0 {
+					// retry after our header tells us
+					time.Sleep(httpreq.RetryAfter)
+				} else {
+					// do an expotential backoff
+					time.Sleep(time.Millisecond * time.Duration(int64(i)*rand.Int63n(backoffRange)))
+				}
 			}
 			// check again
 			if time.Now().Before(httpreq.Deadline) {

@@ -118,6 +118,7 @@ func TestHTTPGetRetry(t *testing.T) {
 			w.Write([]byte(`{"a":"b"}`))
 			return
 		}
+		w.Header().Set("Retry-After", "1")
 		w.WriteHeader(http.StatusTooManyRequests)
 		count++
 	}))
@@ -142,10 +143,12 @@ func TestHTTPPostRetry(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			var buf bytes.Buffer
 			io.Copy(&buf, r.Body)
+			w.Header().Set("Retry-After", "6")
 			w.WriteHeader(http.StatusOK)
 			w.Write(buf.Bytes())
 			return
 		}
+		w.Header().Set("Retry-After", "1")
 		w.WriteHeader(http.StatusTooManyRequests)
 		count++
 	}))
@@ -166,6 +169,7 @@ func TestHTTPRetryTimeout(t *testing.T) {
 	assert := assert.New(t)
 	var count int
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Retry-After", "2")
 		w.WriteHeader(http.StatusTooManyRequests)
 		count++
 	}))
@@ -176,7 +180,7 @@ func TestHTTPRetryTimeout(t *testing.T) {
 	resp, err := cl.Post(bytes.NewBuffer([]byte(`{"a":"b"}`)), &kv, sdk.WithDeadline(time.Second))
 	assert.Error(err, sdk.ErrTimedOut)
 	assert.Nil(resp)
-	assert.True(count >= 5)
+	assert.True(count > 0)
 }
 
 func TestHTTPGetWithEndpoint(t *testing.T) {
