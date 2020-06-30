@@ -41,14 +41,8 @@ type client struct {
 
 var _ sdk.HTTPClient = (*client)(nil)
 
-func (c *client) exec(req *sdk.HTTPRequest, out interface{}) (*sdk.HTTPResponse, error) {
-
-	if req.Creds != nil {
-		// set this here in case we need to refresh the token,
-		// the Auth func will have the new token
-		req.Request.Header.Set("Authorization", req.Creds.Auth())
-	}
-	resp, err := http.DefaultClient.Do(req.Request)
+func (c *client) exec(opt *sdk.HTTPOptions, out interface{}, options ...sdk.WithHTTPOption) (*sdk.HTTPResponse, error) {
+	resp, err := http.DefaultClient.Do(opt.Request)
 	if err != nil {
 		return nil, err
 	}
@@ -56,6 +50,15 @@ func (c *client) exec(req *sdk.HTTPRequest, out interface{}) (*sdk.HTTPResponse,
 		StatusCode: resp.StatusCode,
 		Headers:    resp.Header,
 	}
+	opt.Response = res
+	for _, o := range options {
+		if o != nil {
+			if err := o(opt); err != nil {
+				return nil, err
+			}
+		}
+	}
+	opt.Response = nil
 	// check to see if this was a rate limited response
 	if resp.StatusCode == http.StatusTooManyRequests {
 		val := resp.Header.Get("Retry-After")
@@ -66,25 +69,11 @@ func (c *client) exec(req *sdk.HTTPRequest, out interface{}) (*sdk.HTTPResponse,
 				tv = time.Second * time.Duration(v)
 			}
 		}
+		opt.ShouldRetry = true
 		return res, &sdk.RateLimitError{
 			RetryAfter: tv,
 		}
 	}
-	// if unauthorized and oauth, call refresh
-	if resp.StatusCode == http.StatusUnauthorized && req.Creds != nil {
-		if creds, ok := req.Creds.(*sdk.HTTPOAuthCreds); ok {
-			// if the last time we refresh the token was less then a minute, then something is wrong
-			// only refresh if the last time was a while ago, and then try again
-			if time.Since(creds.LastRetry) > (1 * time.Minute) {
-				if err := creds.Refresh(); err != nil {
-					return nil, err
-				}
-				creds.LastRetry = time.Now()
-				return c.exec(req, out)
-			}
-		}
-	}
-
 	if resp.StatusCode != http.StatusOK {
 		var buf bytes.Buffer
 		io.Copy(&buf, resp.Body)
@@ -102,25 +91,25 @@ func (c *client) exec(req *sdk.HTTPRequest, out interface{}) (*sdk.HTTPResponse,
 	return res, nil
 }
 
-func (c *client) makeRequest(req *http.Request, deadline time.Time, options ...sdk.WithHTTPOption) (*sdk.HTTPRequest, error) {
-	httpreq := &sdk.HTTPRequest{
+func (c *client) makeRequest(req *http.Request, deadline time.Time, options ...sdk.WithHTTPOption) (*sdk.HTTPOptions, error) {
+	opts := &sdk.HTTPOptions{
 		Request:  req,
 		Deadline: deadline,
 	}
-	httpreq.Request.Header.Set("Accept", "application/json")
-	httpreq.Request.Header.Set("Content-Type", "application/json")
-	httpreq.Request.Header.Set("User-Agent", "pinpoint.com")
+	opts.Request.Header.Set("Accept", "application/json")
+	opts.Request.Header.Set("Content-Type", "application/json")
+	opts.Request.Header.Set("User-Agent", "pinpoint.com")
 	for k, v := range c.headers {
-		httpreq.Request.Header.Set(k, v)
+		opts.Request.Header.Set(k, v)
 	}
 	for _, opt := range options {
 		if opt != nil {
-			if err := opt(httpreq); err != nil {
+			if err := opt(opts); err != nil {
 				return nil, err
 			}
 		}
 	}
-	return httpreq, nil
+	return opts, nil
 }
 
 const backoffRange = 200
@@ -149,8 +138,8 @@ func (c *client) execWithRetry(maker requestMaker, out interface{}, options ...s
 			return nil, err
 		}
 		i++
-		resp, err := c.exec(httpreq, out)
-		if event.IsErrorRetryable(err) || (resp != nil && isStatusRetryable(resp.StatusCode)) {
+		resp, err := c.exec(httpreq, out, options...)
+		if httpreq.ShouldRetry || event.IsErrorRetryable(err) || (resp != nil && isStatusRetryable(resp.StatusCode)) {
 			if time.Now().Before(httpreq.Deadline) {
 				// do an expotential backoff
 				time.Sleep(time.Millisecond * time.Duration(int64(i)*rand.Int63n(backoffRange)))

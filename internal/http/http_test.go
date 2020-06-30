@@ -245,10 +245,7 @@ func TestHTTPBasicAuth(t *testing.T) {
 	var out struct {
 		Auth string `json:"auth"`
 	}
-	_, err := cl.Get(&out, sdk.WithHTTPCreds(&sdk.HTTPBasicCreds{
-		Username: username,
-		Password: password,
-	}))
+	_, err := cl.Get(&out, sdk.WithBasicAuth(username, password))
 	assert.NoError(err)
 	assert.Equal("Basic "+base64.StdEncoding.EncodeToString([]byte(username+":"+password)), out.Auth)
 }
@@ -279,15 +276,11 @@ func TestHTTPOAuth(t *testing.T) {
 	var out struct {
 		Auth string `json:"auth"`
 	}
-	_, err := cl.Get(&out, sdk.WithHTTPCreds(&sdk.HTTPOAuthCreds{
-		Token:        "12345TOKEN67890",
-		RefreshToken: "12345REFRESH_TOKEN67890",
-		RefType:      "foo",
-		Manager:      &fakeOAuthManager{},
-	}))
+	_, err := cl.Get(&out, sdk.WithOAuth2Refresh(&fakeOAuthManager{}, "foo", "12345TOKEN67890", "12345REFRESH_TOKEN67890"))
 	assert.NoError(err)
 	assert.Equal("Bearer 12345TOKEN67890", out.Auth)
 }
+
 func TestHTTPOAuthRefresh(t *testing.T) {
 	assert := assert.New(t)
 	shouldfail := true
@@ -308,12 +301,7 @@ func TestHTTPOAuthRefresh(t *testing.T) {
 	var out struct {
 		Auth string `json:"auth"`
 	}
-	_, err := cl.Get(&out, sdk.WithHTTPCreds(&sdk.HTTPOAuthCreds{
-		Token:        token,
-		RefreshToken: refreshToken,
-		RefType:      "foo",
-		Manager:      &fakeOAuthManager{},
-	}))
+	_, err := cl.Get(&out, sdk.WithOAuth2Refresh(&fakeOAuthManager{}, "foo", token, refreshToken))
 	assert.NoError(err)
 	assert.Equal("Bearer NEW_TOKEN "+refreshToken, out.Auth)
 }
@@ -331,12 +319,7 @@ func TestHTTPOAuthTooMany(t *testing.T) {
 	var out struct {
 		Auth string `json:"auth"`
 	}
-	resp, err := cl.Get(&out, sdk.WithHTTPCreds(&sdk.HTTPOAuthCreds{
-		Token:        token,
-		RefreshToken: refreshToken,
-		RefType:      "foo",
-		Manager:      &fakeOAuthManager{},
-	}))
+	resp, err := cl.Get(&out, sdk.WithOAuth2Refresh(&fakeOAuthManager{}, "foo", token, refreshToken))
 	assert.Error(err)
 	assert.Equal(http.StatusUnauthorized, resp.StatusCode)
 }
