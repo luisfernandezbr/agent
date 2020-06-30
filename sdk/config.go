@@ -12,7 +12,8 @@ import (
 )
 
 type auth struct {
-	URL string `json:"url,omitempty"`
+	URL     string `json:"url,omitempty"`
+	Created int64  `json:"created"`
 }
 
 type basicAuth struct {
@@ -56,7 +57,7 @@ type ConfigAccount struct {
 type ConfigAccounts map[string]*ConfigAccount
 
 type config struct {
-	IntegrationType IntegrationType `json:"integrationType"`
+	IntegrationType IntegrationType `json:"integration_type"`
 	Exclusions      *matchListKV    `json:"exclusions,omitempty"`
 	Inclusions      *matchListKV    `json:"inclusions,omitempty"`
 	OAuth2Auth      *oauth2Auth     `json:"oauth2_auth,omitempty"`

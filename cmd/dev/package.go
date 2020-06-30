@@ -122,6 +122,6 @@ var PackageCmd = &cobra.Command{
 
 func init() {
 	PackageCmd.Flags().String("dir", "dist", "the output directory to place the generated file")
-	PackageCmd.Flags().StringArray("os", []string{"darwin", "linux"}, "the OS to build for")
+	PackageCmd.Flags().StringArray("os", []string{"darwin", "linux", "windows"}, "the OS to build for")
 	PackageCmd.Flags().StringArray("arch", []string{"amd64"}, "the architecture to build for")
 }
