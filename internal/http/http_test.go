@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/pinpt/agent.next/sdk"
+	pjson "github.com/pinpt/go-common/v10/json"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -100,6 +101,44 @@ func TestHTTPPostRequest(t *testing.T) {
 	cl := mgr.New(ts.URL, nil)
 	kv := make(map[string]interface{})
 	resp, err := cl.Post(bytes.NewBuffer([]byte(`{"a":"b"}`)), &kv)
+	assert.NoError(err)
+	assert.NotNil(resp)
+	assert.Equal(http.StatusOK, resp.StatusCode)
+	assert.Equal("application/json", resp.Headers.Get("Content-Type"))
+	assert.Equal("b", kv["a"])
+}
+
+func TestHTTPPutRequest(t *testing.T) {
+	assert := assert.New(t)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var buf bytes.Buffer
+		io.Copy(&buf, r.Body)
+		w.Write(buf.Bytes())
+	}))
+	defer ts.Close()
+	mgr := New()
+	cl := mgr.New(ts.URL, nil)
+	kv := make(map[string]interface{})
+	resp, err := cl.Put(bytes.NewBuffer([]byte(`{"a":"b"}`)), &kv)
+	assert.NoError(err)
+	assert.NotNil(resp)
+	assert.Equal(http.StatusOK, resp.StatusCode)
+	assert.Equal("application/json", resp.Headers.Get("Content-Type"))
+	assert.Equal("b", kv["a"])
+}
+
+func TestHTTPDeleteRequest(t *testing.T) {
+	assert := assert.New(t)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(pjson.Stringify(map[string]string{"a": "b"})))
+	}))
+	defer ts.Close()
+	mgr := New()
+	cl := mgr.New(ts.URL, nil)
+	kv := make(map[string]interface{})
+	resp, err := cl.Delete(&kv)
 	assert.NoError(err)
 	assert.NotNil(resp)
 	assert.Equal(http.StatusOK, resp.StatusCode)

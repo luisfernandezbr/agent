@@ -57,6 +57,10 @@ type HTTPClient interface {
 	Get(out interface{}, options ...WithHTTPOption) (*HTTPResponse, error)
 	// Post will call a HTTP POST method passing the data and set the result (if JSON) to out
 	Post(data io.Reader, out interface{}, options ...WithHTTPOption) (*HTTPResponse, error)
+	// Put will call a HTTP PUT method passing the data and set the result (if JSON) to out
+	Put(data io.Reader, out interface{}, options ...WithHTTPOption) (*HTTPResponse, error)
+	// Delete will call a HTTP DELETE method and set the result (if JSON) to out
+	Delete(out interface{}, options ...WithHTTPOption) (*HTTPResponse, error)
 }
 
 // WithHTTPHeader will add a specific header to an outgoing request

@@ -109,7 +109,7 @@ type requestMaker func() (*http.Request, error)
 
 func isStatusRetryable(status int) bool {
 	switch status {
-	case http.StatusBadGateway, http.StatusGatewayTimeout, http.StatusServiceUnavailable:
+	case http.StatusBadGateway, http.StatusGatewayTimeout, http.StatusServiceUnavailable, http.StatusTooManyRequests:
 		return true
 	default:
 		return false
@@ -162,6 +162,26 @@ func (c *client) Post(data io.Reader, out interface{}, options ...sdk.WithHTTPOp
 	return c.execWithRetry(func() (*http.Request, error) {
 		rw.Rewind()
 		return http.NewRequest(http.MethodPost, c.url, rw)
+	}, out, options...)
+}
+
+// Put will call a HTTP PUT method passing the data and set the result (if JSON) to out
+func (c *client) Put(data io.Reader, out interface{}, options ...sdk.WithHTTPOption) (*sdk.HTTPResponse, error) {
+	var buf bytes.Buffer
+	io.Copy(&buf, data)
+	rw := &rewindReader{
+		buf: buf.Bytes(),
+	}
+	return c.execWithRetry(func() (*http.Request, error) {
+		rw.Rewind()
+		return http.NewRequest(http.MethodPut, c.url, rw)
+	}, out, options...)
+}
+
+// Post will call a HTTP DELETE method and set the result (if JSON) to out
+func (c *client) Delete(out interface{}, options ...sdk.WithHTTPOption) (*sdk.HTTPResponse, error) {
+	return c.execWithRetry(func() (*http.Request, error) {
+		return http.NewRequest(http.MethodDelete, c.url, nil)
 	}, out, options...)
 }
 
