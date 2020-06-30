@@ -25,5 +25,5 @@ func TestFile(t *testing.T) {
 	assert.Equal("c", val)
 	ok, err = state.Get("b", val)
 	assert.False(ok)
-	assert.Error(err, "out argument must be a pointer but was string")
+	assert.EqualError(err, "json: Unmarshal(non-pointer string)")
 }

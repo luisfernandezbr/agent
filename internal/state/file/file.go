@@ -2,12 +2,10 @@ package file
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"reflect"
 	"sync"
 
 	"github.com/pinpt/agent.next/sdk"
@@ -18,7 +16,7 @@ import (
 // State is a simple file backed state store
 type State struct {
 	fn    string
-	state map[string]interface{}
+	state map[string]string
 	mu    sync.RWMutex
 }
 
@@ -32,7 +30,7 @@ func (f *State) getKey(key string) string {
 // Set a value by key in state. the value must be able to serialize to JSON
 func (f *State) Set(key string, value interface{}) error {
 	f.mu.Lock()
-	f.state[f.getKey(key)] = value
+	f.state[f.getKey(key)] = pjson.Stringify(value)
 	f.mu.Unlock()
 	return nil
 }
@@ -40,17 +38,13 @@ func (f *State) Set(key string, value interface{}) error {
 // Get will return a value for a given key or nil if not found
 func (f *State) Get(key string, out interface{}) (bool, error) {
 	f.mu.RLock()
-	val := f.state[f.getKey(key)]
+	val, found := f.state[f.getKey(key)]
 	f.mu.RUnlock()
-	if val == nil {
+	if !found || val == "" {
 		return false, nil
 	}
-	valueof := reflect.ValueOf(out)
-	if valueof.Kind() != reflect.Ptr {
-		return false, fmt.Errorf("out argument must be a pointer but was %s", valueof.Kind())
-	}
-	valueof.Elem().Set(reflect.ValueOf(val))
-	return true, nil
+	err := json.Unmarshal([]byte(val), out)
+	return err == nil, err
 }
 
 // Exists return true if the key exists in state
@@ -84,7 +78,7 @@ func (f *State) Close() error {
 
 // New will create a new state store backed by a file
 func New(fn string) (*State, error) {
-	kv := make(map[string]interface{})
+	kv := make(map[string]string)
 	var of *os.File
 	var err error
 	if fileutil.FileExists(fn) {
