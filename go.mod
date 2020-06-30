@@ -7,8 +7,8 @@ require (
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/fatih/color v1.9.0
 	github.com/go-redis/redis/v8 v8.0.0-beta.5
-	github.com/pinpt/go-common/v10 v10.0.11
-	github.com/pinpt/integration-sdk v0.0.1043
+	github.com/pinpt/go-common/v10 v10.0.13
+	github.com/pinpt/integration-sdk v0.0.1050
 	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
 	github.com/russross/blackfriday/v2 v2.0.1
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
