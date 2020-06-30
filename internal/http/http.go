@@ -41,9 +41,8 @@ type client struct {
 
 var _ sdk.HTTPClient = (*client)(nil)
 
-func (c *client) exec(req *sdk.HTTPRequest, out interface{}, options ...sdk.WithHTTPOption) (*sdk.HTTPResponse, error) {
-
-	resp, err := http.DefaultClient.Do(req.Request)
+func (c *client) exec(opt *sdk.HTTPOptions, out interface{}, options ...sdk.WithHTTPOption) (*sdk.HTTPResponse, error) {
+	resp, err := http.DefaultClient.Do(opt.Request)
 	if err != nil {
 		return nil, err
 	}
@@ -51,6 +50,15 @@ func (c *client) exec(req *sdk.HTTPRequest, out interface{}, options ...sdk.With
 		StatusCode: resp.StatusCode,
 		Headers:    resp.Header,
 	}
+	opt.Response = res
+	for _, o := range options {
+		if o != nil {
+			if err := o(opt); err != nil {
+				return nil, err
+			}
+		}
+	}
+	opt.Response = nil
 	// check to see if this was a rate limited response
 	if resp.StatusCode == http.StatusTooManyRequests {
 		val := resp.Header.Get("Retry-After")
@@ -61,9 +69,9 @@ func (c *client) exec(req *sdk.HTTPRequest, out interface{}, options ...sdk.With
 				tv = time.Second * time.Duration(v)
 			}
 		}
-		return res, &sdk.RateLimitError{
-			RetryAfter: tv,
-		}
+		opt.ShouldRetry = true
+		opt.RetryAfter = tv
+		return nil, nil
 	}
 	if resp.StatusCode > 299 {
 		var buf bytes.Buffer
@@ -82,25 +90,25 @@ func (c *client) exec(req *sdk.HTTPRequest, out interface{}, options ...sdk.With
 	return res, nil
 }
 
-func (c *client) makeRequest(req *http.Request, deadline time.Time, options ...sdk.WithHTTPOption) (*sdk.HTTPRequest, error) {
-	httpreq := &sdk.HTTPRequest{
+func (c *client) makeRequest(req *http.Request, deadline time.Time, options ...sdk.WithHTTPOption) (*sdk.HTTPOptions, error) {
+	opts := &sdk.HTTPOptions{
 		Request:  req,
 		Deadline: deadline,
 	}
-	httpreq.Request.Header.Set("Accept", "application/json")
-	httpreq.Request.Header.Set("Content-Type", "application/json")
-	httpreq.Request.Header.Set("User-Agent", "pinpoint.com")
+	opts.Request.Header.Set("Accept", "application/json")
+	opts.Request.Header.Set("Content-Type", "application/json")
+	opts.Request.Header.Set("User-Agent", "pinpoint.com")
 	for k, v := range c.headers {
-		httpreq.Request.Header.Set(k, v)
+		opts.Request.Header.Set(k, v)
 	}
 	for _, opt := range options {
 		if opt != nil {
-			if err := opt(httpreq); err != nil {
+			if err := opt(opts); err != nil {
 				return nil, err
 			}
 		}
 	}
-	return httpreq, nil
+	return opts, nil
 }
 
 const backoffRange = 200
@@ -130,10 +138,15 @@ func (c *client) execWithRetry(maker requestMaker, out interface{}, options ...s
 		}
 		i++
 		resp, err := c.exec(httpreq, out, options...)
-		if event.IsErrorRetryable(err) || (resp != nil && isStatusRetryable(resp.StatusCode)) {
+		if httpreq.ShouldRetry || event.IsErrorRetryable(err) || (resp != nil && isStatusRetryable(resp.StatusCode)) {
 			if time.Now().Before(httpreq.Deadline) {
-				// do an expotential backoff
-				time.Sleep(time.Millisecond * time.Duration(int64(i)*rand.Int63n(backoffRange)))
+				if httpreq.RetryAfter > 0 {
+					// retry after our header tells us
+					time.Sleep(httpreq.RetryAfter)
+				} else {
+					// do an expotential backoff
+					time.Sleep(time.Millisecond * time.Duration(int64(i)*rand.Int63n(backoffRange)))
+				}
 			}
 			// check again
 			if time.Now().Before(httpreq.Deadline) {

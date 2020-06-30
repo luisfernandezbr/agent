@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -12,14 +13,17 @@ import (
 // ErrTimedOut returns a timeout event when our deadline is exceeded
 var ErrTimedOut = errors.New("timeout")
 
-// HTTPRequest is a holder for options
-type HTTPRequest struct {
-	Request  *http.Request
-	Deadline time.Time
+// HTTPOptions is a holder for options
+type HTTPOptions struct {
+	Request     *http.Request
+	Response    *HTTPResponse // only set in the response case or nil in the request case
+	Deadline    time.Time
+	ShouldRetry bool
+	RetryAfter  time.Duration
 }
 
 // WithHTTPOption is an option for setting details on the request
-type WithHTTPOption func(req *HTTPRequest) error
+type WithHTTPOption func(opt *HTTPOptions) error
 
 // HTTPClientManager is an interface for creating HTTP clients
 type HTTPClientManager interface {
@@ -65,53 +69,96 @@ type HTTPClient interface {
 
 // WithHTTPHeader will add a specific header to an outgoing request
 func WithHTTPHeader(key, value string) WithHTTPOption {
-	return func(req *HTTPRequest) error {
-		req.Request.Header.Set(key, value)
+	return func(opt *HTTPOptions) error {
+		if opt.Response == nil {
+			opt.Request.Header.Set(key, value)
+		}
 		return nil
 	}
 }
 
 // WithEndpoint will add to the url path
 func WithEndpoint(value string) WithHTTPOption {
-	return func(req *HTTPRequest) error {
-		req.Request.URL.Path = JoinURL(req.Request.URL.Path, value)
-		req.Request.URL, _ = url.Parse(req.Request.URL.String())
+	return func(opt *HTTPOptions) error {
+		if opt.Response == nil {
+			opt.Request.URL.Path = JoinURL(opt.Request.URL.Path, value)
+			opt.Request.URL, _ = url.Parse(opt.Request.URL.String())
+		}
 		return nil
 	}
 }
 
 // WithContentType will set the Content-Type header
 func WithContentType(value string) WithHTTPOption {
-	return func(req *HTTPRequest) error {
-		req.Request.Header.Set("Content-Type", value)
+	return func(opt *HTTPOptions) error {
+		if opt.Response == nil {
+			opt.Request.Header.Set("Content-Type", value)
+		}
 		return nil
 	}
 }
 
 // WithAuthorization will set the Authorization header
 func WithAuthorization(value string) WithHTTPOption {
-	return func(req *HTTPRequest) error {
-		req.Request.Header.Set("Authorization", value)
+	return func(opt *HTTPOptions) error {
+		if opt.Response == nil {
+			opt.Request.Header.Set("Authorization", value)
+		}
 		return nil
 	}
 }
 
 // WithGetQueryParameters will allow the query parameters to be overriden
 func WithGetQueryParameters(variables url.Values) WithHTTPOption {
-	return func(req *HTTPRequest) error {
-		q := req.Request.URL.Query()
-		for k, v := range variables {
-			q[k] = v
+	return func(opt *HTTPOptions) error {
+		if opt.Response == nil {
+			q := opt.Request.URL.Query()
+			for k, v := range variables {
+				q[k] = v
+			}
+			opt.Request.URL.RawQuery = q.Encode()
 		}
-		req.Request.URL.RawQuery = q.Encode()
 		return nil
 	}
 }
 
 // WithDeadline will set a deadline for getting a response
 func WithDeadline(duration time.Duration) WithHTTPOption {
-	return func(req *HTTPRequest) error {
-		req.Deadline = time.Now().Add(duration)
+	return func(opt *HTTPOptions) error {
+		if opt.Response == nil {
+			opt.Deadline = time.Now().Add(duration)
+		}
+		return nil
+	}
+}
+
+// WithBasicAuth will add the Basic authentication header to the outgoing request
+func WithBasicAuth(username string, password string) WithHTTPOption {
+	return WithAuthorization("Basic " + base64.StdEncoding.EncodeToString([]byte(username+":"+password)))
+}
+
+// WithOAuth2Refresh will set the oauth2 information and support automatic token refresh
+func WithOAuth2Refresh(manager Manager, refType string, accessToken string, refreshToken string) WithHTTPOption {
+	var lastRetry time.Time
+	token := accessToken // capture this in the closure since we can change it on refresh
+	return func(opt *HTTPOptions) error {
+		if opt.Response == nil {
+			opt.Request.Header.Set("Authorization", "Bearer "+token)
+			return nil
+		}
+		if opt.Response.StatusCode == http.StatusUnauthorized && refreshToken != "" {
+			var err error
+			token, err = manager.RefreshOAuth2Token(refType, refreshToken)
+			if err != nil {
+				return err
+			}
+			// if the last time we refresh the token was less then a minute, then something is wrong
+			// only refresh if the last time was a while ago, and then try again
+			if time.Since(lastRetry) > (1 * time.Minute) {
+				opt.ShouldRetry = true
+				lastRetry = time.Now()
+			}
+		}
 		return nil
 	}
 }
