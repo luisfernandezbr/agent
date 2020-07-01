@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/pinpt/agent.next/sdk"
@@ -28,6 +29,14 @@ func (f *State) getKey(key string) string {
 // Set a value by key in state. the value must be able to serialize to JSON
 func (f *State) Set(key string, value interface{}) error {
 	return f.client.Set(f.ctx, f.getKey(key), pjson.Stringify(value), 0).Err()
+}
+
+// SetWithExpires will set key and value and it will automatically expire from state after expiry
+func (f *State) SetWithExpires(key string, value interface{}, expiry time.Duration) error {
+	if expiry <= 0 {
+		return fmt.Errorf("invalid expires duration, must be >0, was %d", expiry)
+	}
+	return f.client.Set(f.ctx, f.getKey(key), pjson.Stringify(value), expiry).Err()
 }
 
 // Get will return a value for a given key or nil if not found
