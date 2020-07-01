@@ -15,19 +15,15 @@ func NewAsync(concurrency int) Async {
 	a.wg.Add(concurrency)
 	for i := 0; i < concurrency; i++ {
 		go func() {
+			defer a.wg.Done()
 			for f := range a.funcs {
-				a.mu.Lock()
-				rerr := a.err
-				a.mu.Unlock()
-				if rerr == nil {
-					if err := f(); err != nil {
-						a.mu.Lock()
-						a.err = err
-						a.mu.Unlock()
-					}
+				if err := f(); err != nil {
+					a.mu.Lock()
+					a.err = err
+					a.mu.Unlock()
+					return // stopping processing if we get an error
 				}
 			}
-			a.wg.Done()
 		}()
 	}
 	return a
