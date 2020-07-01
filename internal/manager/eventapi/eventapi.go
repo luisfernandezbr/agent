@@ -33,7 +33,7 @@ func (m *eventAPIManager) HTTPManager() sdk.HTTPClientManager {
 }
 
 // CreateWebHook is used by the integration to create a webhook on behalf of the integration for a given customer and refid
-func (m *eventAPIManager) CreateWebHook(customerID string, integrationInstanceID string, refType string, refID string) (string, error) {
+func (m *eventAPIManager) CreateWebHook(customerID, refType, integrationInstanceID, refID string) (string, error) {
 	theurl := sdk.JoinURL(
 		api.BackendURL(api.EventService, m.channel),
 		"/hook",
@@ -46,7 +46,8 @@ func (m *eventAPIManager) CreateWebHook(customerID string, integrationInstanceID
 			"self_managed":            fmt.Sprintf("%v", m.selfManaged),
 			"customer_id":             customerID,
 		},
-		"system": refType,
+		"customer_id": customerID,
+		"system":      refType,
 	}
 	var res struct {
 		Success bool   `json:"success"`
@@ -65,8 +66,10 @@ func (m *eventAPIManager) CreateWebHook(customerID string, integrationInstanceID
 		return "", fmt.Errorf("error creating webhook url. %w", err)
 	}
 	if res.Success {
-		log.Debug(m.logger, "created webhook", "url", res.URL, "customer_id", customerID, "integration_id", integrationInstanceID, "ref_type", refType, "ref_id", refID)
-		return res.URL, nil
+		url := res.URL
+		url += "?integration_instance_id=" + integrationInstanceID
+		log.Debug(m.logger, "created webhook", "url", url, "customer_id", customerID, "integration_instance_id", integrationInstanceID, "ref_type", refType, "ref_id", refID)
+		return url, nil
 	}
 	return "", fmt.Errorf("failed to create webhook url")
 }

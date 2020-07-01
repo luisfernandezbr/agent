@@ -414,10 +414,12 @@ func (s *Server) onWebhook(evt event.SubscriptionEvent) error {
 		}
 		customerID := evt.Headers["customer_id"]
 		if customerID == "" {
+			evt.Commit()
 			return errors.New("webhook missing customer id")
 		}
-		integrationInstanceID := evt.Headers["integration_id"]
+		integrationInstanceID := evt.Headers["integration_instance_id"]
 		if integrationInstanceID == "" {
+			evt.Commit()
 			return errors.New("webhook missing integration id")
 		}
 		var cl graphql.Client
@@ -502,6 +504,7 @@ func New(config Config) (*Server, error) {
 		[]string{web.HookModelName.String()},
 		&event.SubscriptionFilter{
 			HeaderExpr: fmt.Sprintf(`self_managed:"%v"`, location == agent.ExportIntegrationLocationPrivate),
+			ObjectExpr: fmt.Sprintf(`system:"%s"`, config.Integration.Descriptor.RefType),
 		},
 		server.onWebhook)
 	if err != nil {
