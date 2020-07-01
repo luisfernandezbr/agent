@@ -77,6 +77,7 @@ func Main(integration sdk.Integration, args ...string) {
 			intconfig := sdk.NewConfig(kv)
 			var uuid, apikey, groupid string
 			var redisClient *redis.Client
+			var selfManaged bool
 			channel, _ := cmd.Flags().GetString("channel")
 
 			if !devMode {
@@ -105,6 +106,7 @@ func Main(integration sdk.Integration, args ...string) {
 					log.Info(logger, "redis ping OK", "url", redisURL, "db", redisDb)
 					log.Info(logger, "running in multi agent mode", "channel", channel)
 				} else {
+					selfManaged = true
 					// running in single agent mode
 					if !fileutil.FileExists(cfg) {
 						log.Fatal(logger, "couldn't find config file at "+cfg)
@@ -140,7 +142,13 @@ func Main(integration sdk.Integration, args ...string) {
 				}
 			}
 
-			manager := emanager.New(logger, channel)
+			manager := emanager.New(emanager.Config{
+				Channel:     channel,
+				Logger:      logger,
+				Secret:      secret,
+				APIKey:      apikey,
+				SelfManaged: selfManaged,
+			})
 			if err := integration.Start(logger, intconfig, manager); err != nil {
 				log.Fatal(logger, "error starting integration", "err", err, "name", descriptor.Name)
 			}

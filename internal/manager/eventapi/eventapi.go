@@ -1,4 +1,4 @@
-package dev
+package eventapi
 
 import (
 	"fmt"
@@ -13,8 +13,11 @@ import (
 )
 
 type eventAPIManager struct {
-	logger  log.Logger
-	channel string
+	logger      log.Logger
+	channel     string
+	secret      string
+	apikey      string
+	selfManaged bool
 }
 
 var _ sdk.Manager = (*eventAPIManager)(nil)
@@ -30,7 +33,7 @@ func (m *eventAPIManager) HTTPManager() sdk.HTTPClientManager {
 }
 
 // CreateWebHook is used by the integration to create a webhook on behalf of the integration for a given customer and refid
-func (m *eventAPIManager) CreateWebHook(customerID string, integrationID string, refType string, refID string) (string, error) {
+func (m *eventAPIManager) CreateWebHook(customerID string, integrationInstanceID string, refType string, refID string) (string, error) {
 	theurl := sdk.JoinURL(
 		api.BackendURL(api.EventService, m.channel),
 		"/hook",
@@ -38,8 +41,10 @@ func (m *eventAPIManager) CreateWebHook(customerID string, integrationID string,
 	client := http.New().New(theurl, map[string]string{"Content-Type": "application/json", "Accept": "application/json"})
 	data := map[string]interface{}{
 		"headers": map[string]string{
-			"ref_id":         refID,
-			"integration_id": integrationID,
+			"ref_id":                  refID,
+			"integration_instance_id": integrationInstanceID,
+			"self_managed":            fmt.Sprintf("%v", m.selfManaged),
+			"customer_id":             customerID,
 		},
 		"system": refType,
 	}
@@ -50,13 +55,17 @@ func (m *eventAPIManager) CreateWebHook(customerID string, integrationID string,
 	opts := make([]sdk.WithHTTPOption, 0)
 	if m.channel == "dev" {
 		opts = append(opts, sdk.WithHTTPHeader("x-api-key", "fa0s8f09a8sd09f8iasdlkfjalsfm,.m,xf"))
+	} else if m.secret != "" {
+		opts = append(opts, sdk.WithHTTPHeader("x-api-key", m.secret))
+	} else {
+		opts = append(opts, sdk.WithAuthorization(m.apikey))
 	}
 	_, err := client.Post(strings.NewReader(sdk.Stringify(data)), &res, opts...)
 	if err != nil {
 		return "", fmt.Errorf("error creating webhook url. %w", err)
 	}
 	if res.Success {
-		log.Debug(m.logger, "created webhook", "url", res.URL, "customer_id", customerID, "integration_id", integrationID, "ref_type", refType, "ref_id", refID)
+		log.Debug(m.logger, "created webhook", "url", res.URL, "customer_id", customerID, "integration_id", integrationInstanceID, "ref_type", refType, "ref_id", refID)
 		return res.URL, nil
 	}
 	return "", fmt.Errorf("failed to create webhook url")
@@ -86,7 +95,22 @@ func (m *eventAPIManager) RefreshOAuth2Token(refType string, refreshToken string
 	return res.AccessToken, nil
 }
 
+// Config is the required fields for a
+type Config struct {
+	Logger      log.Logger
+	Channel     string
+	Secret      string
+	APIKey      string
+	SelfManaged bool
+}
+
 // New will create a new event api sdk.Manager
-func New(logger log.Logger, channel string) sdk.Manager {
-	return &eventAPIManager{logger, channel}
+func New(cfg Config) sdk.Manager {
+	return &eventAPIManager{
+		logger:      cfg.Logger,
+		channel:     cfg.Channel,
+		secret:      cfg.Secret,
+		apikey:      cfg.APIKey,
+		selfManaged: cfg.SelfManaged,
+	}
 }

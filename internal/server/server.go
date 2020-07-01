@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -11,16 +12,19 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/pinpt/agent.next/internal/export/eventapi"
+	eventAPIexport "github.com/pinpt/agent.next/internal/export/eventapi"
 	pipe "github.com/pinpt/agent.next/internal/pipe/eventapi"
 	redisState "github.com/pinpt/agent.next/internal/state/redis"
+	eventAPIwebhook "github.com/pinpt/agent.next/internal/webhook/eventapi"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/api"
+	"github.com/pinpt/go-common/v10/datetime"
 	"github.com/pinpt/go-common/v10/event"
 	"github.com/pinpt/go-common/v10/graphql"
 	"github.com/pinpt/go-common/v10/hash"
 	"github.com/pinpt/go-common/v10/log"
 	"github.com/pinpt/integration-sdk/agent"
+	"github.com/pinpt/integration-sdk/web"
 )
 
 // IntegrationContext is the details for each integration
@@ -53,6 +57,7 @@ type Server struct {
 	config   Config
 	dbchange *Subscriber
 	event    *Subscriber
+	webhook  *Subscriber
 }
 
 var _ io.Closer = (*Server)(nil)
@@ -129,6 +134,23 @@ func (s *Server) newConfig(configstr *string, kv map[string]interface{}) (sdk.Co
 	return sdkconfig, nil
 }
 
+// fetchConfig will get the config from pinpoint, should only be used for webhooks and mutations
+func (s *Server) fetchConfig(client graphql.Client, integrationID string) (sdkconfig sdk.Config, err error) {
+	if s.config.DevMode {
+		return s.newConfig(nil, nil)
+	}
+	integration, err := agent.FindIntegration(client, integrationID)
+	if err != nil {
+		err = fmt.Errorf("error finding integration: %w", err)
+		return
+	}
+	if integration == nil {
+		err = fmt.Errorf("unable to find integration %s", integrationID)
+		return
+	}
+	return s.newConfig(integration.Config, make(map[string]interface{}))
+}
+
 type cleanupFunc func()
 
 func (s *Server) toInstance(integration *agent.IntegrationInstance) (*sdk.Instance, cleanupFunc, error) {
@@ -195,7 +217,7 @@ func (s *Server) handleExport(logger log.Logger, req agent.Export) error {
 	if s.config.DevMode {
 		e = s.config.DevExport
 	} else {
-		c, err := eventapi.New(eventapi.Config{
+		c, err := eventAPIexport.New(eventAPIexport.Config{
 			Ctx:           s.config.Ctx,
 			Logger:        logger,
 			Config:        sdkconfig,
@@ -223,6 +245,55 @@ func (s *Server) handleExport(logger log.Logger, req agent.Export) error {
 		log.Error(logger, "error flushing state", "err", err)
 	}
 	log.Info(logger, "export completed", "duration", time.Since(started), "jobid", req.JobID, "customer_id", req.CustomerID)
+	return nil
+}
+
+func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integrationID, customerID string, headers map[string]string, webhook web.Hook) error {
+	refID := headers["ref_id"]
+	data := make(map[string]interface{})
+	if err := json.Unmarshal([]byte(webhook.Data), &data); err != nil {
+		return fmt.Errorf("error decoding webhook: %w", err)
+	}
+	jobID := fmt.Sprintf("webhook_%d", datetime.EpochNow())
+	dir := s.newTempDir(jobID)
+	defer os.RemoveAll(dir)
+	started := time.Now()
+	sdkconfig, err := s.fetchConfig(client, integrationID)
+	if err != nil {
+		return err
+	}
+	state, err := s.newState(customerID, integrationID)
+	if err != nil {
+		return err
+	}
+	p := s.newPipe(logger, dir, customerID, jobID, integrationID)
+	defer p.Close()
+	var e sdk.WebHook
+	if s.config.DevMode {
+		// TODO
+		// e = s.config.DevExport
+	} else {
+		e = eventAPIwebhook.New(eventAPIwebhook.Config{
+			Ctx:                   s.config.Ctx,
+			Logger:                logger,
+			Config:                sdkconfig,
+			State:                 state,
+			CustomerID:            customerID,
+			RefID:                 refID,
+			IntegrationInstanceID: integrationID,
+			Pipe:                  p,
+			Headers:               headers,
+			Data:                  data,
+		})
+	}
+	log.Info(logger, "running webhook")
+	if err := s.config.Integration.Integration.WebHook(e); err != nil {
+		return err
+	}
+	if err := state.Flush(); err != nil {
+		log.Error(logger, "error flushing state", "err", err)
+	}
+	log.Info(logger, "export completed", "duration", time.Since(started), "jobid", jobID, "customer_id", customerID)
 	return nil
 }
 
@@ -303,7 +374,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent) error {
 			vars := make(graphql.Variables)
 			vars[agent.IntegrationInstanceModelExportAcknowledgedColumn] = true
 			// TODO(robin): add last export acknowledged date
-			if _, err := agent.ExecIntegrationInstanceUpdateMutation(cl, req.Integration.ID, vars, false); err != nil {
+			if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, req.Integration.ID, vars, false); err != nil {
 				log.Error(s.logger, "error updating agent integration", "err", err, "id", req.Integration.ID)
 			}
 		}
@@ -324,8 +395,64 @@ func (s *Server) onEvent(evt event.SubscriptionEvent) error {
 			var dt agent.IntegrationInstanceLastExportCompletedDate
 			sdk.ConvertTimeToDateModel(time.Now(), &dt)
 			vars[agent.IntegrationInstanceModelLastExportCompletedDateColumn] = dt
-			if _, err := agent.ExecIntegrationInstanceUpdateMutation(cl, req.Integration.ID, vars, false); err != nil {
+			if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, req.Integration.ID, vars, false); err != nil {
 				log.Error(s.logger, "error updating agent integration", "err", err, "id", req.Integration.ID)
+			}
+		}
+	}
+	evt.Commit()
+	return nil
+}
+
+func (s *Server) onWebhook(evt event.SubscriptionEvent) error {
+	log.Debug(s.logger, "received webhook event", "evt", evt)
+	switch evt.Model {
+	case web.HookModelName.String():
+		var wh web.Hook
+		if err := json.Unmarshal([]byte(evt.Data), &wh); err != nil {
+			log.Fatal(s.logger, "error parsing webhook", "err", err)
+		}
+		customerID := evt.Headers["customer_id"]
+		if customerID == "" {
+			return errors.New("webhook missing customer id")
+		}
+		integrationInstanceID := evt.Headers["integration_id"]
+		if integrationInstanceID == "" {
+			return errors.New("webhook missing integration id")
+		}
+		var cl graphql.Client
+		// don't worry in dev mode
+		if !s.config.DevMode {
+			var err error
+			cl, err = graphql.NewClient(
+				customerID,
+				"",
+				s.config.Secret,
+				api.BackendURL(api.GraphService, s.config.Channel),
+			)
+			if err != nil {
+				log.Error(s.logger, "error creating graphql client", "err',err")
+			}
+			if s.config.APIKey != "" {
+				cl.SetHeader("Authorization", s.config.APIKey)
+			}
+		}
+		var errmessage *string
+		// TODO(robin): maybe scrub some event-api related fields out of the headers
+		err := s.handleWebhook(s.logger, cl, integrationInstanceID, customerID, evt.Headers, wh)
+		if err != nil {
+			log.Error(s.logger, "error running export request", "err", err)
+			errmessage = sdk.StringPointer(err.Error())
+		}
+		// update the db with our new integration state
+		if errmessage != nil {
+			// don't worry in dev mode
+			if !s.config.DevMode {
+				vars := make(graphql.Variables)
+				vars[agent.IntegrationInstanceModelErrorMessageColumn] = *errmessage
+				if _, err := agent.ExecIntegrationInstanceUpdateMutation(cl, integrationInstanceID, vars, false); err != nil {
+					log.Error(s.logger, "error updating agent integration", "err", err, "id", integrationInstanceID)
+				}
 			}
 		}
 	}
@@ -369,6 +496,16 @@ func New(config Config) (*Server, error) {
 		server.onEvent)
 	if err != nil {
 		return nil, err
+	}
+	server.webhook, err = NewEventSubscriber(
+		config,
+		[]string{web.HookModelName.String()},
+		&event.SubscriptionFilter{
+			HeaderExpr: fmt.Sprintf(`self_managed:"%v"`, location == agent.ExportIntegrationLocationPrivate),
+		},
+		server.onWebhook)
+	if err != nil {
+		return nil, fmt.Errorf("error starting webhook subscriber: %w", err)
 	}
 	return server, nil
 }
