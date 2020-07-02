@@ -124,14 +124,14 @@ func (s *Server) newConfig(configstr *string, kv map[string]interface{}) (sdk.Co
 }
 
 // fetchConfig will get the config from pinpoint, should only be used for webhooks and mutations
-func (s *Server) fetchConfig(client graphql.Client, integrationID string) (sdkconfig sdk.Config, err error) {
-	integration, err := agent.FindIntegration(client, integrationID)
+func (s *Server) fetchConfig(client graphql.Client, integrationInstanceID string) (sdkconfig sdk.Config, err error) {
+	integration, err := agent.FindIntegrationInstance(client, integrationInstanceID)
 	if err != nil {
-		err = fmt.Errorf("error finding integration: %w", err)
+		err = fmt.Errorf("error finding integration instance: %w", err)
 		return
 	}
 	if integration == nil {
-		err = fmt.Errorf("unable to find integration %s", integrationID)
+		err = fmt.Errorf("unable to find integration instance %s", integrationInstanceID)
 		return
 	}
 	return s.newConfig(integration.Config, make(map[string]interface{}))
