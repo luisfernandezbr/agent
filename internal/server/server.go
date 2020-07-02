@@ -269,7 +269,7 @@ func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integra
 	if err := state.Flush(); err != nil {
 		log.Error(logger, "error flushing state", "err", err)
 	}
-	log.Info(logger, "export completed", "duration", time.Since(started), "jobid", jobID, "customer_id", customerID)
+	log.Info(logger, "webhook completed", "duration", time.Since(started), "ref_id", refID, "customer_id", customerID)
 	return nil
 }
 
