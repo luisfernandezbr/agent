@@ -207,12 +207,8 @@ func Main(integration sdk.Integration, args ...string) {
 			logger := log.NewCommandLogger(cmd)
 			defer logger.Close()
 			log.Info(logger, "starting", "ref_type", descriptor.RefType, "version", descriptor.BuildCommitSHA)
-			cfg, _ := cmd.Flags().GetString("config")
 			channel, _ := cmd.Flags().GetString("channel")
 			secret, _ := cmd.Flags().GetString("secret")
-			if cfg == "" && secret == "" {
-				log.Fatal(logger, "missing --config")
-			}
 			intconfig := getIntegrationConfig(cmd)
 			manager := emanager.New(emanager.Config{
 				Channel: channel,
