@@ -1,6 +1,7 @@
 package eventapi
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -94,6 +95,9 @@ func (m *eventAPIManager) RefreshOAuth2Token(refType string, refreshToken string
 	log.Debug(m.logger, "refresh oauth2 token", "url", theurl, "err", err)
 	if err != nil {
 		return "", err
+	}
+	if res.AccessToken == "" {
+		return "", errors.New("new token not returned, refresh_token might be bad")
 	}
 	return res.AccessToken, nil
 }
