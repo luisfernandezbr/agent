@@ -46,9 +46,6 @@ type Config struct {
 	APIKey      string
 	Secret      string
 	GroupID     string
-	DevMode     bool
-	DevPipe     sdk.Pipe
-	DevExport   sdk.Export
 }
 
 // Server is the event loop server portion of the agent
@@ -90,23 +87,19 @@ func (s *Server) newState(customerID string, integrationID string) (sdk.State, e
 
 func (s *Server) newPipe(logger sdk.Logger, dir string, customerID string, jobID string, integrationID string) sdk.Pipe {
 	var p sdk.Pipe
-	if s.config.DevMode {
-		p = s.config.DevPipe
-	} else {
-		p = pipe.New(pipe.Config{
-			Ctx:           s.config.Ctx,
-			Logger:        logger,
-			Dir:           dir,
-			CustomerID:    customerID,
-			UUID:          s.config.UUID,
-			JobID:         jobID,
-			IntegrationID: integrationID,
-			Channel:       s.config.Channel,
-			APIKey:        s.config.APIKey,
-			Secret:        s.config.Secret,
-			RefType:       s.config.Integration.Descriptor.RefType,
-		})
-	}
+	p = pipe.New(pipe.Config{
+		Ctx:           s.config.Ctx,
+		Logger:        logger,
+		Dir:           dir,
+		CustomerID:    customerID,
+		UUID:          s.config.UUID,
+		JobID:         jobID,
+		IntegrationID: integrationID,
+		Channel:       s.config.Channel,
+		APIKey:        s.config.APIKey,
+		Secret:        s.config.Secret,
+		RefType:       s.config.Integration.Descriptor.RefType,
+	})
 	return p
 }
 
@@ -121,14 +114,10 @@ func (s *Server) newTempDir(jobID string) string {
 
 func (s *Server) newConfig(configstr *string, kv map[string]interface{}) (sdk.Config, error) {
 	var sdkconfig sdk.Config
-	if s.config.DevMode {
-		sdkconfig = s.config.DevExport.Config()
-	} else {
-		sdkconfig = sdk.NewConfig(kv)
-		if configstr != nil && *configstr != "" {
-			if err := sdkconfig.Parse([]byte(*configstr)); err != nil {
-				return sdkconfig, err
-			}
+	sdkconfig = sdk.NewConfig(kv)
+	if configstr != nil && *configstr != "" {
+		if err := sdkconfig.Parse([]byte(*configstr)); err != nil {
+			return sdkconfig, err
 		}
 	}
 	return sdkconfig, nil
@@ -136,9 +125,6 @@ func (s *Server) newConfig(configstr *string, kv map[string]interface{}) (sdk.Co
 
 // fetchConfig will get the config from pinpoint, should only be used for webhooks and mutations
 func (s *Server) fetchConfig(client graphql.Client, integrationID string) (sdkconfig sdk.Config, err error) {
-	if s.config.DevMode {
-		return s.newConfig(nil, nil)
-	}
 	integration, err := agent.FindIntegration(client, integrationID)
 	if err != nil {
 		err = fmt.Errorf("error finding integration: %w", err)
@@ -214,29 +200,25 @@ func (s *Server) handleExport(logger log.Logger, req agent.Export) error {
 	p := s.newPipe(logger, dir, req.CustomerID, req.JobID, integration.ID)
 	defer p.Close()
 	var e sdk.Export
-	if s.config.DevMode {
-		e = s.config.DevExport
-	} else {
-		c, err := eventAPIexport.New(eventAPIexport.Config{
-			Ctx:           s.config.Ctx,
-			Logger:        logger,
-			Config:        sdkconfig,
-			State:         state,
-			CustomerID:    req.CustomerID,
-			JobID:         req.JobID,
-			IntegrationID: integration.ID,
-			UUID:          s.config.UUID,
-			Pipe:          p,
-			Channel:       s.config.Channel,
-			APIKey:        s.config.APIKey,
-			Secret:        s.config.Secret,
-			Historical:    req.ReprocessHistorical,
-		})
-		if err != nil {
-			return err
-		}
-		e = c
+	c, err := eventAPIexport.New(eventAPIexport.Config{
+		Ctx:           s.config.Ctx,
+		Logger:        logger,
+		Config:        sdkconfig,
+		State:         state,
+		CustomerID:    req.CustomerID,
+		JobID:         req.JobID,
+		IntegrationID: integration.ID,
+		UUID:          s.config.UUID,
+		Pipe:          p,
+		Channel:       s.config.Channel,
+		APIKey:        s.config.APIKey,
+		Secret:        s.config.Secret,
+		Historical:    req.ReprocessHistorical,
+	})
+	if err != nil {
+		return err
 	}
+	e = c
 	log.Info(logger, "running export")
 	if err := s.config.Integration.Integration.Export(e); err != nil {
 		return err
@@ -269,23 +251,19 @@ func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integra
 	p := s.newPipe(logger, dir, customerID, jobID, integrationID)
 	defer p.Close()
 	var e sdk.WebHook
-	if s.config.DevMode {
-		// TODO
-		// e = s.config.DevExport
-	} else {
-		e = eventAPIwebhook.New(eventAPIwebhook.Config{
-			Ctx:                   s.config.Ctx,
-			Logger:                logger,
-			Config:                sdkconfig,
-			State:                 state,
-			CustomerID:            customerID,
-			RefID:                 refID,
-			IntegrationInstanceID: integrationID,
-			Pipe:                  p,
-			Headers:               headers,
-			Data:                  data,
-		})
-	}
+
+	e = eventAPIwebhook.New(eventAPIwebhook.Config{
+		Ctx:                   s.config.Ctx,
+		Logger:                logger,
+		Config:                sdkconfig,
+		State:                 state,
+		CustomerID:            customerID,
+		RefID:                 refID,
+		IntegrationInstanceID: integrationID,
+		Pipe:                  p,
+		Headers:               headers,
+		Data:                  data,
+	})
 	log.Info(logger, "running webhook")
 	if err := s.config.Integration.Integration.WebHook(e); err != nil {
 		return err
@@ -316,27 +294,24 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent) error {
 	log.Debug(s.logger, "received db change", ch)
 	switch ch.Model {
 	case agent.IntegrationModelName.String():
-		// don't worry in dev mode
-		if !s.config.DevMode {
-			// integration has changed so we need to either enroll or dismiss
-			if integration, ok := ch.Object.(*agent.IntegrationInstance); ok {
-				cachekey := "agent:" + integration.CustomerID + ":" + integration.ID + ":hashcode"
-				res, _ := s.config.RedisClient.Get(s.config.Ctx, cachekey).Result()
-				hashcode := s.calculateIntegrationHashCode(integration)
-				// check to see if this is a delete OR we've deactivated the integration
-				if ch.Action == Delete || !integration.Active {
-					// delete the integration cache key and then signal a removal
-					s.config.RedisClient.Del(s.config.Ctx, cachekey)
-					if err := s.handleRemoveIntegration(integration); err != nil {
-						log.Error(s.logger, "error removing integration", "err", err, "id", integration.ID)
-					}
-				} else {
-					if res != hashcode {
-						// update our hash key and then signal an addition
-						s.config.RedisClient.Set(s.config.Ctx, cachekey, hashcode, 0)
-						if err := s.handleAddIntegration(integration); err != nil {
-							log.Error(s.logger, "error adding integration", "err", err, "id", integration.ID)
-						}
+		// integration has changed so we need to either enroll or dismiss
+		if integration, ok := ch.Object.(*agent.IntegrationInstance); ok {
+			cachekey := "agent:" + integration.CustomerID + ":" + integration.ID + ":hashcode"
+			res, _ := s.config.RedisClient.Get(s.config.Ctx, cachekey).Result()
+			hashcode := s.calculateIntegrationHashCode(integration)
+			// check to see if this is a delete OR we've deactivated the integration
+			if ch.Action == Delete || !integration.Active {
+				// delete the integration cache key and then signal a removal
+				s.config.RedisClient.Del(s.config.Ctx, cachekey)
+				if err := s.handleRemoveIntegration(integration); err != nil {
+					log.Error(s.logger, "error removing integration", "err", err, "id", integration.ID)
+				}
+			} else {
+				if res != hashcode {
+					// update our hash key and then signal an addition
+					s.config.RedisClient.Set(s.config.Ctx, cachekey, hashcode, 0)
+					if err := s.handleAddIntegration(integration); err != nil {
+						log.Error(s.logger, "error adding integration", "err", err, "id", integration.ID)
 					}
 				}
 			}
@@ -355,49 +330,43 @@ func (s *Server) onEvent(evt event.SubscriptionEvent) error {
 			log.Fatal(s.logger, "error parsing export event", "err", err)
 		}
 		var cl graphql.Client
-		// don't worry in dev mode
-		if !s.config.DevMode {
-			var err error
-			cl, err = graphql.NewClient(
-				req.CustomerID,
-				"",
-				s.config.Secret,
-				api.BackendURL(api.GraphService, s.config.Channel),
-			)
-			if err != nil {
-				log.Error(s.logger, "error creating graphql client", "err',err")
-			}
-			if s.config.APIKey != "" {
-				cl.SetHeader("Authorization", s.config.APIKey)
-			}
-			// update the integration state to acknowledge that we are exporting
-			vars := make(graphql.Variables)
-			vars[agent.IntegrationInstanceModelExportAcknowledgedColumn] = true
-			// TODO(robin): add last export acknowledged date
-			if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, req.Integration.ID, vars, false); err != nil {
-				log.Error(s.logger, "error updating agent integration", "err", err, "id", req.Integration.ID)
-			}
+		var err error
+		cl, err = graphql.NewClient(
+			req.CustomerID,
+			"",
+			s.config.Secret,
+			api.BackendURL(api.GraphService, s.config.Channel),
+		)
+		if err != nil {
+			log.Error(s.logger, "error creating graphql client", "err',err")
+		}
+		if s.config.APIKey != "" {
+			cl.SetHeader("Authorization", s.config.APIKey)
+		}
+		// update the integration state to acknowledge that we are exporting
+		vars := make(graphql.Variables)
+		vars[agent.IntegrationInstanceModelExportAcknowledgedColumn] = true
+		// TODO(robin): add last export acknowledged date
+		if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, req.Integration.ID, vars, false); err != nil {
+			log.Error(s.logger, "error updating agent integration", "err", err, "id", req.Integration.ID)
 		}
 		var errmessage *string
-		err := s.handleExport(s.logger, req)
-		if err != nil {
+		if err := s.handleExport(s.logger, req); err != nil {
 			log.Error(s.logger, "error running export request", "err", err)
 			errmessage = sdk.StringPointer(err.Error())
 		}
 		// don't worry in dev mode
-		if !s.config.DevMode {
-			// update the db with our new integration state
-			vars := make(graphql.Variables)
-			vars[agent.IntegrationInstanceModelStateColumn] = agent.IntegrationStateIdle
-			if errmessage != nil {
-				vars[agent.IntegrationInstanceModelErrorMessageColumn] = *errmessage
-			}
-			var dt agent.IntegrationInstanceLastExportCompletedDate
-			sdk.ConvertTimeToDateModel(time.Now(), &dt)
-			vars[agent.IntegrationInstanceModelLastExportCompletedDateColumn] = dt
-			if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, req.Integration.ID, vars, false); err != nil {
-				log.Error(s.logger, "error updating agent integration", "err", err, "id", req.Integration.ID)
-			}
+		// update the db with our new integration state
+		vars = make(graphql.Variables)
+		vars[agent.IntegrationInstanceModelStateColumn] = agent.IntegrationStateIdle
+		if errmessage != nil {
+			vars[agent.IntegrationInstanceModelErrorMessageColumn] = *errmessage
+		}
+		var dt agent.IntegrationInstanceLastExportCompletedDate
+		sdk.ConvertTimeToDateModel(time.Now(), &dt)
+		vars[agent.IntegrationInstanceModelLastExportCompletedDateColumn] = dt
+		if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, req.Integration.ID, vars, false); err != nil {
+			log.Error(s.logger, "error updating agent integration", "err", err, "id", req.Integration.ID)
 		}
 	}
 	evt.Commit()
@@ -422,39 +391,31 @@ func (s *Server) onWebhook(evt event.SubscriptionEvent) error {
 			evt.Commit()
 			return errors.New("webhook missing integration id")
 		}
-		var cl graphql.Client
-		// don't worry in dev mode
-		if !s.config.DevMode {
-			var err error
-			cl, err = graphql.NewClient(
-				customerID,
-				"",
-				s.config.Secret,
-				api.BackendURL(api.GraphService, s.config.Channel),
-			)
-			if err != nil {
-				log.Error(s.logger, "error creating graphql client", "err',err")
-			}
-			if s.config.APIKey != "" {
-				cl.SetHeader("Authorization", s.config.APIKey)
-			}
+		cl, err := graphql.NewClient(
+			customerID,
+			"",
+			s.config.Secret,
+			api.BackendURL(api.GraphService, s.config.Channel),
+		)
+		if err != nil {
+			log.Error(s.logger, "error creating graphql client", "err',err")
+		}
+		if s.config.APIKey != "" {
+			cl.SetHeader("Authorization", s.config.APIKey)
 		}
 		var errmessage *string
 		// TODO(robin): maybe scrub some event-api related fields out of the headers
-		err := s.handleWebhook(s.logger, cl, integrationInstanceID, customerID, evt.Headers, wh)
-		if err != nil {
+		if err := s.handleWebhook(s.logger, cl, integrationInstanceID, customerID, evt.Headers, wh); err != nil {
 			log.Error(s.logger, "error running export request", "err", err)
 			errmessage = sdk.StringPointer(err.Error())
 		}
 		// update the db with our new integration state
 		if errmessage != nil {
 			// don't worry in dev mode
-			if !s.config.DevMode {
-				vars := make(graphql.Variables)
-				vars[agent.IntegrationInstanceModelErrorMessageColumn] = *errmessage
-				if _, err := agent.ExecIntegrationInstanceUpdateMutation(cl, integrationInstanceID, vars, false); err != nil {
-					log.Error(s.logger, "error updating agent integration", "err", err, "id", integrationInstanceID)
-				}
+			vars := make(graphql.Variables)
+			vars[agent.IntegrationInstanceModelErrorMessageColumn] = *errmessage
+			if _, err := agent.ExecIntegrationInstanceUpdateMutation(cl, integrationInstanceID, vars, false); err != nil {
+				log.Error(s.logger, "error updating agent integration", "err", err, "id", integrationInstanceID)
 			}
 		}
 	}
@@ -467,18 +428,6 @@ func New(config Config) (*Server, error) {
 	server := &Server{
 		config: config,
 		logger: log.With(config.Logger, "pkg", "server"),
-	}
-	if config.DevMode {
-		if err := server.handleExport(config.Logger, agent.Export{
-			JobID:      config.DevExport.JobID(),
-			CustomerID: config.DevExport.CustomerID(),
-			Integration: agent.ExportIntegration{
-				ID: "1",
-			},
-		}); err != nil {
-			return nil, err
-		}
-		return nil, nil
 	}
 	var err error
 	server.dbchange, err = NewDBChangeSubscriber(config, server.onDBChange)
