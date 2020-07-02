@@ -80,7 +80,7 @@ func (e *export) updateIntegration(vars graphql.Variables) error {
 	if e.apikey != "" {
 		cl.SetHeader("Authorization", e.apikey)
 	}
-	if _, err := agent.ExecIntegrationUpdateMutation(cl, e.integrationID, vars, false); err != nil {
+	if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, e.integrationID, vars, false); err != nil {
 		return err
 	}
 	return nil

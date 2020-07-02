@@ -656,4 +656,8 @@ func init() {
 	runCmd.Flags().StringP("dir", "d", "", "directory inside of which to run the integration")
 	runCmd.Flags().String("secret", pos.Getenv("PP_AUTH_SHARED_SECRET", ""), "internal shared secret")
 	runCmd.Flags().MarkHidden("secret")
+
+	rootCmd.AddCommand(enrollAgentCmd)
+	enrollAgentCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", ""), "the channel which can be set")
+	enrollAgentCmd.Flags().String("config", "", "the location of the config file")
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/pinpt/go-common/v10/datamodel"
 	"github.com/pinpt/go-common/v10/event"
+	"github.com/pinpt/go-common/v10/log"
 	isdk "github.com/pinpt/integration-sdk"
 	"github.com/pinpt/integration-sdk/agent"
 )
@@ -64,13 +65,16 @@ func createDBChangeEvent(data string) (*DbChangeEvent, error) {
 
 // Subscriber is a convenience wrapper around a subscription channel
 type Subscriber struct {
-	ch *event.SubscriptionChannel
-	cb SubscriberCallback
+	ch     *event.SubscriptionChannel
+	cb     SubscriberCallback
+	logger log.Logger
 }
 
 func (s *Subscriber) run() {
 	for event := range s.ch.Channel() {
-		s.cb(event)
+		if err := s.cb(event); err != nil {
+			log.Error(s.logger, "error from callback", "err", err)
+		}
 	}
 }
 
@@ -110,8 +114,9 @@ func NewEventSubscriber(config Config, topics []string, filters *event.Subscript
 		return nil, err
 	}
 	s := &Subscriber{
-		ch: ch,
-		cb: callback,
+		ch:     ch,
+		cb:     callback,
+		logger: config.Logger,
 	}
 	go s.run()
 	return s, nil
