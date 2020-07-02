@@ -199,8 +199,7 @@ func (s *Server) handleExport(logger log.Logger, req agent.Export) error {
 	}
 	p := s.newPipe(logger, dir, req.CustomerID, req.JobID, integration.ID)
 	defer p.Close()
-	var e sdk.Export
-	c, err := eventAPIexport.New(eventAPIexport.Config{
+	e, err := eventAPIexport.New(eventAPIexport.Config{
 		Ctx:           s.config.Ctx,
 		Logger:        logger,
 		Config:        sdkconfig,
@@ -218,10 +217,9 @@ func (s *Server) handleExport(logger log.Logger, req agent.Export) error {
 	if err != nil {
 		return err
 	}
-	e = c
 	log.Info(logger, "running export")
 	if err := s.config.Integration.Integration.Export(e); err != nil {
-		return err
+		return fmt.Errorf("error running integration export: %w", err)
 	}
 	if err := state.Flush(); err != nil {
 		log.Error(logger, "error flushing state", "err", err)
@@ -338,7 +336,8 @@ func (s *Server) onEvent(evt event.SubscriptionEvent) error {
 			api.BackendURL(api.GraphService, s.config.Channel),
 		)
 		if err != nil {
-			log.Error(s.logger, "error creating graphql client", "err',err")
+			evt.Commit()
+			return fmt.Errorf("error creating graphql client: %w", err)
 		}
 		if s.config.APIKey != "" {
 			cl.SetHeader("Authorization", s.config.APIKey)
@@ -405,7 +404,7 @@ func (s *Server) onWebhook(evt event.SubscriptionEvent) error {
 		var errmessage *string
 		// TODO(robin): maybe scrub some event-api related fields out of the headers
 		if err := s.handleWebhook(s.logger, cl, integrationInstanceID, customerID, evt.Headers, wh); err != nil {
-			log.Error(s.logger, "error running export request", "err", err)
+			log.Error(s.logger, "error running webhook", "err", err)
 			errmessage = sdk.StringPointer(err.Error())
 		}
 		// update the db with our new integration state
