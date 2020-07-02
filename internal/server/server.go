@@ -355,7 +355,6 @@ func (s *Server) onEvent(evt event.SubscriptionEvent) error {
 			log.Error(s.logger, "error running export request", "err", err)
 			errmessage = sdk.StringPointer(err.Error())
 		}
-		// don't worry in dev mode
 		// update the db with our new integration state
 		vars = make(graphql.Variables)
 		vars[agent.IntegrationInstanceModelStateColumn] = agent.IntegrationStateIdle
@@ -411,7 +410,6 @@ func (s *Server) onWebhook(evt event.SubscriptionEvent) error {
 		}
 		// update the db with our new integration state
 		if errmessage != nil {
-			// don't worry in dev mode
 			vars := make(graphql.Variables)
 			vars[agent.IntegrationInstanceModelErrorMessageColumn] = *errmessage
 			if _, err := agent.ExecIntegrationInstanceUpdateMutation(cl, integrationInstanceID, vars, false); err != nil {
