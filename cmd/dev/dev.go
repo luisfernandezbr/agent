@@ -1,6 +1,7 @@
 package dev
 
 import (
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -93,73 +94,83 @@ var DevCmd = &cobra.Command{
 	},
 }
 
-// // webHookCmd represents the dev webhook command
-// var webHookCmd = &cobra.Command{
-// 	Use:   "webhook",
-// 	Short: "run an integration in development mode and feed it a webhook",
-// 	Args:  cobra.ExactArgs(1),
-// 	Run: func(cmd *cobra.Command, args []string) {
-// 		integrationDir := args[0]
-// 		logger := log.NewCommandLogger(cmd)
-// 		defer logger.Close()
+// webHookCmd represents the dev webhook command
+var webHookCmd = &cobra.Command{
+	Use:   "webhook",
+	Short: "run an integration in development mode and feed it a webhook",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		integrationDir := args[0]
+		logger := log.NewCommandLogger(cmd)
+		defer logger.Close()
 
-// 		started := time.Now()
-// 		defer func() {
-// 			log.Info(logger, "completed", "duration", time.Since(started).String())
-// 		}()
+		started := time.Now()
+		defer func() {
+			log.Info(logger, "completed", "duration", time.Since(started).String())
+		}()
 
-// 		data, _ := cmd.Flags().GetString("data")
-// 		if data == "" {
-// 			log.Fatal(logger, "--data is required")
-// 		}
+		data, _ := cmd.Flags().GetString("data")
+		if data == "" {
+			log.Fatal(logger, "--data is required")
+		}
+		if fileutil.FileExists(data) {
+			log.Info(logger, "loading webhook from file", "file", data)
+			buf, err := ioutil.ReadFile(data)
+			if err != nil {
+				log.Fatal(logger, "error reading data file", "err", err)
+			}
+			data = string(buf)
+		}
 
-// 		distDir := filepath.Join(os.TempDir(), "agent.next")
-// 		integrationFile := buildIntegration(logger, distDir, integrationDir)
+		distDir := filepath.Join(os.TempDir(), "agent.next")
+		integrationFile := buildIntegration(logger, distDir, integrationDir)
 
-// 		channel, _ := cmd.Flags().GetString("channel")
-// 		dir, _ := cmd.Flags().GetString("dir")
-// 		if dir != "" {
-// 			dir, _ = filepath.Abs(dir)
-// 		}
+		channel, _ := cmd.Flags().GetString("channel")
+		dir, _ := cmd.Flags().GetString("dir")
+		if dir != "" {
+			dir, _ = filepath.Abs(dir)
+		}
+		refID, _ := cmd.Flags().GetString("ref-id")
 
-// 		devargs := []string{
-// 			"dev-webhook",
-// 			"--dir", dir,
-// 			"--channel", channel,
-// 			"--data", data,
-// 			"--log-level", "debug",
-// 		}
+		devargs := []string{
+			"dev-webhook",
+			"--dir", dir,
+			"--channel", channel,
+			"--data", data,
+			"--ref-id", refID,
+			"--log-level", "debug",
+		}
 
-// 		headers, _ := cmd.Flags().GetStringArray("headers")
-// 		for _, str := range headers {
-// 			devargs = append(devargs, "--headers", str)
-// 		}
+		headers, _ := cmd.Flags().GetStringArray("headers")
+		for _, str := range headers {
+			devargs = append(devargs, "--headers", str)
+		}
 
-// 		set, _ := cmd.Flags().GetStringArray("set")
-// 		for _, str := range set {
-// 			devargs = append(devargs, "--set", str)
-// 		}
+		set, _ := cmd.Flags().GetStringArray("set")
+		for _, str := range set {
+			devargs = append(devargs, "--set", str)
+		}
 
-// 		c := exec.Command(integrationFile, devargs...)
+		c := exec.Command(integrationFile, devargs...)
 
-// 		pos.OnExit(func(_ int) {
-// 			if c != nil {
-// 				syscall.Kill(-c.Process.Pid, syscall.SIGINT)
-// 				c = nil
-// 			}
-// 		})
+		pos.OnExit(func(_ int) {
+			if c != nil {
+				syscall.Kill(-c.Process.Pid, syscall.SIGINT)
+				c = nil
+			}
+		})
 
-// 		c.Stderr = os.Stderr
-// 		c.Stdout = os.Stdout
-// 		c.Stdin = os.Stdin
-// 		c.Dir = distDir
-// 		c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-// 		if err := c.Start(); err != nil {
-// 			os.Exit(1)
-// 		}
-// 		c.Wait()
-// 	},
-// }
+		c.Stderr = os.Stderr
+		c.Stdout = os.Stdout
+		c.Stdin = os.Stdin
+		c.Dir = distDir
+		c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		if err := c.Start(); err != nil {
+			os.Exit(1)
+		}
+		c.Wait()
+	},
+}
 
 func init() {
 	// add command to root in ../dev.go
@@ -168,7 +179,8 @@ func init() {
 	DevCmd.PersistentFlags().String("channel", "dev", "the channel which can be set")
 	DevCmd.Flags().MarkHidden("channel")
 	DevCmd.Flags().Bool("historical", false, "force a historical export")
-	// DevCmd.AddCommand(webHookCmd)
-	// webHookCmd.Flags().StringArray("headers", []string{}, "headers key/value pair such as a=b")
-	// webHookCmd.Flags().String("data", "", "json body of a webhook payload")
+	DevCmd.AddCommand(webHookCmd)
+	webHookCmd.Flags().StringArray("headers", []string{}, "headers key/value pair such as a=b")
+	webHookCmd.Flags().String("data", "", "json body of a webhook payload, as a string or file")
+	webHookCmd.Flags().String("ref-id", "9999", "json body of a webhook payload")
 }

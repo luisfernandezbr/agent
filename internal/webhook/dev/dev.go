@@ -1,14 +1,11 @@
 package dev
 
 import (
-	"context"
-
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/log"
 )
 
 type webhook struct {
-	ctx                   context.Context
 	logger                log.Logger
 	config                sdk.Config
 	state                 sdk.State
@@ -16,7 +13,6 @@ type webhook struct {
 	integrationInstanceID string
 	refID                 string
 	pipe                  sdk.Pipe
-	uuid                  string
 	headers               map[string]string
 	data                  map[string]interface{}
 }
@@ -63,34 +59,27 @@ func (e *webhook) Headers() map[string]string {
 	return e.headers
 }
 
-// Config is details for the configuration
-type Config struct {
-	Ctx                   context.Context
-	Logger                log.Logger
-	Config                sdk.Config
-	State                 sdk.State
-	CustomerID            string
-	RefID                 string
-	IntegrationInstanceID string
-	Pipe                  sdk.Pipe
-	Data                  map[string]interface{}
-	Headers               map[string]string
-}
-
 // New will return an sdk.WebHook
-func New(config Config) sdk.WebHook {
-	ctx := config.Ctx
-	if ctx == nil {
-		ctx = context.Background()
-	}
+func New(
+	logger log.Logger,
+	config sdk.Config,
+	state sdk.State,
+	customerID string,
+	refID string,
+	integrationInstanceID string,
+	pipe sdk.Pipe,
+	headers map[string]string,
+	data map[string]interface{},
+) sdk.WebHook {
 	return &webhook{
-		ctx:                   ctx,
-		logger:                config.Logger,
-		config:                config.Config,
-		state:                 config.State,
-		customerID:            config.CustomerID,
-		refID:                 config.RefID,
-		integrationInstanceID: config.IntegrationInstanceID,
-		pipe:                  config.Pipe,
+		logger:                logger,
+		config:                config,
+		state:                 state,
+		customerID:            customerID,
+		refID:                 refID,
+		integrationInstanceID: integrationInstanceID,
+		pipe:                  pipe,
+		headers:               headers,
+		data:                  data,
 	}
 }

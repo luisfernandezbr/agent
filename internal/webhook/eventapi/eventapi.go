@@ -17,7 +17,6 @@ type webhook struct {
 	integrationInstanceID string
 	refID                 string
 	pipe                  sdk.Pipe
-	uuid                  string
 	headers               map[string]string
 	data                  map[string]interface{}
 }
@@ -93,5 +92,7 @@ func New(config Config) sdk.WebHook {
 		refID:                 config.RefID,
 		integrationInstanceID: config.IntegrationInstanceID,
 		pipe:                  config.Pipe,
+		headers:               config.Headers,
+		data:                  config.Data,
 	}
 }

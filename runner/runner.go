@@ -16,6 +16,7 @@ import (
 	"github.com/pinpt/agent.next/internal/pipe/file"
 	"github.com/pinpt/agent.next/internal/server"
 	devstate "github.com/pinpt/agent.next/internal/state/file"
+	devwebhook "github.com/pinpt/agent.next/internal/webhook/dev"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/fileutil"
 	"github.com/pinpt/go-common/v10/log"
@@ -197,72 +198,6 @@ func Main(integration sdk.Integration, args ...string) {
 		},
 	}
 
-	// var devWebhookCmd = &cobra.Command{
-	// 	Use:    "dev-webhook",
-	// 	Short:  fmt.Sprintf("run the %s integration webhook", descriptor.RefType),
-	// 	Args:   cobra.NoArgs,
-	// 	Hidden: true,
-	// 	Run: func(cmd *cobra.Command, args []string) {
-	// 		logger := log.NewCommandLogger(cmd)
-	// 		defer logger.Close()
-	// 		log.Info(logger, "starting", "ref_type", descriptor.RefType, "version", descriptor.BuildCommitSHA)
-	// 		cfg, _ := cmd.Flags().GetString("config")
-	// 		channel, _ := cmd.Flags().GetString("channel")
-	// 		secret, _ := cmd.Flags().GetString("secret")
-	// 		if cfg == "" && secret == "" {
-	// 			log.Fatal(logger, "missing --config")
-	// 		}
-	// 		intconfig := getIntegrationConfig(cmd)
-	// 		manager := emanager.New(emanager.Config{
-	// 			Channel: channel,
-	// 			Logger:  logger,
-	// 			Secret:  secret,
-	// 		})
-	// 		if err := integration.Start(logger, intconfig, manager); err != nil {
-	// 			log.Fatal(logger, "error starting integration", "err", err, "name", descriptor.Name)
-	// 		}
-	// 		// get our temp folder to place in progress files
-	// 		tmpdir, _ := cmd.Flags().GetString("tempdir")
-	// 		if tmpdir == "" {
-	// 			tmpdir = os.TempDir()
-	// 		}
-	// 		os.MkdirAll(tmpdir, 0700)
-
-	// 		outdir, _ := cmd.Flags().GetString("dir")
-	// 		statefn := filepath.Join(outdir, descriptor.RefType+".state.json")
-
-	// 		stateobj, err := devstate.New(statefn)
-	// 		if err != nil {
-	// 			log.Fatal(logger, "error opening state file", "err", err)
-	// 		}
-	// 		var pipe sdk.Pipe
-	// 		if outdir != "" {
-	// 			os.MkdirAll(outdir, 0700)
-	// 			pipe = file.New(logger, outdir)
-	// 		} else {
-	// 			pipe = console.New(logger)
-	// 		}
-	// 		historical, _ := cmd.Flags().GetBool("historical")
-	// 		exp, err := devexport.New(logger, intconfig, stateobj, "9999", "1234", "1", historical, pipe)
-	// 		if err != nil {
-	// 			log.Fatal(logger, "export failed", "err", err)
-	// 		}
-	// 		// TODO(robin): use context
-	// 		_, cancel := context.WithCancel(context.Background())
-	// 		pos.OnExit(func(_ int) {
-	// 			log.Info(logger, "shutting down")
-	// 			cancel()
-	// 			go func() {
-	// 				time.Sleep(time.Second)
-	// 				os.Exit(1) // force exit if not already stopped
-	// 			}()
-	// 		})
-	// 		if err := integration.Export(exp); err != nil {
-	// 			log.Fatal(logger, "error running export", "err", err)
-	// 		}
-	// 	},
-	// }
-
 	var devExportCmd = &cobra.Command{
 		Use:    "dev-export",
 		Short:  fmt.Sprintf("run the %s integration export", descriptor.RefType),
@@ -329,6 +264,94 @@ func Main(integration sdk.Integration, args ...string) {
 		},
 	}
 
+	var devWebhookCmd = &cobra.Command{
+		Use:    "dev-webhook",
+		Short:  fmt.Sprintf("run the %s integration webhook", descriptor.RefType),
+		Args:   cobra.NoArgs,
+		Hidden: true,
+		Run: func(cmd *cobra.Command, args []string) {
+			logger := log.NewCommandLogger(cmd)
+			defer logger.Close()
+			log.Info(logger, "starting", "ref_type", descriptor.RefType, "version", descriptor.BuildCommitSHA)
+			channel, _ := cmd.Flags().GetString("channel")
+			secret, _ := cmd.Flags().GetString("secret")
+			intconfig := getIntegrationConfig(cmd)
+			manager := emanager.New(emanager.Config{
+				Channel: channel,
+				Secret:  secret,
+				Logger:  logger,
+			})
+			if err := integration.Start(logger, intconfig, manager); err != nil {
+				log.Fatal(logger, "error starting integration", "err", err, "name", descriptor.Name)
+			}
+			// get our temp folder to place in progress files
+			tmpdir, _ := cmd.Flags().GetString("tempdir")
+			if tmpdir == "" {
+				tmpdir = os.TempDir()
+			}
+			os.MkdirAll(tmpdir, 0700)
+
+			outdir, _ := cmd.Flags().GetString("dir")
+			statefn := filepath.Join(outdir, descriptor.RefType+".state.json")
+
+			stateobj, err := devstate.New(statefn)
+			if err != nil {
+				log.Fatal(logger, "error opening state file", "err", err)
+			}
+			var pipe sdk.Pipe
+			if outdir != "" {
+				os.MkdirAll(outdir, 0700)
+				pipe = file.New(logger, outdir)
+			} else {
+				pipe = console.New(logger)
+			}
+
+			datastr, _ := cmd.Flags().GetString("data")
+			data := make(map[string]interface{})
+			if err := json.Unmarshal([]byte(datastr), &data); err != nil {
+				log.Fatal(logger, "unable to decode webhook paylaod", "err", err)
+			}
+
+			headers := make(map[string]string)
+			headersArr, _ := cmd.Flags().GetStringArray("headers")
+			if len(headersArr) > 0 {
+				for _, setarg := range headersArr {
+					tok := strings.Split(setarg, "=")
+					headers[tok[0]] = tok[1]
+				}
+			}
+			refID, _ := cmd.Flags().GetString("dir")
+			headers["ref_id"] = refID
+			headers["customer_id"] = "1234"
+			headers["integration_instance_id"] = "1"
+
+			webhook := devwebhook.New(
+				logger,
+				intconfig,
+				stateobj,
+				"1234",
+				refID,
+				"1",
+				pipe,
+				headers,
+				data,
+			)
+			// TODO(robin): use context
+			_, cancel := context.WithCancel(context.Background())
+			pos.OnExit(func(_ int) {
+				log.Info(logger, "shutting down")
+				cancel()
+				go func() {
+					time.Sleep(time.Second)
+					os.Exit(1) // force exit if not already stopped
+				}()
+			})
+			if err := integration.WebHook(webhook); err != nil {
+				log.Fatal(logger, "error running export", "err", err)
+			}
+		},
+	}
+
 	// server command
 	log.RegisterFlags(serverCmd)
 	serverCmd.Flags().String("config", "", "the config file location")
@@ -339,15 +362,17 @@ func Main(integration sdk.Integration, args ...string) {
 	serverCmd.PersistentFlags().String("redis", pos.Getenv("PP_REDIS_URL", "0.0.0.0:6379"), "the redis endpoint url")
 	serverCmd.PersistentFlags().Int("redisDB", 15, "the redis db")
 	serverCmd.AddCommand(devExportCmd)
+	serverCmd.AddCommand(devWebhookCmd)
 
 	// dev export command
 	devExportCmd.Flags().String("dir", "", "directory to place files when in dev mode")
 	devExportCmd.Flags().Bool("historical", false, "force a historical export")
 
-	// // dev webhook command
-	// devWebhookCmd.Flags().String("dir", "", "directory to place files when in dev mode")
-	// devWebhookCmd.Flags().String("data", "", "the json payload of the webhook")
-	// devWebhookCmd.Flags().String("headers", "", "the headers of the webhook")
+	// dev webhook command
+	devWebhookCmd.Flags().String("dir", "", "directory to place files when in dev mode")
+	devWebhookCmd.Flags().String("data", "", "the json payload of the webhook")
+	devWebhookCmd.Flags().String("headers", "", "the headers of the webhook")
+	devWebhookCmd.Flags().String("ref-id", "", "the refid on the webhook")
 
 	if err := serverCmd.Execute(); err != nil {
 		fmt.Println(err)
