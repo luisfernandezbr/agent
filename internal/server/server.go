@@ -327,9 +327,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent) error {
 		if err := json.Unmarshal([]byte(evt.Data), &req); err != nil {
 			log.Fatal(s.logger, "error parsing export event", "err", err)
 		}
-		var cl graphql.Client
-		var err error
-		cl, err = graphql.NewClient(
+		cl, err := graphql.NewClient(
 			req.CustomerID,
 			"",
 			s.config.Secret,
@@ -345,6 +343,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent) error {
 		// update the integration state to acknowledge that we are exporting
 		vars := make(graphql.Variables)
 		vars[agent.IntegrationInstanceModelExportAcknowledgedColumn] = true
+		vars[agent.IntegrationInstanceModelStateColumn] = agent.IntegrationStateExporting
 		// TODO(robin): add last export acknowledged date
 		if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, req.Integration.ID, vars, false); err != nil {
 			log.Error(s.logger, "error updating agent integration", "err", err, "id", req.Integration.ID)
