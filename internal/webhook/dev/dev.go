@@ -52,9 +52,9 @@ func (e *webhook) Pipe() sdk.Pipe {
 	return e.pipe
 }
 
-// Paused must be called when the integration is paused for any reason such as rate limiting
-func (e *webhook) Data() map[string]interface{} {
-	return e.data
+// Data returns the payload of a webhook decoded from json into a map
+func (e *webhook) Data() (map[string]interface{}, error) {
+	return e.data, nil
 }
 
 // Bytes will return the underlying data as bytes
@@ -62,7 +62,7 @@ func (e *webhook) Bytes() []byte {
 	return e.buf
 }
 
-// Resumed must be called when a paused integration is resumed
+// Headers are the headers that came from the web hook
 func (e *webhook) Headers() map[string]string {
 	return e.headers
 }

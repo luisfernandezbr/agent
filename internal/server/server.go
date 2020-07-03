@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -230,9 +231,9 @@ func (s *Server) handleExport(logger log.Logger, req agent.Export) error {
 
 func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integrationInstanceID, customerID string, headers map[string]string, webhook web.Hook) error {
 	refID := headers["ref_id"]
-	data := make(map[string]interface{})
-	if err := json.Unmarshal([]byte(webhook.Data), &data); err != nil {
-		return fmt.Errorf("error decoding webhook: %w", err)
+	buf, err := base64.RawStdEncoding.DecodeString(webhook.Data)
+	if err != nil {
+		return fmt.Errorf("error base64 decoding webhook body: %w", err)
 	}
 	jobID := fmt.Sprintf("webhook_%d", datetime.EpochNow())
 	dir := s.newTempDir(jobID)
@@ -248,9 +249,7 @@ func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integra
 	}
 	p := s.newPipe(logger, dir, customerID, jobID, integrationInstanceID)
 	defer p.Close()
-	var e sdk.WebHook
-
-	e = eventAPIwebhook.New(eventAPIwebhook.Config{
+	e := eventAPIwebhook.New(eventAPIwebhook.Config{
 		Ctx:                   s.config.Ctx,
 		Logger:                logger,
 		Config:                sdkconfig,
@@ -260,12 +259,11 @@ func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integra
 		IntegrationInstanceID: integrationInstanceID,
 		Pipe:                  p,
 		Headers:               headers,
-		Data:                  data,
-		Buf:                   []byte(webhook.Data),
+		Buf:                   buf,
 	})
 	log.Info(logger, "running webhook")
 	if err := s.config.Integration.Integration.WebHook(e); err != nil {
-		return err
+		return fmt.Errorf("error running integration webhook: %w", err)
 	}
 	if err := state.Flush(); err != nil {
 		log.Error(logger, "error flushing state", "err", err)

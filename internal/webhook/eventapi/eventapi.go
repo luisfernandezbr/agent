@@ -2,6 +2,7 @@ package eventapi
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/pinpt/agent.next/sdk"
@@ -19,7 +20,6 @@ type webhook struct {
 	refID                 string
 	pipe                  sdk.Pipe
 	headers               map[string]string
-	data                  map[string]interface{}
 	buf                   []byte
 }
 
@@ -60,12 +60,16 @@ func (e *webhook) Bytes() []byte {
 	return e.buf
 }
 
-// Paused must be called when the integration is paused for any reason such as rate limiting
-func (e *webhook) Data() map[string]interface{} {
-	return e.data
+// Data returns the payload of a webhook decoded from json into a map
+func (e *webhook) Data() (map[string]interface{}, error) {
+	data := make(map[string]interface{})
+	if err := json.Unmarshal(e.buf, &data); err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
-// Resumed must be called when a paused integration is resumed
+// Headers are the headers that came from the web hook
 func (e *webhook) Headers() map[string]string {
 	return e.headers
 }
@@ -91,7 +95,6 @@ type Config struct {
 	IntegrationInstanceID string
 	Pipe                  sdk.Pipe
 	Buf                   []byte
-	Data                  map[string]interface{}
 	Headers               map[string]string
 }
 
@@ -110,8 +113,7 @@ func New(config Config) sdk.WebHook {
 		refID:                 config.RefID,
 		integrationInstanceID: config.IntegrationInstanceID,
 		pipe:                  config.Pipe,
-		headers:               config.Headers,
-		data:                  config.Data,
 		buf:                   config.Buf,
+		headers:               config.Headers,
 	}
 }
