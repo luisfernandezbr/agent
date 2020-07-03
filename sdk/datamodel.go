@@ -8,3 +8,6 @@ import "github.com/pinpt/go-common/v10/datamodel"
 
 // Model is a data model type
 type Model = datamodel.Model
+
+// PartialModel is a partial datamodel type with all optional fields
+type PartialModel = datamodel.PartialModel

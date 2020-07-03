@@ -13,16 +13,19 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	eventAPIexport "github.com/pinpt/agent.next/internal/export/eventapi"
+	eventAPImutation "github.com/pinpt/agent.next/internal/mutation/eventapi"
 	pipe "github.com/pinpt/agent.next/internal/pipe/eventapi"
 	redisState "github.com/pinpt/agent.next/internal/state/redis"
 	eventAPIwebhook "github.com/pinpt/agent.next/internal/webhook/eventapi"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/api"
+	dm "github.com/pinpt/go-common/v10/datamodel"
 	"github.com/pinpt/go-common/v10/datetime"
 	"github.com/pinpt/go-common/v10/event"
 	"github.com/pinpt/go-common/v10/graphql"
 	"github.com/pinpt/go-common/v10/hash"
 	"github.com/pinpt/go-common/v10/log"
+	datamodel "github.com/pinpt/integration-sdk"
 	"github.com/pinpt/integration-sdk/agent"
 	"github.com/pinpt/integration-sdk/web"
 )
@@ -55,6 +58,7 @@ type Server struct {
 	dbchange *Subscriber
 	event    *Subscriber
 	webhook  *Subscriber
+	mutation *Subscriber
 }
 
 var _ io.Closer = (*Server)(nil)
@@ -68,6 +72,14 @@ func (s *Server) Close() error {
 	if s.event != nil {
 		s.event.Close()
 		s.event = nil
+	}
+	if s.webhook != nil {
+		s.webhook.Close()
+		s.webhook = nil
+	}
+	if s.mutation != nil {
+		s.mutation.Close()
+		s.mutation = nil
 	}
 	return nil
 }
@@ -267,6 +279,76 @@ func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integra
 	return nil
 }
 
+type mutationData struct {
+	ID      string             `json:"id"`
+	Model   string             `json:"model"`
+	Action  sdk.MutationAction `json:"action"`
+	Payload json.RawMessage    `json:"payload"`
+}
+
+func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integrationInstanceID, customerID string, refID string, mutation agent.Mutation) error {
+	buf := []byte(mutation.Payload)
+	var data mutationData
+	if err := json.Unmarshal(buf, &data); err != nil {
+		return fmt.Errorf("error unmarshaling mutation data payload: %w", err)
+	}
+	var payload interface{}
+	switch data.Action {
+	case sdk.CreateAction:
+		object := datamodel.New(dm.ModelNameType(data.Model))
+		if object == nil {
+			return fmt.Errorf("error unmarshaling mutation data payload. model was not found: %s", data.Model)
+		}
+		payload = object
+	case sdk.UpdateAction:
+		object := datamodel.NewPartial(dm.ModelNameType(data.Model))
+		if object == nil {
+			return fmt.Errorf("error unmarshaling mutation data payload. partial model was not found: %s", data.Model)
+		}
+		payload = object
+	case sdk.DeleteAction:
+		// the payload is nil
+		break
+	}
+	jobID := fmt.Sprintf("mutation_%d", datetime.EpochNow())
+	dir := s.newTempDir(jobID)
+	defer os.RemoveAll(dir)
+	started := time.Now()
+	sdkconfig, err := s.fetchConfig(client, integrationInstanceID)
+	if err != nil {
+		return err
+	}
+	state, err := s.newState(customerID, integrationInstanceID)
+	if err != nil {
+		return err
+	}
+	p := s.newPipe(logger, dir, customerID, jobID, integrationInstanceID)
+	defer p.Close()
+	e := eventAPImutation.New(eventAPImutation.Config{
+		Ctx:                   s.config.Ctx,
+		Logger:                logger,
+		Config:                sdkconfig,
+		State:                 state,
+		CustomerID:            customerID,
+		RefID:                 refID,
+		IntegrationInstanceID: integrationInstanceID,
+		Pipe:                  p,
+		ID:                    data.ID,
+		Model:                 data.Model,
+		Action:                data.Action,
+		Payload:               payload,
+	})
+	log.Info(logger, "running mutation")
+	if err := s.config.Integration.Integration.Mutation(e); err != nil {
+		return fmt.Errorf("error running integration mutation: %w", err)
+	}
+	if err := state.Flush(); err != nil {
+		log.Error(logger, "error flushing state", "err", err)
+	}
+	log.Info(logger, "mutation completed", "duration", time.Since(started), "ref_id", refID, "customer_id", customerID)
+	return nil
+}
+
 func (s *Server) calculateIntegrationHashCode(integration *agent.IntegrationInstance) string {
 	// since we get db change events each time we update the agent.integration table, we don't
 	// want to thrash the integration with enrolls so we are going to check specific fields for changes
@@ -413,6 +495,53 @@ func (s *Server) onWebhook(evt event.SubscriptionEvent) error {
 	return nil
 }
 
+func (s *Server) onMutation(evt event.SubscriptionEvent) error {
+	log.Debug(s.logger, "received mutation event", "evt", evt)
+	switch evt.Model {
+	case agent.MutationModelName.String():
+		var m agent.Mutation
+		if err := json.Unmarshal([]byte(evt.Data), &m); err != nil {
+			log.Fatal(s.logger, "error parsing muation", "err", err)
+		}
+		cl, err := graphql.NewClient(
+			m.CustomerID,
+			s.config.APIKey,
+			s.config.Secret,
+			api.BackendURL(api.GraphService, s.config.Channel),
+		)
+		if err != nil {
+			log.Error(s.logger, "error creating graphql client", "err',err")
+		}
+		if s.config.APIKey != "" {
+			cl.SetHeader("Authorization", s.config.APIKey)
+		}
+		var errmessage *string
+		// TODO(robin): maybe scrub some event-api related fields out of the headers
+		if err := s.handleMutation(s.logger, cl, *m.IntegrationInstanceID, m.CustomerID, evt.Headers["ref_id"], m); err != nil {
+			log.Error(s.logger, "error running webhook", "err", err)
+			errmessage = sdk.StringPointer(err.Error())
+		}
+		// send the response to the mutation
+		var resp agent.MutationResponse
+		resp.ID = agent.NewMutationResponseID(m.CustomerID)
+		resp.CustomerID = m.CustomerID
+		resp.IntegrationInstanceID = m.IntegrationInstanceID
+		resp.Error = errmessage
+		resp.Success = errmessage == nil
+		resp.RefID = m.ID
+		resp.RefType = m.RefType
+		if err := s.mutation.ch.Publish(event.PublishEvent{
+			Object:  &resp,
+			Headers: map[string]string{"ref_type": m.RefType, "ref_id": m.RefID},
+			Logger:  s.logger,
+		}); err != nil {
+			return err
+		}
+	}
+	evt.Commit()
+	return nil
+}
+
 // New returns a new server instance
 func New(config Config) (*Server, error) {
 	server := &Server{
@@ -448,6 +577,16 @@ func New(config Config) (*Server, error) {
 		server.onWebhook)
 	if err != nil {
 		return nil, fmt.Errorf("error starting webhook subscriber: %w", err)
+	}
+	server.mutation, err = NewEventSubscriber(
+		config,
+		[]string{agent.MutationModelName.String()},
+		&event.SubscriptionFilter{
+			HeaderExpr: fmt.Sprintf(`ref_type:"%s" AND location:"%s"`, config.Integration.Descriptor.RefType, location.String()),
+		},
+		server.onMutation)
+	if err != nil {
+		return nil, fmt.Errorf("error starting mutation subscriber: %w", err)
 	}
 	return server, nil
 }
