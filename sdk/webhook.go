@@ -2,6 +2,7 @@ package sdk
 
 // WebHook is a control interafce for web hook data received by pinpoint on behalf of the integration
 type WebHook interface {
+	Control
 	// Config is any customer specific configuration for this customer
 	Config() Config
 	// State is a customer specific state object for this integration and customer

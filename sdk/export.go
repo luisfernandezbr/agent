@@ -1,9 +1,8 @@
 package sdk
 
-import "time"
-
 // Export is a control interface for an export
 type Export interface {
+	Control
 	// Config is any customer specific configuration for this customer
 	Config() Config
 	// State is a customer specific state object for this integration and customer
@@ -16,10 +15,6 @@ type Export interface {
 	IntegrationID() string
 	// Pipe should be called to get the pipe for streaming data back to pinpoint
 	Pipe() Pipe
-	// Paused must be called when the integration is paused for any reason such as rate limiting
-	Paused(resetAt time.Time) error
-	// Resumed must be called when a paused integration is resumed
-	Resumed() error
 	// Historical if true, the integration should perform a full historical export
 	Historical() bool
 }

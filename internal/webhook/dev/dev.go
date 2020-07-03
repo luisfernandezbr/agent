@@ -1,6 +1,8 @@
 package dev
 
 import (
+	"time"
+
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/log"
 )
@@ -63,6 +65,16 @@ func (e *webhook) Bytes() []byte {
 // Resumed must be called when a paused integration is resumed
 func (e *webhook) Headers() map[string]string {
 	return e.headers
+}
+
+// Paused must be called when the integration is paused for any reason such as rate limiting
+func (e *webhook) Paused(resetAt time.Time) error {
+	return nil
+}
+
+// Resumed must be called when a paused integration is resumed
+func (e *webhook) Resumed() error {
+	return nil
 }
 
 // New will return an sdk.WebHook

@@ -2,6 +2,7 @@ package eventapi
 
 import (
 	"context"
+	"time"
 
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/log"
@@ -67,6 +68,16 @@ func (e *webhook) Data() map[string]interface{} {
 // Resumed must be called when a paused integration is resumed
 func (e *webhook) Headers() map[string]string {
 	return e.headers
+}
+
+// Paused must be called when the integration is paused for any reason such as rate limiting
+func (e *webhook) Paused(resetAt time.Time) error {
+	return nil
+}
+
+// Resumed must be called when a paused integration is resumed
+func (e *webhook) Resumed() error {
+	return nil
 }
 
 // Config is details for the configuration
