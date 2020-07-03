@@ -74,12 +74,13 @@ func Main(integration sdk.Integration, args ...string) {
 			cfg, _ := cmd.Flags().GetString("config")
 			channel, _ := cmd.Flags().GetString("channel")
 			secret, _ := cmd.Flags().GetString("secret")
+			groupid, _ := cmd.Flags().GetString("groupid")
 			if cfg == "" && secret == "" {
 				log.Fatal(logger, "missing --config")
 			}
 			intconfig := getIntegrationConfig(cmd)
 			var state sdk.State
-			var uuid, apikey, groupid string
+			var uuid, apikey string
 			var redisClient *redis.Client
 			var selfManaged bool
 
@@ -88,9 +89,9 @@ func Main(integration sdk.Integration, args ...string) {
 				if channel == "" {
 					channel = "dev"
 				}
-				groupid = cloudAgentGroupID(descriptor.RefType)
-				groupid += "local" // FIXME remove
-				fmt.Println("using", groupid)
+				if groupid == "" {
+					groupid = cloudAgentGroupID(descriptor.RefType)
+				}
 
 				// we must connect to redis in multi mode
 				redisURL, _ := cmd.Flags().GetString("redis")
@@ -133,7 +134,9 @@ func Main(integration sdk.Integration, args ...string) {
 				if uuid == "" {
 					config.SystemID = config.CustomerID
 				}
-				groupid = onPremiseAgentGroupID(descriptor.RefType, config.SystemID)
+				if groupid == "" {
+					groupid = onPremiseAgentGroupID(descriptor.RefType, config.SystemID)
+				}
 				outdir, _ := cmd.Flags().GetString("dir")
 				statefn := filepath.Join(outdir, descriptor.RefType+".state.json")
 				stateobj, err := devstate.New(statefn)
@@ -363,6 +366,8 @@ func Main(integration sdk.Integration, args ...string) {
 	serverCmd.PersistentFlags().String("tempdir", "dist/export", "the directory to place files")
 	serverCmd.PersistentFlags().String("redis", pos.Getenv("PP_REDIS_URL", "0.0.0.0:6379"), "the redis endpoint url")
 	serverCmd.PersistentFlags().Int("redisDB", 15, "the redis db")
+	serverCmd.PersistentFlags().String("groupid", "", "override the group id")
+	serverCmd.Flags().MarkHidden("groupid")
 	serverCmd.AddCommand(devExportCmd)
 	serverCmd.AddCommand(devWebhookCmd)
 
