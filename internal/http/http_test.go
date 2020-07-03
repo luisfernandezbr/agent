@@ -300,7 +300,7 @@ var _ sdk.Manager = (*fakeOAuthManager)(nil)
 
 func (f *fakeOAuthManager) GraphQLManager() sdk.GraphQLClientManager { return nil }
 func (f *fakeOAuthManager) HTTPManager() sdk.HTTPClientManager       { return nil }
-func (f *fakeOAuthManager) CreateWebHook(customerID string, refType string, integrationID string, refID string) (string, error) {
+func (f *fakeOAuthManager) CreateWebHook(customerID string, refType string, integrationInstanceID string, refID string) (string, error) {
 	return "", nil
 }
 func (f *fakeOAuthManager) RefreshOAuth2Token(refType string, refreshToken string) (string, error) {

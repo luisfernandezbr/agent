@@ -29,7 +29,7 @@ func (m *devManager) HTTPManager() sdk.HTTPClientManager {
 }
 
 // CreateWebHook is used by the integration to create a webhook on behalf of the integration for a given customer and refid
-func (m *devManager) CreateWebHook(customerID string, integrationID string, refType string, refID string) (string, error) {
+func (m *devManager) CreateWebHook(customerID string, integrationInstanceID string, refType string, refID string) (string, error) {
 	return "", fmt.Errorf("cannot create a webhook in dev mode")
 }
 

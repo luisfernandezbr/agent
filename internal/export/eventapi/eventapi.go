@@ -16,22 +16,22 @@ import (
 
 // Completion event
 type export struct {
-	ctx                 context.Context
-	logger              log.Logger
-	config              sdk.Config
-	state               sdk.State
-	subscriptionChannel *event.SubscriptionChannel
-	customerID          string
-	jobID               string
-	integrationID       string
-	uuid                string
-	channel             string
-	apikey              string
-	secret              string
-	pipe                sdk.Pipe
-	paused              bool
-	historical          bool
-	mu                  sync.Mutex
+	ctx                   context.Context
+	logger                log.Logger
+	config                sdk.Config
+	state                 sdk.State
+	subscriptionChannel   *event.SubscriptionChannel
+	customerID            string
+	jobID                 string
+	integrationInstanceID string
+	uuid                  string
+	channel               string
+	apikey                string
+	secret                string
+	pipe                  sdk.Pipe
+	paused                bool
+	historical            bool
+	mu                    sync.Mutex
 }
 
 var _ sdk.Export = (*export)(nil)
@@ -56,9 +56,9 @@ func (e *export) CustomerID() string {
 	return e.customerID
 }
 
-// IntegrationID will return the unique instance id for this integration for a customer
-func (e *export) IntegrationID() string {
-	return e.integrationID
+// IntegrationInstanceID will return the unique instance id for this integration for a customer
+func (e *export) IntegrationInstanceID() string {
+	return e.integrationInstanceID
 }
 
 //  Pipe should be called to get the pipe for streaming data back to pinpoint
@@ -80,7 +80,7 @@ func (e *export) updateIntegration(vars graphql.Variables) error {
 	if e.apikey != "" {
 		cl.SetHeader("Authorization", e.apikey)
 	}
-	if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, e.integrationID, vars, false); err != nil {
+	if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, e.integrationInstanceID, vars, false); err != nil {
 		return err
 	}
 	return nil
@@ -130,20 +130,20 @@ func (e *export) Historical() bool {
 
 // Config is details for the configuration
 type Config struct {
-	Ctx                 context.Context
-	Logger              log.Logger
-	Config              sdk.Config
-	State               sdk.State
-	SubscriptionChannel *event.SubscriptionChannel
-	CustomerID          string
-	JobID               string
-	IntegrationID       string
-	UUID                string
-	Pipe                sdk.Pipe
-	Channel             string
-	APIKey              string
-	Secret              string
-	Historical          bool
+	Ctx                   context.Context
+	Logger                log.Logger
+	Config                sdk.Config
+	State                 sdk.State
+	SubscriptionChannel   *event.SubscriptionChannel
+	CustomerID            string
+	JobID                 string
+	IntegrationInstanceID string
+	UUID                  string
+	Pipe                  sdk.Pipe
+	Channel               string
+	APIKey                string
+	Secret                string
+	Historical            bool
 }
 
 // New will return an sdk.Export
@@ -153,16 +153,16 @@ func New(config Config) (sdk.Export, error) {
 		ctx = context.Background()
 	}
 	return &export{
-		ctx:                 ctx,
-		logger:              config.Logger,
-		config:              config.Config,
-		state:               config.State,
-		customerID:          config.CustomerID,
-		jobID:               config.JobID,
-		integrationID:       config.IntegrationID,
-		uuid:                config.UUID,
-		pipe:                config.Pipe,
-		subscriptionChannel: config.SubscriptionChannel,
-		historical:          config.Historical,
+		ctx:                   ctx,
+		logger:                config.Logger,
+		config:                config.Config,
+		state:                 config.State,
+		customerID:            config.CustomerID,
+		jobID:                 config.JobID,
+		integrationInstanceID: config.IntegrationInstanceID,
+		uuid:                  config.UUID,
+		pipe:                  config.Pipe,
+		subscriptionChannel:   config.SubscriptionChannel,
+		historical:            config.Historical,
 	}, nil
 }

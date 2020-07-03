@@ -40,8 +40,8 @@ func (e *webhook) CustomerID() string {
 	return e.customerID
 }
 
-// IntegrationID will return the unique instance id for this integration for a customer
-func (e *webhook) IntegrationID() string {
+// IntegrationInstanceID will return the unique instance id for this integration for a customer
+func (e *webhook) IntegrationInstanceID() string {
 	return e.integrationInstanceID
 }
 

@@ -8,14 +8,14 @@ import (
 )
 
 type export struct {
-	logger        log.Logger
-	config        sdk.Config
-	state         sdk.State
-	jobID         string
-	customerID    string
-	integrationID string
-	pipe          sdk.Pipe
-	historical    bool
+	logger                log.Logger
+	config                sdk.Config
+	state                 sdk.State
+	jobID                 string
+	customerID            string
+	integrationInstanceID string
+	pipe                  sdk.Pipe
+	historical            bool
 }
 
 var _ sdk.Export = (*export)(nil)
@@ -40,9 +40,9 @@ func (e *export) CustomerID() string {
 	return e.customerID
 }
 
-// IntegrationID will return the unique instance id for this integration for a customer
-func (e *export) IntegrationID() string {
-	return e.integrationID
+// IntegrationInstanceID will return the unique instance id for this integration for a customer
+func (e *export) IntegrationInstanceID() string {
+	return e.integrationInstanceID
 }
 
 //  Pipe should be called to get the pipe for streaming data back to pinpoint
@@ -68,15 +68,15 @@ func (e *export) Historical() bool {
 }
 
 // New will return an sdk.Export
-func New(logger log.Logger, config sdk.Config, state sdk.State, jobID string, customerID string, integrationID string, historical bool, pipe sdk.Pipe) (sdk.Export, error) {
+func New(logger log.Logger, config sdk.Config, state sdk.State, jobID string, customerID string, integrationInstanceID string, historical bool, pipe sdk.Pipe) (sdk.Export, error) {
 	return &export{
-		logger:        logger,
-		config:        config,
-		state:         state,
-		jobID:         jobID,
-		customerID:    customerID,
-		pipe:          pipe,
-		integrationID: integrationID,
-		historical:    historical,
+		logger:                logger,
+		config:                config,
+		state:                 state,
+		jobID:                 jobID,
+		customerID:            customerID,
+		pipe:                  pipe,
+		integrationInstanceID: integrationInstanceID,
+		historical:            historical,
 	}, nil
 }

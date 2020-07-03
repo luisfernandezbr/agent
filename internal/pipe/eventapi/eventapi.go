@@ -37,23 +37,23 @@ func (f *wrapperFile) Close() error {
 }
 
 type eventAPIPipe struct {
-	logger        log.Logger
-	ctx           context.Context
-	cancel        context.CancelFunc
-	dir           string
-	closed        bool
-	mu            sync.Mutex
-	files         map[string]*wrapperFile
-	customerID    string
-	uuid          string
-	jobid         string
-	reftype       string
-	channel       string
-	apikey        string
-	secret        string
-	integrationID string
-	wg            sync.WaitGroup
-	started       time.Time
+	logger                log.Logger
+	ctx                   context.Context
+	cancel                context.CancelFunc
+	dir                   string
+	closed                bool
+	mu                    sync.Mutex
+	files                 map[string]*wrapperFile
+	customerID            string
+	uuid                  string
+	jobid                 string
+	reftype               string
+	channel               string
+	apikey                string
+	secret                string
+	integrationInstanceID string
+	wg                    sync.WaitGroup
+	started               time.Time
 }
 
 var _ sdk.Pipe = (*eventAPIPipe)(nil)
@@ -139,12 +139,12 @@ func (p *eventAPIPipe) send(model string, f *wrapperFile) error {
 		return fmt.Errorf("error reading file: %w", err)
 	}
 	object := &agent.ExportData{
-		CustomerID:    p.customerID,
-		RefType:       p.reftype,
-		RefID:         p.uuid,
-		JobID:         p.jobid,
-		IntegrationID: p.integrationID,
-		Objects:       pjson.Stringify(map[string]string{model: base64.StdEncoding.EncodeToString(buf)}),
+		CustomerID:            p.customerID,
+		RefType:               p.reftype,
+		RefID:                 p.uuid,
+		JobID:                 p.jobid,
+		IntegrationInstanceID: &p.integrationInstanceID,
+		Objects:               pjson.Stringify(map[string]string{model: base64.StdEncoding.EncodeToString(buf)}),
 	}
 	headers := map[string]string{
 		"customer_id": p.customerID,
@@ -218,17 +218,17 @@ func (p *eventAPIPipe) run() {
 
 // Config is the configuration
 type Config struct {
-	Ctx           context.Context
-	Logger        log.Logger
-	Dir           string
-	CustomerID    string
-	UUID          string
-	JobID         string
-	IntegrationID string
-	RefType       string
-	Channel       string
-	APIKey        string
-	Secret        string
+	Ctx                   context.Context
+	Logger                log.Logger
+	Dir                   string
+	CustomerID            string
+	UUID                  string
+	JobID                 string
+	IntegrationInstanceID string
+	RefType               string
+	Channel               string
+	APIKey                string
+	Secret                string
 }
 
 // New will create a new eventapi pipe
@@ -239,20 +239,20 @@ func New(config Config) sdk.Pipe {
 	}
 	ctx, cancel := context.WithCancel(c)
 	p := &eventAPIPipe{
-		logger:        config.Logger,
-		dir:           config.Dir,
-		files:         make(map[string]*wrapperFile),
-		channel:       config.Channel,
-		customerID:    config.CustomerID,
-		uuid:          config.UUID,
-		jobid:         config.JobID,
-		reftype:       config.RefType,
-		apikey:        config.APIKey,
-		secret:        config.Secret,
-		integrationID: config.IntegrationID,
-		ctx:           ctx,
-		cancel:        cancel,
-		started:       time.Now(),
+		logger:                config.Logger,
+		dir:                   config.Dir,
+		files:                 make(map[string]*wrapperFile),
+		channel:               config.Channel,
+		customerID:            config.CustomerID,
+		uuid:                  config.UUID,
+		jobid:                 config.JobID,
+		reftype:               config.RefType,
+		apikey:                config.APIKey,
+		secret:                config.Secret,
+		integrationInstanceID: config.IntegrationInstanceID,
+		ctx:                   ctx,
+		cancel:                cancel,
+		started:               time.Now(),
 	}
 	go p.run()
 	return p

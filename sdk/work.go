@@ -253,6 +253,6 @@ func NewWorkUserID(customerID string, refID string, refType string) string {
 }
 
 // NewWorkConfigID will return the work config id
-func NewWorkConfigID(customerID string, refType string, integrationID string) string {
-	return work.NewConfigID(customerID, refType, integrationID)
+func NewWorkConfigID(customerID string, refType string, integrationInstanceID string) string {
+	return work.NewConfigID(customerID, refType, integrationInstanceID)
 }

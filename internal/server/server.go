@@ -72,11 +72,11 @@ func (s *Server) Close() error {
 	return nil
 }
 
-func (s *Server) newState(customerID string, integrationID string) (sdk.State, error) {
+func (s *Server) newState(customerID string, integrationInstanceID string) (sdk.State, error) {
 	state := s.config.State
 	if state == nil {
 		// if no state provided, we use redis state in this case
-		st, err := redisState.New(s.config.Ctx, s.config.RedisClient, customerID+":"+s.config.Integration.Descriptor.RefType+":"+integrationID)
+		st, err := redisState.New(s.config.Ctx, s.config.RedisClient, customerID+":"+s.config.Integration.Descriptor.RefType+":"+integrationInstanceID)
 		if err != nil {
 			return nil, err
 		}
@@ -85,20 +85,20 @@ func (s *Server) newState(customerID string, integrationID string) (sdk.State, e
 	return state, nil
 }
 
-func (s *Server) newPipe(logger sdk.Logger, dir string, customerID string, jobID string, integrationID string) sdk.Pipe {
+func (s *Server) newPipe(logger sdk.Logger, dir string, customerID string, jobID string, integrationInstanceID string) sdk.Pipe {
 	var p sdk.Pipe
 	p = pipe.New(pipe.Config{
-		Ctx:           s.config.Ctx,
-		Logger:        logger,
-		Dir:           dir,
-		CustomerID:    customerID,
-		UUID:          s.config.UUID,
-		JobID:         jobID,
-		IntegrationID: integrationID,
-		Channel:       s.config.Channel,
-		APIKey:        s.config.APIKey,
-		Secret:        s.config.Secret,
-		RefType:       s.config.Integration.Descriptor.RefType,
+		Ctx:                   s.config.Ctx,
+		Logger:                logger,
+		Dir:                   dir,
+		CustomerID:            customerID,
+		UUID:                  s.config.UUID,
+		JobID:                 jobID,
+		IntegrationInstanceID: integrationInstanceID,
+		Channel:               s.config.Channel,
+		APIKey:                s.config.APIKey,
+		Secret:                s.config.Secret,
+		RefType:               s.config.Integration.Descriptor.RefType,
 	})
 	return p
 }
@@ -200,19 +200,19 @@ func (s *Server) handleExport(logger log.Logger, req agent.Export) error {
 	p := s.newPipe(logger, dir, req.CustomerID, req.JobID, integration.ID)
 	defer p.Close()
 	e, err := eventAPIexport.New(eventAPIexport.Config{
-		Ctx:           s.config.Ctx,
-		Logger:        logger,
-		Config:        sdkconfig,
-		State:         state,
-		CustomerID:    req.CustomerID,
-		JobID:         req.JobID,
-		IntegrationID: integration.ID,
-		UUID:          s.config.UUID,
-		Pipe:          p,
-		Channel:       s.config.Channel,
-		APIKey:        s.config.APIKey,
-		Secret:        s.config.Secret,
-		Historical:    req.ReprocessHistorical,
+		Ctx:                   s.config.Ctx,
+		Logger:                logger,
+		Config:                sdkconfig,
+		State:                 state,
+		CustomerID:            req.CustomerID,
+		JobID:                 req.JobID,
+		IntegrationInstanceID: integration.ID,
+		UUID:                  s.config.UUID,
+		Pipe:                  p,
+		Channel:               s.config.Channel,
+		APIKey:                s.config.APIKey,
+		Secret:                s.config.Secret,
+		Historical:            req.ReprocessHistorical,
 	})
 	if err != nil {
 		return err
@@ -228,7 +228,7 @@ func (s *Server) handleExport(logger log.Logger, req agent.Export) error {
 	return nil
 }
 
-func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integrationID, customerID string, headers map[string]string, webhook web.Hook) error {
+func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integrationInstanceID, customerID string, headers map[string]string, webhook web.Hook) error {
 	refID := headers["ref_id"]
 	data := make(map[string]interface{})
 	if err := json.Unmarshal([]byte(webhook.Data), &data); err != nil {
@@ -238,15 +238,15 @@ func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integra
 	dir := s.newTempDir(jobID)
 	defer os.RemoveAll(dir)
 	started := time.Now()
-	sdkconfig, err := s.fetchConfig(client, integrationID)
+	sdkconfig, err := s.fetchConfig(client, integrationInstanceID)
 	if err != nil {
 		return err
 	}
-	state, err := s.newState(customerID, integrationID)
+	state, err := s.newState(customerID, integrationInstanceID)
 	if err != nil {
 		return err
 	}
-	p := s.newPipe(logger, dir, customerID, jobID, integrationID)
+	p := s.newPipe(logger, dir, customerID, jobID, integrationInstanceID)
 	defer p.Close()
 	var e sdk.WebHook
 
@@ -257,7 +257,7 @@ func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integra
 		State:                 state,
 		CustomerID:            customerID,
 		RefID:                 refID,
-		IntegrationInstanceID: integrationID,
+		IntegrationInstanceID: integrationInstanceID,
 		Pipe:                  p,
 		Headers:               headers,
 		Data:                  data,
