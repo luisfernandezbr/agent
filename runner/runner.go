@@ -210,10 +210,12 @@ func Main(integration sdk.Integration, args ...string) {
 			channel, _ := cmd.Flags().GetString("channel")
 			secret, _ := cmd.Flags().GetString("secret")
 			intconfig := getIntegrationConfig(cmd)
+			webhookEnabled, _ := cmd.Flags().GetBool("webhook")
 			manager := emanager.New(emanager.Config{
-				Channel: channel,
-				Logger:  logger,
-				Secret:  secret,
+				Channel:        channel,
+				Logger:         logger,
+				Secret:         secret,
+				WebhookEnabled: webhookEnabled,
 			})
 			if err := integration.Start(logger, intconfig, manager); err != nil {
 				log.Fatal(logger, "error starting integration", "err", err, "name", descriptor.Name)
@@ -273,9 +275,10 @@ func Main(integration sdk.Integration, args ...string) {
 			secret, _ := cmd.Flags().GetString("secret")
 			intconfig := getIntegrationConfig(cmd)
 			manager := emanager.New(emanager.Config{
-				Channel: channel,
-				Secret:  secret,
-				Logger:  logger,
+				Channel:        channel,
+				Secret:         secret,
+				Logger:         logger,
+				WebhookEnabled: true,
 			})
 			if err := integration.Start(logger, intconfig, manager); err != nil {
 				log.Fatal(logger, "error starting integration", "err", err, "name", descriptor.Name)

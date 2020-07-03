@@ -68,6 +68,11 @@ var DevCmd = &cobra.Command{
 			devargs = append(devargs, "--historical=true")
 		}
 
+		webhookEnabled, _ := cmd.Flags().GetBool("webhook")
+		if webhookEnabled {
+			devargs = append(devargs, "--webhook")
+		}
+
 		set, _ := cmd.Flags().GetStringArray("set")
 		for _, str := range set {
 			devargs = append(devargs, "--set", str)
@@ -177,6 +182,7 @@ func init() {
 	DevCmd.PersistentFlags().StringArray("set", []string{}, "a config key/value pair such as a=b")
 	DevCmd.PersistentFlags().String("dir", "dev_dist", "the directory to output pipe contents")
 	DevCmd.PersistentFlags().String("channel", "dev", "the channel which can be set")
+	DevCmd.Flags().Bool("webhook", false, "enable webhook registration")
 	DevCmd.Flags().MarkHidden("channel")
 	DevCmd.Flags().Bool("historical", false, "force a historical export")
 	DevCmd.AddCommand(webHookCmd)
