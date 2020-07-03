@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -229,12 +228,8 @@ func (s *Server) handleExport(logger log.Logger, req agent.Export) error {
 	return nil
 }
 
-func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integrationInstanceID, customerID string, headers map[string]string, webhook web.Hook) error {
-	refID := headers["ref_id"]
-	buf, err := base64.RawStdEncoding.DecodeString(webhook.Data)
-	if err != nil {
-		return fmt.Errorf("error base64 decoding webhook body: %w", err)
-	}
+func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integrationInstanceID, customerID string, refID string, webhook web.Hook) error {
+	buf := []byte(webhook.Data)
 	jobID := fmt.Sprintf("webhook_%d", datetime.EpochNow())
 	dir := s.newTempDir(jobID)
 	defer os.RemoveAll(dir)
@@ -258,7 +253,7 @@ func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integra
 		RefID:                 refID,
 		IntegrationInstanceID: integrationInstanceID,
 		Pipe:                  p,
-		Headers:               headers,
+		Headers:               webhook.Headers,
 		Buf:                   buf,
 	})
 	log.Info(logger, "running webhook")
@@ -401,7 +396,7 @@ func (s *Server) onWebhook(evt event.SubscriptionEvent) error {
 		}
 		var errmessage *string
 		// TODO(robin): maybe scrub some event-api related fields out of the headers
-		if err := s.handleWebhook(s.logger, cl, integrationInstanceID, customerID, evt.Headers, wh); err != nil {
+		if err := s.handleWebhook(s.logger, cl, integrationInstanceID, customerID, evt.Headers["ref_id"], wh); err != nil {
 			log.Error(s.logger, "error running webhook", "err", err)
 			errmessage = sdk.StringPointer(err.Error())
 		}

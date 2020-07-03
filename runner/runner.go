@@ -89,6 +89,8 @@ func Main(integration sdk.Integration, args ...string) {
 					channel = "dev"
 				}
 				groupid = cloudAgentGroupID(descriptor.RefType)
+				groupid += "local" // FIXME remove
+				fmt.Println("using", groupid)
 
 				// we must connect to redis in multi mode
 				redisURL, _ := cmd.Flags().GetString("redis")
