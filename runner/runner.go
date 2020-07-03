@@ -363,6 +363,7 @@ func Main(integration sdk.Integration, args ...string) {
 	// dev export command
 	devExportCmd.Flags().String("dir", "", "directory to place files when in dev mode")
 	devExportCmd.Flags().Bool("historical", false, "force a historical export")
+	devExportCmd.Flags().Bool("webhook", false, "turn on webhooks")
 
 	// dev webhook command
 	devWebhookCmd.Flags().String("dir", "", "directory to place files when in dev mode")

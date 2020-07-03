@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mailru/easyjson"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/event"
 	"github.com/pinpt/go-common/v10/httpdefaults"
@@ -83,6 +84,13 @@ func (c *client) exec(opt *sdk.HTTPOptions, out interface{}, options ...sdk.With
 		}
 	}
 	if strings.Contains(resp.Header.Get("Content-Type"), "json") {
+		if i, ok := out.(easyjson.Unmarshaler); ok {
+			var buf bytes.Buffer
+			io.Copy(&buf, resp.Body)
+			resp.Body.Close()
+			err := easyjson.Unmarshal(buf.Bytes(), i)
+			return res, err
+		}
 		if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
 			return res, err
 		}

@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/mailru/easyjson"
 	"github.com/pinpt/agent.next/sdk"
 )
 
@@ -67,7 +68,7 @@ func (g *client) Query(query string, variables map[string]interface{}, out inter
 
 	if resp.StatusCode == http.StatusOK {
 		var datares struct {
-			Data   interface{} `json:"data"`
+			Data   json.RawMessage `json:"data"`
 			Errors []struct {
 				Message string `json:"message"`
 			} `json:"errors"`
@@ -86,11 +87,10 @@ func (g *client) Query(query string, variables map[string]interface{}, out inter
 			}
 			return errors.New(string(b))
 		}
-		b, err := json.Marshal(datares.Data)
-		if err != nil {
-			return err
+		if i, ok := out.(easyjson.Unmarshaler); ok {
+			return easyjson.Unmarshal(datares.Data, i)
 		}
-		return json.Unmarshal(b, out)
+		return json.Unmarshal(datares.Data, out)
 	}
 	return fmt.Errorf("err: %s. status code: %s", string(body), resp.Status)
 }

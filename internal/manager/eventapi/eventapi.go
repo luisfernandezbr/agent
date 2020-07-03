@@ -13,12 +13,16 @@ import (
 	"github.com/pinpt/go-common/v10/log"
 )
 
+// ErrWebHookDisabled is returned if webhook is disabled
+var ErrWebHookDisabled = errors.New("webhook: disabled")
+
 type eventAPIManager struct {
-	logger      log.Logger
-	channel     string
-	secret      string
-	apikey      string
-	selfManaged bool
+	logger         log.Logger
+	channel        string
+	secret         string
+	apikey         string
+	selfManaged    bool
+	webhookEnabled bool
 }
 
 var _ sdk.Manager = (*eventAPIManager)(nil)
@@ -35,6 +39,9 @@ func (m *eventAPIManager) HTTPManager() sdk.HTTPClientManager {
 
 // CreateWebHook is used by the integration to create a webhook on behalf of the integration for a given customer and refid
 func (m *eventAPIManager) CreateWebHook(customerID, refType, integrationInstanceID, refID string) (string, error) {
+	if !m.webhookEnabled {
+		return "", ErrWebHookDisabled
+	}
 	theurl := sdk.JoinURL(
 		api.BackendURL(api.EventService, m.channel),
 		"/hook",
@@ -104,20 +111,22 @@ func (m *eventAPIManager) RefreshOAuth2Token(refType string, refreshToken string
 
 // Config is the required fields for a
 type Config struct {
-	Logger      log.Logger
-	Channel     string
-	Secret      string
-	APIKey      string
-	SelfManaged bool
+	Logger         log.Logger
+	Channel        string
+	Secret         string
+	APIKey         string
+	SelfManaged    bool
+	WebhookEnabled bool
 }
 
 // New will create a new event api sdk.Manager
 func New(cfg Config) sdk.Manager {
 	return &eventAPIManager{
-		logger:      cfg.Logger,
-		channel:     cfg.Channel,
-		secret:      cfg.Secret,
-		apikey:      cfg.APIKey,
-		selfManaged: cfg.SelfManaged,
+		logger:         cfg.Logger,
+		channel:        cfg.Channel,
+		secret:         cfg.Secret,
+		apikey:         cfg.APIKey,
+		selfManaged:    cfg.SelfManaged,
+		webhookEnabled: cfg.WebhookEnabled,
 	}
 }
