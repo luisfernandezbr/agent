@@ -334,6 +334,7 @@ func Main(integration sdk.Integration, args ...string) {
 				pipe,
 				headers,
 				data,
+				[]byte(datastr),
 			)
 			// TODO(robin): use context
 			_, cancel := context.WithCancel(context.Background())

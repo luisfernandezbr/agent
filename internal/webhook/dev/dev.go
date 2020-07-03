@@ -14,6 +14,7 @@ type webhook struct {
 	refID                 string
 	pipe                  sdk.Pipe
 	headers               map[string]string
+	buf                   []byte
 	data                  map[string]interface{}
 }
 
@@ -54,6 +55,11 @@ func (e *webhook) Data() map[string]interface{} {
 	return e.data
 }
 
+// Bytes will return the underlying data as bytes
+func (e *webhook) Bytes() []byte {
+	return e.buf
+}
+
 // Resumed must be called when a paused integration is resumed
 func (e *webhook) Headers() map[string]string {
 	return e.headers
@@ -70,6 +76,7 @@ func New(
 	pipe sdk.Pipe,
 	headers map[string]string,
 	data map[string]interface{},
+	buf []byte,
 ) sdk.WebHook {
 	return &webhook{
 		logger:                logger,
@@ -81,5 +88,6 @@ func New(
 		pipe:                  pipe,
 		headers:               headers,
 		data:                  data,
+		buf:                   buf,
 	}
 }

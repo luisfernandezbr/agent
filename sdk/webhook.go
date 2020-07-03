@@ -16,6 +16,8 @@ type WebHook interface {
 	Pipe() Pipe
 	// Data is the data payload for the web hook
 	Data() map[string]interface{}
+	// Bytes will return the underlying data as bytes
+	Bytes() []byte
 	// Headers are the headers that came from the web hook
 	Headers() map[string]string
 }

@@ -19,6 +19,7 @@ type webhook struct {
 	pipe                  sdk.Pipe
 	headers               map[string]string
 	data                  map[string]interface{}
+	buf                   []byte
 }
 
 var _ sdk.WebHook = (*webhook)(nil)
@@ -53,6 +54,11 @@ func (e *webhook) Pipe() sdk.Pipe {
 	return e.pipe
 }
 
+// Bytes will return the underlying data as bytes
+func (e *webhook) Bytes() []byte {
+	return e.buf
+}
+
 // Paused must be called when the integration is paused for any reason such as rate limiting
 func (e *webhook) Data() map[string]interface{} {
 	return e.data
@@ -73,6 +79,7 @@ type Config struct {
 	RefID                 string
 	IntegrationInstanceID string
 	Pipe                  sdk.Pipe
+	Buf                   []byte
 	Data                  map[string]interface{}
 	Headers               map[string]string
 }
@@ -94,5 +101,6 @@ func New(config Config) sdk.WebHook {
 		pipe:                  config.Pipe,
 		headers:               config.Headers,
 		data:                  config.Data,
+		buf:                   config.Buf,
 	}
 }

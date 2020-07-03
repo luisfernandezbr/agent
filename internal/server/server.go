@@ -261,6 +261,7 @@ func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integra
 		Pipe:                  p,
 		Headers:               headers,
 		Data:                  data,
+		Buf:                   []byte(webhook.Data),
 	})
 	log.Info(logger, "running webhook")
 	if err := s.config.Integration.Integration.WebHook(e); err != nil {
