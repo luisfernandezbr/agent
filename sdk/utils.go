@@ -57,6 +57,11 @@ func LogWith(logger Logger, keyvals ...interface{}) Logger {
 	return log.With(logger, keyvals...)
 }
 
+// NewNoOpTestLogger returns a no-op test logger
+func NewNoOpTestLogger() Logger {
+	return log.NewNoOpTestLogger()
+}
+
 // Date is a date structure with epoch, offset and RFC3339 timestamp format
 type Date = datetime.Date
 
