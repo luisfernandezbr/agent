@@ -19,6 +19,7 @@ type mutation struct {
 	model                 string
 	action                sdk.MutationAction
 	payload               interface{}
+	user                  sdk.MutationUser
 }
 
 var _ sdk.Mutation = (*mutation)(nil)
@@ -83,6 +84,11 @@ func (e *mutation) Payload() interface{} {
 	return e.payload
 }
 
+// User is the user that is requesting the mutation and any authorization details that might be required
+func (e *mutation) User() sdk.MutationUser {
+	return e.user
+}
+
 // New will return an sdk.mutation
 func New(
 	logger log.Logger,
@@ -96,6 +102,7 @@ func New(
 	model string,
 	action sdk.MutationAction,
 	payload interface{},
+	user sdk.MutationUser,
 ) sdk.Mutation {
 	return &mutation{
 		logger:                logger,
@@ -105,5 +112,6 @@ func New(
 		refID:                 refID,
 		integrationInstanceID: integrationInstanceID,
 		pipe:                  pipe,
+		user:                  user,
 	}
 }

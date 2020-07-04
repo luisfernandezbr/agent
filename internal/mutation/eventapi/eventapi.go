@@ -22,6 +22,7 @@ type mutation struct {
 	model                 string
 	action                sdk.MutationAction
 	payload               interface{}
+	user                  sdk.MutationUser
 }
 
 var _ sdk.Mutation = (*mutation)(nil)
@@ -86,6 +87,11 @@ func (e *mutation) Payload() interface{} {
 	return e.payload
 }
 
+// User is the user that is requesting the mutation and any authorization details that might be required
+func (e *mutation) User() sdk.MutationUser {
+	return e.user
+}
+
 // Config is details for the configuration
 type Config struct {
 	Ctx                   context.Context
@@ -100,6 +106,7 @@ type Config struct {
 	Model                 string
 	Action                sdk.MutationAction
 	Payload               interface{}
+	User                  sdk.MutationUser
 }
 
 // New will return an sdk.Mutation
@@ -121,5 +128,6 @@ func New(config Config) sdk.Mutation {
 		model:                 config.Model,
 		action:                config.Action,
 		payload:               config.Payload,
+		user:                  config.User,
 	}
 }

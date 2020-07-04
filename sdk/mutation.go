@@ -12,6 +12,15 @@ const (
 	DeleteAction MutationAction = "delete"
 )
 
+// MutationUser is the user that is requesting the mutation
+type MutationUser struct {
+	// ID is the ref_id to the source system
+	ID         string      `json:"id"`
+	OAuth2Auth *oauth2Auth `json:"oauth2_auth,omitempty"`
+	BasicAuth  *basicAuth  `json:"basic_auth,omitempty"`
+	APIKeyAuth *apikeyAuth `json:"apikey_auth,omitempty"`
+}
+
 // Mutation is a control interface for a mutation
 type Mutation interface {
 	Control
@@ -33,4 +42,6 @@ type Mutation interface {
 	Action() MutationAction
 	// Payload is the payload of the mutation which can be either a sdk.Model for create, sdk.PartialModel for update or nil for delete
 	Payload() interface{}
+	// User is the user that is requesting the mutation and any authorization details that might be required
+	User() MutationUser
 }
