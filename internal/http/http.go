@@ -199,6 +199,19 @@ func (c *client) Put(data io.Reader, out interface{}, options ...sdk.WithHTTPOpt
 	}, out, options...)
 }
 
+// Patch will call a HTTP PATCH method passing the data and set the result (if JSON) to out
+func (c *client) Patch(data io.Reader, out interface{}, options ...sdk.WithHTTPOption) (*sdk.HTTPResponse, error) {
+	var buf bytes.Buffer
+	io.Copy(&buf, data)
+	rw := &rewindReader{
+		buf: buf.Bytes(),
+	}
+	return c.execWithRetry(func() (*http.Request, error) {
+		rw.Rewind()
+		return http.NewRequest(http.MethodPatch, c.url, rw)
+	}, out, options...)
+}
+
 // Post will call a HTTP DELETE method and set the result (if JSON) to out
 func (c *client) Delete(out interface{}, options ...sdk.WithHTTPOption) (*sdk.HTTPResponse, error) {
 	return c.execWithRetry(func() (*http.Request, error) {

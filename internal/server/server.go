@@ -310,6 +310,11 @@ func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integr
 		// the payload is nil
 		break
 	}
+	if payload != nil {
+		if err := json.Unmarshal(data.Payload, payload); err != nil {
+			return fmt.Errorf("error unmarshaling payload data for action: %s. %w", data.Action, err)
+		}
+	}
 	jobID := fmt.Sprintf("mutation_%d", datetime.EpochNow())
 	dir := s.newTempDir(jobID)
 	defer os.RemoveAll(dir)
@@ -549,7 +554,6 @@ func (s *Server) onMutation(evt event.SubscriptionEvent) error {
 			}
 		}()
 	}
-	fmt.Println("before commit")
 	evt.Commit()
 	return nil
 }
