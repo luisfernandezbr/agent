@@ -239,6 +239,7 @@ func Main(integration sdk.Integration, args ...string) {
 			if err != nil {
 				log.Fatal(logger, "error opening state file", "err", err)
 			}
+			defer stateobj.Close()
 			var pipe sdk.Pipe
 			if outdir != "" {
 				os.MkdirAll(outdir, 0700)
@@ -246,6 +247,7 @@ func Main(integration sdk.Integration, args ...string) {
 			} else {
 				pipe = console.New(logger)
 			}
+			defer pipe.Close()
 			historical, _ := cmd.Flags().GetBool("historical")
 			exp, err := devexport.New(logger, intconfig, stateobj, "9999", "1234", "1", historical, pipe)
 			if err != nil {
@@ -302,6 +304,7 @@ func Main(integration sdk.Integration, args ...string) {
 			if err != nil {
 				log.Fatal(logger, "error opening state file", "err", err)
 			}
+			defer stateobj.Close()
 			var pipe sdk.Pipe
 			if outdir != "" {
 				os.MkdirAll(outdir, 0700)
@@ -309,6 +312,7 @@ func Main(integration sdk.Integration, args ...string) {
 			} else {
 				pipe = console.New(logger)
 			}
+			defer pipe.Close()
 
 			datastr, _ := cmd.Flags().GetString("data")
 			data := make(map[string]interface{})
