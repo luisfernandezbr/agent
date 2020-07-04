@@ -129,6 +129,12 @@ const SourceCodePullRequestStatusSuperseded SourceCodePullRequestStatus = source
 // SourceCodePullRequestStatusLocked is the enumeration value for locked
 const SourceCodePullRequestStatusLocked SourceCodePullRequestStatus = sourcecode.PullRequestStatusLocked
 
+// SourceCodeCommit is the source code commit
+type SourceCodeCommit = sourcecode.Commit
+
+// SourceCodeCommitCreatedDate is the commit create date
+type SourceCodeCommitCreatedDate = sourcecode.CommitCreatedDate
+
 // NewSourceCodeUserID returns a new sourcecode user id
 func NewSourceCodeUserID(customerID string, refType string, refID string) string {
 	return sourcecode.NewUserID(customerID, refType, refID)
