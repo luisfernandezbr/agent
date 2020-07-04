@@ -1,6 +1,12 @@
 package sdk
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+
+	"github.com/pinpt/go-datamodel/work"
+	"github.com/pinpt/integration-sdk/sourcecode"
+)
 
 // MutationAction is a mutation action type
 type MutationAction string
@@ -46,6 +52,39 @@ type Mutation interface {
 	Payload() interface{}
 	// User is the user that is requesting the mutation and any authorization details that might be required
 	User() MutationUser
+}
+
+// CreateMutationPayloadFromData will create a mutation payload object from a data payload
+func CreateMutationPayloadFromData(model string, action MutationAction, buf []byte) (interface{}, error) {
+	switch action {
+	case CreateAction:
+		switch model {
+		case work.IssueModelName.String():
+			var payload WorkIssueCreateMutation
+			err := json.Unmarshal(buf, &payload)
+			return &payload, err
+		case work.SprintModelName.String():
+			var payload WorkSprintCreateMutation
+			err := json.Unmarshal(buf, &payload)
+			return &payload, err
+		}
+	case UpdateAction:
+		switch model {
+		case sourcecode.PullRequestModelName.String():
+			var payload SourcecodePullRequestUpdateMutation
+			err := json.Unmarshal(buf, &payload)
+			return &payload, err
+		case work.IssueModelName.String():
+			var payload WorkIssueUpdateMutation
+			err := json.Unmarshal(buf, &payload)
+			return &payload, err
+		case work.SprintModelName.String():
+			var payload WorkSprintUpdateMutation
+			err := json.Unmarshal(buf, &payload)
+			return &payload, err
+		}
+	}
+	return nil, nil
 }
 
 // NameID is a container for containing the ID, Name or both

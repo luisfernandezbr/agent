@@ -19,13 +19,11 @@ import (
 	eventAPIwebhook "github.com/pinpt/agent.next/internal/webhook/eventapi"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/api"
-	dm "github.com/pinpt/go-common/v10/datamodel"
 	"github.com/pinpt/go-common/v10/datetime"
 	"github.com/pinpt/go-common/v10/event"
 	"github.com/pinpt/go-common/v10/graphql"
 	"github.com/pinpt/go-common/v10/hash"
 	"github.com/pinpt/go-common/v10/log"
-	datamodel "github.com/pinpt/integration-sdk"
 	"github.com/pinpt/integration-sdk/agent"
 	"github.com/pinpt/integration-sdk/web"
 )
@@ -293,28 +291,9 @@ func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integr
 	if err := json.Unmarshal(buf, &data); err != nil {
 		return fmt.Errorf("error unmarshaling mutation data payload: %w", err)
 	}
-	var payload interface{}
-	switch data.Action {
-	case sdk.CreateAction:
-		object := datamodel.New(dm.ModelNameType(data.Model))
-		if object == nil {
-			return fmt.Errorf("error unmarshaling mutation data payload. model was not found: %s", data.Model)
-		}
-		payload = object
-	case sdk.UpdateAction:
-		object := datamodel.NewPartial(dm.ModelNameType(data.Model))
-		if object == nil {
-			return fmt.Errorf("error unmarshaling mutation data payload. partial model was not found: %s", data.Model)
-		}
-		payload = object
-	case sdk.DeleteAction:
-		// the payload is nil
-		break
-	}
-	if payload != nil {
-		if err := json.Unmarshal(data.Payload, payload); err != nil {
-			return fmt.Errorf("error unmarshaling payload data for action: %s. %w", data.Action, err)
-		}
+	payload, err := sdk.CreateMutationPayloadFromData(data.Model, data.Action, data.Payload)
+	if err != nil {
+		return fmt.Errorf("error creating mutation payload. %w", err)
 	}
 	jobID := fmt.Sprintf("mutation_%d", datetime.EpochNow())
 	dir := s.newTempDir(jobID)
