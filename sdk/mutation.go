@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/pinpt/go-datamodel/work"
 	"github.com/pinpt/integration-sdk/sourcecode"
+	"github.com/pinpt/integration-sdk/work"
 )
 
 // MutationAction is a mutation action type

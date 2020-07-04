@@ -317,8 +317,6 @@ github.com/pinpt/httpclient v0.0.0-20190815022759-09e0028c9067 h1:GG0k6rjX7ywCwY
 github.com/pinpt/httpclient v0.0.0-20190815022759-09e0028c9067 h1:GG0k6rjX7ywCwYnjVudy3OXXivcMAih8s08+sDrQiEE=
 github.com/pinpt/httpclient v0.0.0-20190815022759-09e0028c9067/go.mod h1:SzzGa0kOT+frqT6ABgV69U9+jlMU98XkmKup+HEZRVI=
 github.com/pinpt/httpclient v0.0.0-20190815022759-09e0028c9067/go.mod h1:SzzGa0kOT+frqT6ABgV69U9+jlMU98XkmKup+HEZRVI=
-github.com/pinpt/integration-sdk v0.0.1059 h1:rChZWdNrUFS2N6eCMslDb4iR94n1eUK0Omm+UgcMBqI=
-github.com/pinpt/integration-sdk v0.0.1059/go.mod h1:GvEOhGTIbb2cYGBL/dvtxd/2/ocMPKewWDLaAhr9m1M=
 github.com/pinpt/integration-sdk v0.0.1060 h1:8OlZw1p5V9Mt4P9kTKyVN14v6Bv3kjahbeFPyRK6rXM=
 github.com/pinpt/integration-sdk v0.0.1060/go.mod h1:GvEOhGTIbb2cYGBL/dvtxd/2/ocMPKewWDLaAhr9m1M=
 github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4 h1:49lOXmGaUpV9Fz3gd7TFZY106KVlPVa5jcYD1gaQf98=

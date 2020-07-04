@@ -9,56 +9,29 @@ import "github.com/pinpt/integration-sdk/work"
 // WorkIssue is a issue
 type WorkIssue = work.Issue
 
-// WorkIssuePartial is a issue partial
-type WorkIssuePartial = work.IssuePartial
-
 // WorkIssueComment is a issue comment
 type WorkIssueComment = work.IssueComment
-
-// WorkIssueCommentPartial is a issue comment partial
-type WorkIssueCommentPartial = work.IssueCommentPartial
 
 // WorkIssueStatus is a issue status
 type WorkIssueStatus = work.IssueStatus
 
-// WorkIssueStatusPartial is a issue status partial
-type WorkIssueStatusPartial = work.IssueStatusPartial
-
 // WorkIssuePriority is a issue priority
 type WorkIssuePriority = work.IssuePriority
-
-// WorkIssuePriorityPartial is a issue priority partial
-type WorkIssuePriorityPartial = work.IssuePriorityPartial
 
 // WorkIssueType is a issue type
 type WorkIssueType = work.IssueType
 
-// WorkIssueTypePartial is a issue type partial
-type WorkIssueTypePartial = work.IssueTypePartial
-
 // WorkProject is a project
 type WorkProject = work.Project
-
-// WorkProjectPartial is a project partial
-type WorkProjectPartial = work.ProjectPartial
 
 // WorkSprint is a sprint
 type WorkSprint = work.Sprint
 
-// WorkSprintPartial is a sprint partial
-type WorkSprintPartial = work.SprintPartial
-
 // WorkKanbanBoard is a kanban board
 type WorkKanbanBoard = work.KanbanBoard
 
-// WorkKanbanBoardPartial is a kanban board partial
-type WorkKanbanBoardPartial = work.KanbanBoardPartial
-
 // WorkUser is a user in the work system
 type WorkUser = work.User
-
-// WorkUserPartial is a user in the work system partial
-type WorkUserPartial = work.UserPartial
 
 // WorkIssueAttachments is the work issue attachments
 type WorkIssueAttachments = work.IssueAttachments
@@ -209,9 +182,6 @@ const WorkIssueTypeMappedTypeSubtask WorkIssueTypeMappedType = work.IssueTypeMap
 
 // WorkConfig is the work config model
 type WorkConfig = work.Config
-
-// WorkConfigPartial is the work config model partial
-type WorkConfigPartial = work.ConfigPartial
 
 // WorkConfigStatuses is the work config status type
 type WorkConfigStatuses = work.ConfigStatuses
