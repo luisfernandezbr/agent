@@ -9,6 +9,9 @@ import "github.com/pinpt/integration-sdk/sourcecode"
 // SourceCodePullRequest is a pull request
 type SourceCodePullRequest = sourcecode.PullRequest
 
+// SourceCodePullRequestPartial is a sourcecode.PullRequest partial
+type SourceCodePullRequestPartial = sourcecode.PullRequestPartial
+
 // SourceCodePullRequestClosedDate is the pull request closed date
 type SourceCodePullRequestClosedDate = sourcecode.PullRequestClosedDate
 
@@ -24,11 +27,17 @@ type SourceCodePullRequestUpdatedDate = sourcecode.PullRequestUpdatedDate
 // SourceCodePullRequestCommit is a pull request commit
 type SourceCodePullRequestCommit = sourcecode.PullRequestCommit
 
+// SourceCodePullRequestCommitPartial is a pull request commit partial
+type SourceCodePullRequestCommitPartial = sourcecode.PullRequestCommitPartial
+
 // SourceCodePullRequestCommitCreatedDate is the created date for a pull request commit
 type SourceCodePullRequestCommitCreatedDate = sourcecode.PullRequestCommitCreatedDate
 
 // SourceCodePullRequestComment is a pull request comment
 type SourceCodePullRequestComment = sourcecode.PullRequestComment
+
+// SourceCodePullRequestCommentPartial is a pull request comment partial
+type SourceCodePullRequestCommentPartial = sourcecode.PullRequestCommentPartial
 
 // SourceCodePullRequestCommentCreatedDate is a pull request comment created date
 type SourceCodePullRequestCommentCreatedDate = sourcecode.PullRequestCommentCreatedDate
@@ -39,14 +48,23 @@ type SourceCodePullRequestCommentUpdatedDate = sourcecode.PullRequestCommentUpda
 // SourceCodePullRequestReview is a pull request review
 type SourceCodePullRequestReview = sourcecode.PullRequestReview
 
+// SourceCodePullRequestReviewPartial is a pull request review partial
+type SourceCodePullRequestReviewPartial = sourcecode.PullRequestReviewPartial
+
 // SourceCodePullRequestReviewCreatedDate is a pull request review created date
 type SourceCodePullRequestReviewCreatedDate = sourcecode.PullRequestReviewCreatedDate
 
 // SourceCodeRepo is a code repository in the source code system
 type SourceCodeRepo = sourcecode.Repo
 
+// SourceCodeRepoPartial is a code repository in the source code system
+type SourceCodeRepoPartial = sourcecode.RepoPartial
+
 // SourceCodeUser is a user in the source code system
 type SourceCodeUser = sourcecode.User
+
+// SourceCodeUserPartial is a user in the source code system
+type SourceCodeUserPartial = sourcecode.UserPartial
 
 // SourceCodeUserType is a user type in the source code system
 type SourceCodeUserType = sourcecode.UserType

@@ -403,6 +403,10 @@ func (s *Server) onEvent(evt event.SubscriptionEvent) error {
 		if err := json.Unmarshal([]byte(evt.Data), &req); err != nil {
 			log.Fatal(s.logger, "error parsing export event", "err", err)
 		}
+		if time.Since(evt.Timestamp) > time.Minute*5 {
+			log.Info(s.logger, "skipping export request, too old", "age", time.Since(evt.Timestamp), "id", evt.ID)
+			break
+		}
 		cl, err := graphql.NewClient(
 			req.CustomerID,
 			"",
@@ -503,9 +507,13 @@ func (s *Server) onMutation(evt event.SubscriptionEvent) error {
 		if err := json.Unmarshal([]byte(evt.Data), &m); err != nil {
 			log.Fatal(s.logger, "error parsing muation", "err", err)
 		}
+		if m.IntegrationInstanceID == nil {
+			log.Error(s.logger, "mutation event is missing integration instance id, skipping")
+			break
+		}
 		cl, err := graphql.NewClient(
 			m.CustomerID,
-			s.config.APIKey,
+			"",
 			s.config.Secret,
 			api.BackendURL(api.GraphService, s.config.Channel),
 		)
@@ -521,23 +529,27 @@ func (s *Server) onMutation(evt event.SubscriptionEvent) error {
 			log.Error(s.logger, "error running webhook", "err", err)
 			errmessage = sdk.StringPointer(err.Error())
 		}
-		// send the response to the mutation
-		var resp agent.MutationResponse
-		resp.ID = agent.NewMutationResponseID(m.CustomerID)
-		resp.CustomerID = m.CustomerID
-		resp.IntegrationInstanceID = m.IntegrationInstanceID
-		resp.Error = errmessage
-		resp.Success = errmessage == nil
-		resp.RefID = m.ID
-		resp.RefType = m.RefType
-		if err := s.mutation.ch.Publish(event.PublishEvent{
-			Object:  &resp,
-			Headers: map[string]string{"ref_type": m.RefType, "ref_id": m.RefID},
-			Logger:  s.logger,
-		}); err != nil {
-			return err
-		}
+		go func() {
+			// send the response to the mutation, but we need to do this on a separate go routine
+			var resp agent.MutationResponse
+			resp.ID = agent.NewMutationResponseID(m.CustomerID)
+			resp.CustomerID = m.CustomerID
+			resp.IntegrationInstanceID = m.IntegrationInstanceID
+			resp.Error = errmessage
+			resp.Success = errmessage == nil
+			resp.RefID = m.ID
+			resp.RefType = m.RefType
+			log.Debug(s.logger, "sending mutation response", "payload", resp.Stringify())
+			if err := s.mutation.ch.Publish(event.PublishEvent{
+				Object:  &resp,
+				Headers: map[string]string{"ref_type": m.RefType, "ref_id": m.RefID},
+				Logger:  s.logger,
+			}); err != nil {
+				log.Error(s.logger, "error publishing mutation response event", "err", err)
+			}
+		}()
 	}
+	fmt.Println("before commit")
 	evt.Commit()
 	return nil
 }
