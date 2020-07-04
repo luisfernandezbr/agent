@@ -1,5 +1,7 @@
 package sdk
 
+import "time"
+
 // MutationAction is a mutation action type
 type MutationAction string
 
@@ -40,8 +42,67 @@ type Mutation interface {
 	Model() string
 	// Action is the mutation action
 	Action() MutationAction
-	// Payload is the payload of the mutation which can be either a sdk.Model for create, sdk.PartialModel for update or nil for delete
+	// Payload is the payload of the mutation which is one of the mutation types
 	Payload() interface{}
 	// User is the user that is requesting the mutation and any authorization details that might be required
 	User() MutationUser
+}
+
+// NameID is a container for containing the ID, Name or both
+type NameID struct {
+	ID   *string `json:"id,omitempty"`
+	Name *string `json:"name,omitempty"`
+}
+
+// SourcecodePullRequestUpdateMutation is an update mutation for a pull request
+type SourcecodePullRequestUpdateMutation struct {
+	Title       *string                      `json:"title,omitempty"`       // Title is for updating the title to the pull request
+	Description *string                      `json:"description,omitempty"` // Description is for updating the description of the pull request
+	Status      *SourceCodePullRequestStatus `json:"status,omitempty"`      // Status is for changing the status of the pull request
+}
+
+// WorkIssueCreateMutation is a create mutation for a issue
+type WorkIssueCreateMutation struct {
+	Title         string   `json:"title"`               // Title is for setting the title of the issue
+	Description   string   `json:"description"`         // Description is for setting the description of the issue
+	AssigneeRefID *string  `json:"assignee,omitempty"`  // AssigneeRefID is for setting the assignee of the issue to a ref_id
+	Priority      *NameID  `json:"priority,omitempty"`  // Priority is for setting the priority of the issue
+	Type          *NameID  `json:"type,omitempty"`      // Type is for setting the issue type of the issue
+	ProjectRefID  string   `json:"project_id"`          // ProjectID is the id to the issue project as a ref_id
+	Epic          *NameID  `json:"epic,omitempty"`      // Epic is for setting an epic for the issue
+	ParentRefID   *string  `json:"parent_id,omitempty"` // ParentRefID is for setting the parent issue as a ref_id
+	Labels        []string `json:"labels,omitempty"`    // Labels is for setting the labels for an issue
+}
+
+// WorkIssueUpdateMutation is an update mutation for a issue
+type WorkIssueUpdateMutation struct {
+	Title         *string `json:"title"`                // Title is for updating the title to the issue
+	Transition    *NameID `json:"transition,omitempty"` // Transition information (if used) for the issue
+	Status        *NameID `json:"status,omitempty"`     // Status is for changing the status of the issue
+	Priority      *NameID `json:"priority,omitempty"`   // Priority is for changing the priority of the issue
+	Resolution    *NameID `json:"resolution,omitempty"` // Resolution is for changing the resolution of the issue
+	Epic          *NameID `json:"epic,omitempty"`       // Epic is for updating the epic for the issue
+	AssigneeRefID *string `json:"assignee,omitempty"`   // AssigneeRefID is for changing the assignee of the issue to a ref_id
+}
+
+// WorkSprintCreateMutation is an create mutation for a sprint
+type WorkSprintCreateMutation struct {
+	Name         string           `json:"name"`             // Name is the name of the sprint
+	Goal         *string          `json:"goal,omitempty"`   // Goal is the optional goal for the sprint
+	Status       WorkSprintStatus `json:"status,omitempty"` // Status is the status of the sprint
+	StartDate    time.Time        `json:"start_date"`       // StartDate is the start date for the sprint
+	EndDate      time.Time        `json:"end_date"`         // EndDate is the end date for the sprint
+	IssueRefIDs  []string         `json:"issue_ref_ids"`    // IssueRefIDs is an array of issue ref_ids to add to the sprint
+	ProjectRefID string           `json:"project_id"`       // ProjectID is the id to the issue project as a ref_id
+}
+
+// WorkSprintUpdateMutation is an update mutation for a sprint
+type WorkSprintUpdateMutation struct {
+	Name              *string           `json:"name,omitempty"`                 // Name is the name of the sprint to update
+	Goal              *string           `json:"goal,omitempty"`                 // Goal is the optional goal for the sprint
+	Status            *WorkSprintStatus `json:"status,omitempty"`               // Status is the status of the sprint
+	StartDate         *time.Time        `json:"start_date,omitempty"`           // StartDate is the start date for the sprint
+	EndDate           *time.Time        `json:"end_date,omitempty"`             // EndDate is the end date for the sprint
+	AddIssueRefIDs    []string          `json:"add_issue_ref_ids,omitempty"`    // AddIssueRefIDs is an array of issue ref_ids to add to the sprint
+	RemoveIssueRefIDs []string          `json:"remove_issue_ref_ids,omitempty"` // RemoveIssueRefIDs is an array of issue ref_ids to remove from the sprint
 }
