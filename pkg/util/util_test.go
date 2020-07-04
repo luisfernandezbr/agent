@@ -1,6 +1,10 @@
 package util
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestConvertMarkdownToHTML(t *testing.T) {
 
@@ -61,4 +65,20 @@ func TestConvertMarkdownToHTML(t *testing.T) {
 		t.Errorf("wanted %+q, got %+q", expected, actual)
 	}
 
+}
+
+func TestConvertHTMLToMarkdown(t *testing.T) {
+	assert := assert.New(t)
+	md, err := ConvertHTMLToMarkdown("<div class=github>Hi</div>")
+	assert.NoError(err)
+	assert.Equal("Hi", md)
+	md, err = ConvertHTMLToMarkdown("<div class=github><strong>Hi</strong></div>")
+	assert.NoError(err)
+	assert.Equal("**Hi**", md)
+	md, err = ConvertHTMLToMarkdown(`<div class=github><a href="https://pinpoint.com">Foo</a></div>`)
+	assert.NoError(err)
+	assert.Equal("[Foo](https://pinpoint.com)", md)
+	md, err = ConvertHTMLToMarkdown(`<ul><li><input type=checkbox checked>Checked!</li><li><input type=checkbox>Check Me!</li></ul>`)
+	assert.NoError(err)
+	assert.Equal("- [x] Checked!\n- [ ] Check Me!", md)
 }

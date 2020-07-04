@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"strings"
 
+	md "github.com/JohannesKaufmann/html-to-markdown"
+	"github.com/JohannesKaufmann/html-to-markdown/plugin"
 	"github.com/pkg/browser"
 	"github.com/russross/blackfriday/v2"
 )
@@ -23,7 +25,18 @@ const extensions = blackfriday.NoIntraEmphasis |
 func ConvertMarkdownToHTML(text string) string {
 	input := strings.ReplaceAll(text, "\r", "")
 	output := blackfriday.Run([]byte(input), blackfriday.WithExtensions(extensions))
-	return string(output)
+	return strings.TrimSpace(string(output))
+}
+
+// ConvertHTMLToMarkdown will convert HTML to Markdown
+func ConvertHTMLToMarkdown(html string) (string, error) {
+	conv := md.NewConverter("", true, nil)
+	conv.Use(plugin.GitHubFlavored())
+	markdown, err := conv.ConvertString(html)
+	if err != nil {
+		return "", err
+	}
+	return markdown, nil
 }
 
 // WaitForRedirect will open a url with a `redirect_to` query string param that gets handled by handler

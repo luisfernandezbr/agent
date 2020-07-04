@@ -4,6 +4,8 @@ go 1.14
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.0.7
+	github.com/JohannesKaufmann/html-to-markdown v0.0.0-20200615184431-e6649df6ed2e
+	github.com/andybalholm/cascadia v1.2.0 // indirect
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/fatih/color v1.9.0
 	github.com/go-redis/redis/v8 v8.0.0-beta.5
@@ -17,7 +19,7 @@ require (
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.6.1
-	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9 // indirect
+	golang.org/x/net v0.0.0-20200625001655-4c5254603344 // indirect
 	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae // indirect
 	gopkg.in/yaml.v2 v2.3.0
 )
