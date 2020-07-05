@@ -11,4 +11,6 @@ type Manager interface {
 	CreateWebHook(customerID string, refType string, integrationInstanceID string, refID string) (string, error)
 	// RefreshOAuth2Token will refresh the OAuth2 access token using the provided refreshToken and return a new access token
 	RefreshOAuth2Token(refType string, refreshToken string) (string, error)
+	// Close is called on shutdown to cleanup any resources
+	Close() error
 }

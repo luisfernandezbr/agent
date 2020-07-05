@@ -18,6 +18,7 @@ import (
 type client struct {
 	url     string
 	headers map[string]string
+	client  *http.Client
 }
 
 var _ sdk.GraphQLClient = (*client)(nil)
@@ -44,7 +45,7 @@ func (g *client) Query(query string, variables map[string]interface{}, out inter
 			return err
 		}
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := g.client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -96,16 +97,17 @@ func (g *client) Query(query string, variables map[string]interface{}, out inter
 }
 
 type manager struct {
+	transport http.RoundTripper
 }
 
 var _ sdk.GraphQLClientManager = (*manager)(nil)
 
 // New is for creating a new graphql client instance that can be reused
 func (m *manager) New(url string, headers map[string]string) sdk.GraphQLClient {
-	return &client{url, headers}
+	return &client{url, headers, &http.Client{Transport: m.transport}}
 }
 
 // New returns a new GraphQLClientManager
-func New() sdk.GraphQLClientManager {
-	return &manager{}
+func New(transport http.RoundTripper) sdk.GraphQLClientManager {
+	return &manager{transport}
 }

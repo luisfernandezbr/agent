@@ -25,7 +25,7 @@ func buildIntegration(logger log.Logger, distDir, integrationDir string) string 
 	}
 	os.MkdirAll(distDir, 0700)
 	integrationFile := filepath.Join(distDir, runtime.GOOS, runtime.GOARCH, integration)
-	log.Info(logger, "will generate data into temp folder at "+distDir)
+	log.Debug(logger, "will generate integration into folder at "+distDir)
 
 	// build our integration
 	c := exec.Command(os.Args[0], "build", "--dir", distDir, integrationDir)
@@ -61,6 +61,7 @@ var DevCmd = &cobra.Command{
 		if dir != "" {
 			dir, _ = filepath.Abs(dir)
 		}
+		log.Info(logger, "will put files in "+dir)
 		historical, _ := cmd.Flags().GetBool("historical")
 		devargs := []string{"dev-export", "--dir", dir, "--channel", channel, "--log-level", "debug"}
 
@@ -71,6 +72,18 @@ var DevCmd = &cobra.Command{
 		webhookEnabled, _ := cmd.Flags().GetBool("webhook")
 		if webhookEnabled {
 			devargs = append(devargs, "--webhook")
+		}
+
+		record, _ := cmd.Flags().GetString("record")
+		replay, _ := cmd.Flags().GetString("replay")
+
+		if record != "" {
+			record, _ = filepath.Abs(record)
+			devargs = append(devargs, "--record", record)
+		}
+		if replay != "" {
+			replay, _ = filepath.Abs(replay)
+			devargs = append(devargs, "--replay", replay)
 		}
 
 		set, _ := cmd.Flags().GetStringArray("set")
@@ -185,6 +198,8 @@ func init() {
 	DevCmd.Flags().Bool("webhook", false, "enable webhook registration")
 	DevCmd.Flags().MarkHidden("channel")
 	DevCmd.Flags().Bool("historical", false, "force a historical export")
+	DevCmd.Flags().String("record", "", "record all interactions to directory specified")
+	DevCmd.Flags().String("replay", "", "replay all interactions from directory specified")
 	DevCmd.AddCommand(webHookCmd)
 	webHookCmd.Flags().StringArray("headers", []string{}, "headers key/value pair such as a=b")
 	webHookCmd.Flags().String("data", "", "json body of a webhook payload, as a string or file")

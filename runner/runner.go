@@ -148,13 +148,17 @@ func Main(integration sdk.Integration, args ...string) {
 				log.Info(logger, "running in single agent mode", "uuid", config.SystemID, "customer_id", config.CustomerID, "channel", channel)
 			}
 
-			manager := emanager.New(emanager.Config{
+			manager, err := emanager.New(emanager.Config{
 				Channel:     channel,
 				Logger:      logger,
 				Secret:      secret,
 				APIKey:      apikey,
 				SelfManaged: selfManaged,
 			})
+			if err != nil {
+				log.Fatal(logger, "error starting integration", "err", err, "name", descriptor.Name)
+			}
+			defer manager.Close()
 			if err := integration.Start(logger, intconfig, manager); err != nil {
 				log.Fatal(logger, "error starting integration", "err", err, "name", descriptor.Name)
 			}
@@ -216,12 +220,20 @@ func Main(integration sdk.Integration, args ...string) {
 			secret, _ := cmd.Flags().GetString("secret")
 			intconfig := getIntegrationConfig(cmd)
 			webhookEnabled, _ := cmd.Flags().GetBool("webhook")
-			manager := emanager.New(emanager.Config{
+			record, _ := cmd.Flags().GetString("record")
+			replay, _ := cmd.Flags().GetString("replay")
+			manager, err := emanager.New(emanager.Config{
 				Channel:        channel,
 				Logger:         logger,
 				Secret:         secret,
 				WebhookEnabled: webhookEnabled,
+				RecordDir:      record,
+				ReplayDir:      replay,
 			})
+			if err != nil {
+				log.Fatal(logger, "error starting integration", "err", err, "name", descriptor.Name)
+			}
+			defer manager.Close()
 			if err := integration.Start(logger, intconfig, manager); err != nil {
 				log.Fatal(logger, "error starting integration", "err", err, "name", descriptor.Name)
 			}
@@ -281,12 +293,16 @@ func Main(integration sdk.Integration, args ...string) {
 			channel, _ := cmd.Flags().GetString("channel")
 			secret, _ := cmd.Flags().GetString("secret")
 			intconfig := getIntegrationConfig(cmd)
-			manager := emanager.New(emanager.Config{
+			manager, err := emanager.New(emanager.Config{
 				Channel:        channel,
 				Secret:         secret,
 				Logger:         logger,
 				WebhookEnabled: true,
 			})
+			if err != nil {
+				log.Fatal(logger, "error starting integration", "err", err, "name", descriptor.Name)
+			}
+			defer manager.Close()
 			if err := integration.Start(logger, intconfig, manager); err != nil {
 				log.Fatal(logger, "error starting integration", "err", err, "name", descriptor.Name)
 			}
@@ -379,6 +395,8 @@ func Main(integration sdk.Integration, args ...string) {
 	devExportCmd.Flags().String("dir", "", "directory to place files when in dev mode")
 	devExportCmd.Flags().Bool("historical", false, "force a historical export")
 	devExportCmd.Flags().Bool("webhook", false, "turn on webhooks")
+	devExportCmd.Flags().String("record", "", "record all interactions to directory specified")
+	devExportCmd.Flags().String("replay", "", "replay all interactions from directory specified")
 
 	// dev webhook command
 	devWebhookCmd.Flags().String("dir", "", "directory to place files when in dev mode")

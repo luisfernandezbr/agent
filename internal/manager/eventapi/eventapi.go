@@ -3,13 +3,19 @@ package eventapi
 import (
 	"errors"
 	"fmt"
+	gohttp "net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/jhaynie/go-vcr/v2/recorder"
 	"github.com/pinpt/agent.next/internal/graphql"
 	"github.com/pinpt/agent.next/internal/http"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/api"
+	"github.com/pinpt/go-common/v10/fileutil"
+	"github.com/pinpt/go-common/v10/httpdefaults"
 	"github.com/pinpt/go-common/v10/log"
 )
 
@@ -23,18 +29,31 @@ type eventAPIManager struct {
 	apikey         string
 	selfManaged    bool
 	webhookEnabled bool
+	transport      gohttp.RoundTripper
+	recorder       *recorder.Recorder
 }
 
 var _ sdk.Manager = (*eventAPIManager)(nil)
 
+// Close is called on shutdown to cleanup any resources
+func (m *eventAPIManager) Close() error {
+	if m.recorder != nil {
+		if err := m.recorder.Stop(); err != nil {
+			return err
+		}
+		m.recorder = nil
+	}
+	return nil
+}
+
 // GraphQLManager returns a graphql manager instance
 func (m *eventAPIManager) GraphQLManager() sdk.GraphQLClientManager {
-	return graphql.New()
+	return graphql.New(m.transport)
 }
 
 // HTTPManager returns a HTTP manager instance
 func (m *eventAPIManager) HTTPManager() sdk.HTTPClientManager {
-	return http.New()
+	return http.New(m.transport)
 }
 
 // CreateWebHook is used by the integration to create a webhook on behalf of the integration for a given customer and refid
@@ -46,7 +65,7 @@ func (m *eventAPIManager) CreateWebHook(customerID, refType, integrationInstance
 		api.BackendURL(api.EventService, m.channel),
 		"/hook",
 	)
-	client := http.New().New(theurl, map[string]string{"Content-Type": "application/json", "Accept": "application/json"})
+	client := http.New(m.transport).New(theurl, map[string]string{"Content-Type": "application/json", "Accept": "application/json"})
 	data := map[string]interface{}{
 		"headers": map[string]string{
 			"ref_id":                  refID,
@@ -97,7 +116,7 @@ func (m *eventAPIManager) RefreshOAuth2Token(refType string, refreshToken string
 	var res struct {
 		AccessToken string `json:"access_token"`
 	}
-	client := http.New().New(theurl, map[string]string{"Content-Type": "application/json"})
+	client := http.New(m.transport).New(theurl, map[string]string{"Content-Type": "application/json"})
 	_, err := client.Get(&res)
 	log.Debug(m.logger, "refresh oauth2 token", "url", theurl, "err", err)
 	if err != nil {
@@ -117,10 +136,43 @@ type Config struct {
 	APIKey         string
 	SelfManaged    bool
 	WebhookEnabled bool
+	RecordDir      string
+	ReplayDir      string
 }
 
 // New will create a new event api sdk.Manager
-func New(cfg Config) sdk.Manager {
+func New(cfg Config) (m sdk.Manager, err error) {
+	var transport gohttp.RoundTripper
+	var r *recorder.Recorder
+	name := "agent_" + cfg.Channel + ".yml"
+	if cfg.RecordDir != "" {
+		recordDir, _ := filepath.Abs(cfg.RecordDir)
+		os.RemoveAll(recordDir)
+		os.MkdirAll(recordDir, 0700)
+		fn := filepath.Join(recordDir, name)
+		r, err = recorder.New(fn)
+		if err != nil {
+			return nil, err
+		}
+		r.SetTransport(httpdefaults.DefaultTransport())
+		transport = r
+		log.Info(cfg.Logger, "will record HTTP interactions to "+fn)
+	} else if cfg.ReplayDir != "" {
+		replayDir, _ := filepath.Abs(cfg.ReplayDir)
+		fn := filepath.Join(replayDir, name)
+		if !fileutil.FileExists(fn) {
+			return nil, fmt.Errorf("missing replay file at %s", fn)
+		}
+		r, err = recorder.New(fn)
+		if err != nil {
+			return nil, err
+		}
+		r.SetTransport(httpdefaults.DefaultTransport())
+		transport = r
+		log.Info(cfg.Logger, "will replay HTTP interactions from "+fn)
+	} else {
+		transport = httpdefaults.DefaultTransport()
+	}
 	return &eventAPIManager{
 		logger:         cfg.Logger,
 		channel:        cfg.Channel,
@@ -128,5 +180,7 @@ func New(cfg Config) sdk.Manager {
 		apikey:         cfg.APIKey,
 		selfManaged:    cfg.SelfManaged,
 		webhookEnabled: cfg.WebhookEnabled,
-	}
+		transport:      transport,
+		recorder:       r,
+	}, nil
 }

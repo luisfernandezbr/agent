@@ -1,7 +1,9 @@
 //go:generate go-bindata -pkg generator -prefix generator/ -o generator/gen.go generator/template/...
 package main
 
-import "github.com/pinpt/agent.next/cmd"
+import (
+	"github.com/pinpt/agent.next/cmd"
+)
 
 // these values go from the go build, do not change them
 var (

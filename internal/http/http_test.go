@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pinpt/agent.next/sdk"
+	"github.com/pinpt/go-common/v10/httpdefaults"
 	pjson "github.com/pinpt/go-common/v10/json"
 	"github.com/stretchr/testify/assert"
 )
@@ -22,7 +23,7 @@ func TestHTTPGetRequest(t *testing.T) {
 		fmt.Fprintln(w, `{"a":"b"}`)
 	}))
 	defer ts.Close()
-	mgr := New()
+	mgr := New(httpdefaults.DefaultTransport())
 	cl := mgr.New(ts.URL, nil)
 	kv := make(map[string]interface{})
 	resp, err := cl.Get(&kv)
@@ -41,7 +42,7 @@ func TestHTTPGetRequestInitialHeader(t *testing.T) {
 		fmt.Fprintln(w, `{"a":"b"}`)
 	}))
 	defer ts.Close()
-	mgr := New()
+	mgr := New(httpdefaults.DefaultTransport())
 	cl := mgr.New(ts.URL, map[string]string{"Foo": "Bar"})
 	kv := make(map[string]interface{})
 	resp, err := cl.Get(&kv)
@@ -61,7 +62,7 @@ func TestHTTPGetRequestOverrideHeader(t *testing.T) {
 		fmt.Fprintln(w, `{"a":"b"}`)
 	}))
 	defer ts.Close()
-	mgr := New()
+	mgr := New(httpdefaults.DefaultTransport())
 	cl := mgr.New(ts.URL, map[string]string{"Foo": "Bar"})
 	kv := make(map[string]interface{})
 	resp, err := cl.Get(&kv, sdk.WithHTTPHeader("Foo", "Foo"))
@@ -79,7 +80,7 @@ func TestHTTPGetRequestError(t *testing.T) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer ts.Close()
-	mgr := New()
+	mgr := New(httpdefaults.DefaultTransport())
 	cl := mgr.New(ts.URL, nil)
 	kv := make(map[string]interface{})
 	resp, err := cl.Get(&kv, nil)
@@ -99,7 +100,7 @@ func TestHTTPPostRequest(t *testing.T) {
 		w.Write(buf.Bytes())
 	}))
 	defer ts.Close()
-	mgr := New()
+	mgr := New(httpdefaults.DefaultTransport())
 	cl := mgr.New(ts.URL, nil)
 	kv := make(map[string]interface{})
 	resp, err := cl.Post(bytes.NewBuffer([]byte(`{"a":"b"}`)), &kv)
@@ -120,7 +121,7 @@ func TestHTTPPutRequest(t *testing.T) {
 		w.Write(buf.Bytes())
 	}))
 	defer ts.Close()
-	mgr := New()
+	mgr := New(httpdefaults.DefaultTransport())
 	cl := mgr.New(ts.URL, nil)
 	kv := make(map[string]interface{})
 	resp, err := cl.Put(bytes.NewBuffer([]byte(`{"a":"b"}`)), &kv)
@@ -141,7 +142,7 @@ func TestHTTPPatchRequest(t *testing.T) {
 		w.Write(buf.Bytes())
 	}))
 	defer ts.Close()
-	mgr := New()
+	mgr := New(httpdefaults.DefaultTransport())
 	cl := mgr.New(ts.URL, nil)
 	kv := make(map[string]interface{})
 	resp, err := cl.Patch(bytes.NewBuffer([]byte(`{"a":"b"}`)), &kv)
@@ -160,7 +161,7 @@ func TestHTTPDeleteRequest(t *testing.T) {
 		w.Write([]byte(pjson.Stringify(map[string]string{"a": "b"})))
 	}))
 	defer ts.Close()
-	mgr := New()
+	mgr := New(httpdefaults.DefaultTransport())
 	cl := mgr.New(ts.URL, nil)
 	kv := make(map[string]interface{})
 	resp, err := cl.Delete(&kv)
@@ -186,7 +187,7 @@ func TestHTTPGetRetry(t *testing.T) {
 		count++
 	}))
 	defer ts.Close()
-	mgr := New()
+	mgr := New(httpdefaults.DefaultTransport())
 	cl := mgr.New(ts.URL, nil)
 	kv := make(map[string]interface{})
 	resp, err := cl.Get(&kv, sdk.WithDeadline(time.Second*5))
@@ -216,7 +217,7 @@ func TestHTTPPostRetry(t *testing.T) {
 		count++
 	}))
 	defer ts.Close()
-	mgr := New()
+	mgr := New(httpdefaults.DefaultTransport())
 	cl := mgr.New(ts.URL, nil)
 	kv := make(map[string]interface{})
 	resp, err := cl.Post(bytes.NewBuffer([]byte(`{"a":"b"}`)), &kv, sdk.WithDeadline(time.Second*5))
@@ -237,7 +238,7 @@ func TestHTTPRetryTimeout(t *testing.T) {
 		count++
 	}))
 	defer ts.Close()
-	mgr := New()
+	mgr := New(httpdefaults.DefaultTransport())
 	cl := mgr.New(ts.URL, nil)
 	kv := make(map[string]interface{})
 	resp, err := cl.Post(bytes.NewBuffer([]byte(`{"a":"b"}`)), &kv, sdk.WithDeadline(time.Second))
@@ -269,7 +270,7 @@ func TestHTTPGetWithEndpoint(t *testing.T) {
 	ts := httptest.NewServer(mux)
 
 	defer ts.Close()
-	mgr := New()
+	mgr := New(httpdefaults.DefaultTransport())
 
 	cl := mgr.New(ts.URL, nil)
 	kv := make(map[string]interface{})
@@ -307,7 +308,7 @@ func TestHTTPBasicAuth(t *testing.T) {
 	defer ts.Close()
 	username := "pinpoint"
 	password := "rocks!"
-	mgr := New()
+	mgr := New(httpdefaults.DefaultTransport())
 	cl := mgr.New(ts.URL, nil)
 	var out struct {
 		Auth string `json:"auth"`
@@ -322,6 +323,7 @@ type fakeOAuthManager struct {
 
 var _ sdk.Manager = (*fakeOAuthManager)(nil)
 
+func (f *fakeOAuthManager) Close() error                             { return nil }
 func (f *fakeOAuthManager) GraphQLManager() sdk.GraphQLClientManager { return nil }
 func (f *fakeOAuthManager) HTTPManager() sdk.HTTPClientManager       { return nil }
 func (f *fakeOAuthManager) CreateWebHook(customerID string, refType string, integrationInstanceID string, refID string) (string, error) {
@@ -338,7 +340,7 @@ func TestHTTPOAuth(t *testing.T) {
 		w.Write([]byte(`{"auth": "` + r.Header.Get("Authorization") + `"}`))
 	}))
 	defer ts.Close()
-	mgr := New()
+	mgr := New(httpdefaults.DefaultTransport())
 	cl := mgr.New(ts.URL, nil)
 	var out struct {
 		Auth string `json:"auth"`
@@ -363,7 +365,7 @@ func TestHTTPOAuthRefresh(t *testing.T) {
 	defer ts.Close()
 	token := "12345TOKEN67890"
 	refreshToken := "12345REFRESH_TOKEN67890"
-	mgr := New()
+	mgr := New(httpdefaults.DefaultTransport())
 	cl := mgr.New(ts.URL, nil)
 	var out struct {
 		Auth string `json:"auth"`
@@ -381,7 +383,7 @@ func TestHTTPOAuthTooMany(t *testing.T) {
 	defer ts.Close()
 	token := "12345TOKEN67890"
 	refreshToken := "12345REFRESH_TOKEN67890"
-	mgr := New()
+	mgr := New(httpdefaults.DefaultTransport())
 	cl := mgr.New(ts.URL, nil)
 	var out struct {
 		Auth string `json:"auth"`

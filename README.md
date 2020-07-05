@@ -109,3 +109,8 @@ Make sure you update the `api_key` with the value of your `PP_GITHUB_TOKEN`.  Al
 ```
 PP_CUSTOMER_ID=1234 PP_INTERNAL=1 make local
 ```
+### Record & Playback
+
+You can enable record or playback of all HTTP interactions by passing in the `--record` or `--replay` arguments to dev. For record, this should be a directory to place the recording file.  For replay, this will be the directory where the recording file was saved.
+
+

@@ -14,10 +14,7 @@ import (
 	"github.com/mailru/easyjson"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/event"
-	"github.com/pinpt/go-common/v10/httpdefaults"
 )
-
-var transport = httpdefaults.DefaultTransport()
 
 type rewindReader struct {
 	buf []byte
@@ -220,6 +217,7 @@ func (c *client) Delete(out interface{}, options ...sdk.WithHTTPOption) (*sdk.HT
 }
 
 type manager struct {
+	transport http.RoundTripper
 }
 
 var _ sdk.HTTPClientManager = (*manager)(nil)
@@ -229,11 +227,11 @@ func (m *manager) New(url string, headers map[string]string) sdk.HTTPClient {
 	return &client{
 		url:     url,
 		headers: headers,
-		cl:      &http.Client{Transport: transport},
+		cl:      &http.Client{Transport: m.transport},
 	}
 }
 
 // New returns a new HTTPClientManager
-func New() sdk.HTTPClientManager {
-	return &manager{}
+func New(transport http.RoundTripper) sdk.HTTPClientManager {
+	return &manager{transport}
 }
