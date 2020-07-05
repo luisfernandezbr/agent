@@ -10,9 +10,6 @@ type {{ .TitleCaseName }}Integration struct {
 	config  sdk.Config
 	manager sdk.Manager
 	refType string
-
-	graphQL    sdk.GraphQLClient
-	httpClient sdk.HTTPClient
 }
 
 var _ sdk.Integration = (*{{ .TitleCaseName }}Integration)(nil)
@@ -45,6 +42,12 @@ func (g *{{ .TitleCaseName }}Integration) WebHook(webhook sdk.WebHook) error {
 	return nil
 }
 
+// Mutation is called when a mutation request is received on behalf of the integration
+func (g *{{ .TitleCaseName }}Integration) Mutation(mutation sdk.Mutation) error {
+	sdk.LogInfo(g.logger, "mutation not implemented")
+	return nil
+}
+
 // Stop is called when the integration is shutting down for cleanup
 func (g *{{ .TitleCaseName }}Integration) Stop() error {
 	sdk.LogInfo(g.logger, "stopping")
@@ -53,7 +56,10 @@ func (g *{{ .TitleCaseName }}Integration) Stop() error {
 
 // Export is called to tell the integration to run an export
 func (g *{{ .TitleCaseName }}Integration) Export(export sdk.Export) error {
-	sdk.LogInfo(g.logger, "export started")
+	logger := sdk.LogWith(g.logger, "customer_id", export.CustomerID())
+	started := time.Now()
+
+	sdk.LogInfo(logger, "export started")
 
 	// Pipe must be called to begin an export and receive a pipe for sending data
 	pipe := export.Pipe()
@@ -67,14 +73,7 @@ func (g *{{ .TitleCaseName }}Integration) Export(export sdk.Export) error {
 	// Config is any customer specific configuration for this customer
 	config := export.Config()
 
-	g.graphQL = g.manager.GraphQLManager().New("https://some_graphql_api.com/", map[string]string{
-		"Authorization": "bearer 1234567890",
-	})
-	g.httpClient = g.manager.HTTPManager().New("https://some_rest_api.com/", map[string]string{
-		"Authorization": "bearer 1234567890",
-	})
-
-	sdk.LogDebug(g.logger, "export starting")
+	sdk.LogDebug(logger, "export starting")
 
 	// start export here
 	// -------------
@@ -83,5 +82,8 @@ func (g *{{ .TitleCaseName }}Integration) Export(export sdk.Export) error {
 	_ = state
 	_ = customerID
 	_ = config
+
+
+	sdk.LogInfo(logger, "export finished", "duration", time.Since(started))
 	return nil
 }
