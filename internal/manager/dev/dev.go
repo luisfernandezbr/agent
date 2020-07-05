@@ -93,7 +93,6 @@ func New(logger log.Logger, channel string, recordDir, replayDir string) (m sdk.
 		if err != nil {
 			return nil, err
 		}
-		os.Chdir(cwd)
 		transport = r
 		r.SetTransport(httpdefaults.DefaultTransport())
 	} else {
