@@ -115,13 +115,19 @@ type WorkIssueCreateMutation struct {
 
 // WorkIssueUpdateMutation is an update mutation for a issue
 type WorkIssueUpdateMutation struct {
-	Title         *string `json:"title"`                // Title is for updating the title to the issue
-	Transition    *NameID `json:"transition,omitempty"` // Transition information (if used) for the issue
-	Status        *NameID `json:"status,omitempty"`     // Status is for changing the status of the issue
-	Priority      *NameID `json:"priority,omitempty"`   // Priority is for changing the priority of the issue
-	Resolution    *NameID `json:"resolution,omitempty"` // Resolution is for changing the resolution of the issue
-	Epic          *NameID `json:"epic,omitempty"`       // Epic is for updating the epic for the issue
-	AssigneeRefID *string `json:"assignee,omitempty"`   // AssigneeRefID is for changing the assignee of the issue to a ref_id
+	Set struct {
+		Title         *string `json:"title"`                // Title is for updating the title to the issue
+		Transition    *NameID `json:"transition,omitempty"` // Transition information (if used) for the issue
+		Status        *NameID `json:"status,omitempty"`     // Status is for changing the status of the issue
+		Priority      *NameID `json:"priority,omitempty"`   // Priority is for changing the priority of the issue
+		Resolution    *NameID `json:"resolution,omitempty"` // Resolution is for changing the resolution of the issue
+		Epic          *NameID `json:"epic,omitempty"`       // Epic is for updating the epic for the issue
+		AssigneeRefID *string `json:"assignee,omitempty"`   // AssigneeRefID is for changing the assignee of the issue to a ref_id
+	} `json:"set"`
+	Unset struct {
+		Epic     bool `json:"epic"`     // Epic is for removing the epic from the issue (if set to true)
+		Assignee bool `json:"assignee"` // Assignee is for removing the assignee from the issue (if set to true)
+	} `json:"unset"`
 }
 
 // WorkSprintCreateMutation is an create mutation for a sprint
@@ -137,11 +143,15 @@ type WorkSprintCreateMutation struct {
 
 // WorkSprintUpdateMutation is an update mutation for a sprint
 type WorkSprintUpdateMutation struct {
-	Name              *string           `json:"name,omitempty"`                 // Name is the name of the sprint to update
-	Goal              *string           `json:"goal,omitempty"`                 // Goal is the optional goal for the sprint
-	Status            *WorkSprintStatus `json:"status,omitempty"`               // Status is the status of the sprint
-	StartDate         *time.Time        `json:"start_date,omitempty"`           // StartDate is the start date for the sprint
-	EndDate           *time.Time        `json:"end_date,omitempty"`             // EndDate is the end date for the sprint
-	AddIssueRefIDs    []string          `json:"add_issue_ref_ids,omitempty"`    // AddIssueRefIDs is an array of issue ref_ids to add to the sprint
-	RemoveIssueRefIDs []string          `json:"remove_issue_ref_ids,omitempty"` // RemoveIssueRefIDs is an array of issue ref_ids to remove from the sprint
+	Set struct {
+		Name        *string           `json:"name,omitempty"`          // Name is the name of the sprint to update
+		Goal        *string           `json:"goal,omitempty"`          // Goal is the optional goal for the sprint
+		Status      *WorkSprintStatus `json:"status,omitempty"`        // Status is the status of the sprint
+		StartDate   *time.Time        `json:"start_date,omitempty"`    // StartDate is the start date for the sprint
+		EndDate     *time.Time        `json:"end_date,omitempty"`      // EndDate is the end date for the sprint
+		IssueRefIDs []string          `json:"issue_ref_ids,omitempty"` // IssueRefIDs is an array of issue ref_ids to add to the sprint
+	} `json:"set"`
+	Unset struct {
+		IssueRefIDs []string `json:"issue_ref_ids,omitempty"` // IssueRefIDs is an array of issue ref_ids to remove from the sprint
+	} `json:"unset"`
 }
