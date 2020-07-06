@@ -194,6 +194,7 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 		Channel:     channel,
 		APIKey:      config.APIKey,
 		DisablePing: true,
+		Logger:      logger,
 		Filter: &event.SubscriptionFilter{
 			ObjectExpr: `model:"agent.IntegrationInstance" AND (action:"create" OR action:"delete")`,
 		},
@@ -479,6 +480,7 @@ var runCmd = &cobra.Command{
 				Channel:     channel,
 				HTTPHeaders: map[string]string{"x-api-key": secret},
 				DisablePing: true,
+				Logger:      logger,
 				Filter: &event.SubscriptionFilter{
 					ObjectExpr: `model:"registry.Integration"`,
 				},
@@ -497,6 +499,7 @@ var runCmd = &cobra.Command{
 				Channel:     channel,
 				APIKey:      apikey,
 				DisablePing: true,
+				Logger:      logger,
 				Filter: &event.SubscriptionFilter{
 					ObjectExpr: `model:"registry.Integration"`,
 				},
