@@ -127,9 +127,9 @@ var webHookCmd = &cobra.Command{
 			log.Info(logger, "completed", "duration", time.Since(started).String())
 		}()
 
-		data, _ := cmd.Flags().GetString("data")
+		data, _ := cmd.Flags().GetString("input")
 		if data == "" {
-			log.Fatal(logger, "--data is required")
+			log.Fatal(logger, "--input is required")
 		}
 		if fileutil.FileExists(data) {
 			log.Info(logger, "loading webhook from file", "file", data)
@@ -154,14 +154,85 @@ var webHookCmd = &cobra.Command{
 			"dev-webhook",
 			"--dir", dir,
 			"--channel", channel,
-			"--data", data,
+			"--input", data,
 			"--ref-id", refID,
 			"--log-level", "debug",
 		}
 
-		headers, _ := cmd.Flags().GetStringArray("headers")
+		headers, _ := cmd.Flags().GetStringArray("header")
 		for _, str := range headers {
-			devargs = append(devargs, "--headers", str)
+			devargs = append(devargs, "--header", str)
+		}
+
+		set, _ := cmd.Flags().GetStringArray("set")
+		for _, str := range set {
+			devargs = append(devargs, "--set", str)
+		}
+
+		c := exec.Command(integrationFile, devargs...)
+
+		pos.OnExit(func(_ int) {
+			if c != nil {
+				syscall.Kill(-c.Process.Pid, syscall.SIGINT)
+				c = nil
+			}
+		})
+
+		c.Stderr = os.Stderr
+		c.Stdout = os.Stdout
+		c.Stdin = os.Stdin
+		c.Dir = distDir
+		c.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		if err := c.Start(); err != nil {
+			os.Exit(1)
+		}
+		c.Wait()
+	},
+}
+
+// mutationCmd represents the dev mutation command
+var mutationCmd = &cobra.Command{
+	Use:   "mutation",
+	Short: "run an integration in development mode and feed it a mutation",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		integrationDir := args[0]
+		logger := log.NewCommandLogger(cmd)
+		defer logger.Close()
+
+		started := time.Now()
+		defer func() {
+			log.Info(logger, "completed", "duration", time.Since(started).String())
+		}()
+
+		data, _ := cmd.Flags().GetString("input")
+		if data == "" {
+			log.Fatal(logger, "--input is required")
+		}
+		if fileutil.FileExists(data) {
+			log.Info(logger, "loading mutation from file", "file", data)
+			buf, err := ioutil.ReadFile(data)
+			if err != nil {
+				log.Fatal(logger, "error reading data file", "err", err)
+			}
+			data = string(buf)
+		}
+
+		distDir := filepath.Join(os.TempDir(), "agent.next")
+		integrationFile := buildIntegration(logger, distDir, integrationDir)
+
+		channel, _ := cmd.Flags().GetString("channel")
+		dir, _ := cmd.Flags().GetString("dir")
+		if dir != "" {
+			dir, _ = filepath.Abs(dir)
+		}
+
+		devargs := []string{
+			"dev-mutation",
+			"--dir", dir,
+			"--channel", channel,
+			"--input", data,
+			"--log-level", "debug",
 		}
 
 		set, _ := cmd.Flags().GetStringArray("set")
@@ -201,7 +272,9 @@ func init() {
 	DevCmd.Flags().String("record", "", "record all interactions to directory specified")
 	DevCmd.Flags().String("replay", "", "replay all interactions from directory specified")
 	DevCmd.AddCommand(webHookCmd)
-	webHookCmd.Flags().StringArray("headers", []string{}, "headers key/value pair such as a=b")
-	webHookCmd.Flags().String("data", "", "json body of a webhook payload, as a string or file")
-	webHookCmd.Flags().String("ref-id", "9999", "json body of a webhook payload")
+	DevCmd.AddCommand(mutationCmd)
+	webHookCmd.Flags().StringArray("header", []string{}, "headers key/value pair such as a=b")
+	webHookCmd.Flags().String("input", "", "json body of a webhook payload, as a string or file")
+	webHookCmd.Flags().String("ref-id", "9999", "the ref_id value")
+	mutationCmd.Flags().String("input", "", "json body of a mutation payload, as a string or file")
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	devexport "github.com/pinpt/agent.next/internal/export/dev"
 	emanager "github.com/pinpt/agent.next/internal/manager/eventapi"
+	devmutation "github.com/pinpt/agent.next/internal/mutation/dev"
 	"github.com/pinpt/agent.next/internal/pipe/console"
 	"github.com/pinpt/agent.next/internal/pipe/file"
 	"github.com/pinpt/agent.next/internal/server"
@@ -19,6 +20,7 @@ import (
 	devwebhook "github.com/pinpt/agent.next/internal/webhook/dev"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/fileutil"
+	pjson "github.com/pinpt/go-common/v10/json"
 	"github.com/pinpt/go-common/v10/log"
 	pos "github.com/pinpt/go-common/v10/os"
 	"github.com/spf13/cobra"
@@ -330,21 +332,21 @@ func Main(integration sdk.Integration, args ...string) {
 			}
 			defer pipe.Close()
 
-			datastr, _ := cmd.Flags().GetString("data")
+			datastr, _ := cmd.Flags().GetString("input")
 			data := make(map[string]interface{})
 			if err := json.Unmarshal([]byte(datastr), &data); err != nil {
 				log.Fatal(logger, "unable to decode webhook paylaod", "err", err)
 			}
 
 			headers := make(map[string]string)
-			headersArr, _ := cmd.Flags().GetStringArray("headers")
+			headersArr, _ := cmd.Flags().GetStringArray("header")
 			if len(headersArr) > 0 {
 				for _, setarg := range headersArr {
 					tok := strings.Split(setarg, "=")
 					headers[tok[0]] = tok[1]
 				}
 			}
-			refID, _ := cmd.Flags().GetString("dir")
+			refID, _ := cmd.Flags().GetString("ref-id")
 			headers["ref_id"] = refID
 			headers["customer_id"] = "1234"
 			headers["integration_instance_id"] = "1"
@@ -372,7 +374,118 @@ func Main(integration sdk.Integration, args ...string) {
 				}()
 			})
 			if err := integration.WebHook(webhook); err != nil {
-				log.Fatal(logger, "error running export", "err", err)
+				log.Fatal(logger, "error running webhook", "err", err)
+			}
+		},
+	}
+
+	var devMutationCmd = &cobra.Command{
+		Use:    "dev-mutation",
+		Short:  fmt.Sprintf("run the %s integration mutation", descriptor.RefType),
+		Args:   cobra.NoArgs,
+		Hidden: true,
+		Run: func(cmd *cobra.Command, args []string) {
+			logger := log.NewCommandLogger(cmd)
+			defer logger.Close()
+			log.Info(logger, "starting", "ref_type", descriptor.RefType, "version", descriptor.BuildCommitSHA)
+			channel, _ := cmd.Flags().GetString("channel")
+			secret, _ := cmd.Flags().GetString("secret")
+			intconfig := getIntegrationConfig(cmd)
+			manager, err := emanager.New(emanager.Config{
+				Channel: channel,
+				Secret:  secret,
+				Logger:  logger,
+			})
+			if err != nil {
+				log.Fatal(logger, "error starting integration", "err", err, "name", descriptor.Name)
+			}
+			defer manager.Close()
+			if err := integration.Start(logger, intconfig, manager); err != nil {
+				log.Fatal(logger, "error starting integration", "err", err, "name", descriptor.Name)
+			}
+			// get our temp folder to place in progress files
+			tmpdir, _ := cmd.Flags().GetString("tempdir")
+			if tmpdir == "" {
+				tmpdir = os.TempDir()
+			}
+			os.MkdirAll(tmpdir, 0700)
+
+			outdir, _ := cmd.Flags().GetString("dir")
+			statefn := filepath.Join(outdir, descriptor.RefType+".state.json")
+
+			stateobj, err := devstate.New(statefn)
+			if err != nil {
+				log.Fatal(logger, "error opening state file", "err", err)
+			}
+			defer stateobj.Close()
+			var pipe sdk.Pipe
+			if outdir != "" {
+				os.MkdirAll(outdir, 0700)
+				pipe = file.New(logger, outdir)
+			} else {
+				pipe = console.New(logger)
+			}
+			defer pipe.Close()
+
+			datastr, _ := cmd.Flags().GetString("input")
+			data := make(map[string]interface{})
+			if err := json.Unmarshal([]byte(datastr), &data); err != nil {
+				log.Fatal(logger, "unable to decode mutation paylaod", "err", err)
+			}
+
+			var id string
+			var model string
+			var action sdk.MutationAction
+			var payload interface{}
+			var user sdk.MutationUser
+
+			if i, ok := data["id"].(string); ok {
+				id = i
+			}
+			if m, ok := data["model"].(string); ok {
+				model = m
+			}
+			if a, ok := data["action"].(string); ok {
+				action = sdk.MutationAction(a)
+			}
+			if p, ok := data["payload"].(interface{}); ok {
+				payload = p
+			}
+			if p, ok := data["user"].(map[string]interface{}); ok {
+				json.Unmarshal([]byte(pjson.Stringify(p)), &user)
+			}
+
+			thepayload, err := sdk.CreateMutationPayloadFromData(model, action, []byte(pjson.Stringify(payload)))
+			if err != nil {
+				log.Fatal(logger, "error creating mutation payload", "err", err)
+			}
+
+			mutation := devmutation.New(
+				logger,
+				intconfig,
+				stateobj,
+				"1234",
+				"999",
+				"1",
+				pipe,
+				id,
+				model,
+				action,
+				thepayload,
+				user,
+			)
+			// TODO(robin): use context
+			_, cancel := context.WithCancel(context.Background())
+			pos.OnExit(func(_ int) {
+				log.Info(logger, "shutting down")
+				cancel()
+				go func() {
+					time.Sleep(time.Second)
+					os.Exit(1) // force exit if not already stopped
+				}()
+			})
+			if err := integration.Mutation(mutation); err != nil {
+				log.Fatal(logger, "error running mutation", "err", err)
 			}
 		},
 	}
@@ -390,6 +503,7 @@ func Main(integration sdk.Integration, args ...string) {
 	serverCmd.Flags().MarkHidden("groupid")
 	serverCmd.AddCommand(devExportCmd)
 	serverCmd.AddCommand(devWebhookCmd)
+	serverCmd.AddCommand(devMutationCmd)
 
 	// dev export command
 	devExportCmd.Flags().String("dir", "", "directory to place files when in dev mode")
@@ -400,9 +514,13 @@ func Main(integration sdk.Integration, args ...string) {
 
 	// dev webhook command
 	devWebhookCmd.Flags().String("dir", "", "directory to place files when in dev mode")
-	devWebhookCmd.Flags().String("data", "", "the json payload of the webhook")
-	devWebhookCmd.Flags().String("headers", "", "the headers of the webhook")
+	devWebhookCmd.Flags().String("input", "", "the json payload of the webhook")
+	devWebhookCmd.Flags().String("header", "", "the headers of the webhook")
 	devWebhookCmd.Flags().String("ref-id", "", "the refid on the webhook")
+
+	// dev mutation command
+	devMutationCmd.Flags().String("dir", "", "directory to place files when in dev mode")
+	devMutationCmd.Flags().String("input", "", "the json payload of the mutation")
 
 	if err := serverCmd.Execute(); err != nil {
 		fmt.Println(err)

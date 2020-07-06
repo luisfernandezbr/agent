@@ -27,7 +27,8 @@ var rootCmd = &cobra.Command{
 }
 
 var versionCmd = &cobra.Command{
-	Use: "version",
+	Use:   "version",
+	Short: "the build information",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(version, commit, date)
 	},

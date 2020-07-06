@@ -12,6 +12,7 @@ require (
 	github.com/jhaynie/go-vcr/v2 v2.0.2
 	github.com/mailru/easyjson v0.7.1
 	github.com/pinpt/go-common/v10 v10.0.14
+	github.com/pinpt/go-datamodel v0.0.1060
 	github.com/pinpt/integration-sdk v0.0.1060
 	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
 	github.com/russross/blackfriday/v2 v2.0.1

@@ -132,6 +132,23 @@ func TestHTTPPutRequest(t *testing.T) {
 	assert.Equal("b", kv["a"])
 }
 
+func TestHTTPPutRequestNoContent(t *testing.T) {
+	assert := assert.New(t)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		assert.Equal(http.MethodPut, r.Method)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer ts.Close()
+	mgr := New(httpdefaults.DefaultTransport())
+	cl := mgr.New(ts.URL, nil)
+	kv := make(map[string]interface{})
+	resp, err := cl.Put(bytes.NewBuffer([]byte(`{"a":"b"}`)), &kv)
+	assert.NoError(err)
+	assert.NotNil(resp)
+	assert.Equal(http.StatusNoContent, resp.StatusCode)
+}
+
 func TestHTTPPatchRequest(t *testing.T) {
 	assert := assert.New(t)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

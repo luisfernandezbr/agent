@@ -57,6 +57,10 @@ func (c *client) exec(opt *sdk.HTTPOptions, out interface{}, options ...sdk.With
 		}
 	}
 	opt.Response = nil
+	// no content means there's no body
+	if resp.StatusCode == http.StatusNoContent {
+		return res, nil
+	}
 	// check to see if this was a rate limited response
 	if resp.StatusCode == http.StatusTooManyRequests {
 		val := resp.Header.Get("Retry-After")

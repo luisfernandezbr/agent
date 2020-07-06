@@ -112,6 +112,10 @@ func New(
 		refID:                 refID,
 		integrationInstanceID: integrationInstanceID,
 		pipe:                  pipe,
+		id:                    id,
+		model:                 model,
+		action:                action,
+		payload:               payload,
 		user:                  user,
 	}
 }
