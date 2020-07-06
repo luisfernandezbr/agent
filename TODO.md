@@ -1,33 +1,27 @@
+# Agent 4.0
+
+# Current Status
+
+| Integration         | Export | WebHook | Mutation  | WebApp  | Notes                     |
+|---------------------|:------:|:-------:|:---------:|:--------:| -------------------------|
+| Jira                |   ✅   |   🛑    |   ✅      |   🛑    |                          |
+| BitBucket           |   ✅   |   ✅    |   🛑      |   🛑    |                          |
+| GitHub              |   ✅   |   ✅    |   ✅      |   ✅    |                          |
+| GitLab              |   ✅   |   🛑    |   🛑      |   🛑    |                          |
+| Azure               |   ✅   |   🛑    |   🛑      |   🛑    |                          |
+| GSuite              |   ✅   |   🛑    |   🛑      |   🛑    |                          |
+| Office365           |   ✅   |   🛑    |   🛑      |   🛑    |                          |
+
+
 # TODO
 
-This is an overview of a set of notes and TODOs for bringing this Agent v4 to life.
-
-## Design Stuff
-
-- Send events such as pause, resume, export etc
-- Web Hooks need to be fully flushed out and implemented
-- Need to figure out what's required for onboard still
-- Need to figure out the startup sequence for self-managed vs multi-tenant
-- Do we need agent pings anymore (maybe for self-managed only?)
-- Need a separate project (private) for building the multi-tenant agent with Kustomize
-- Need a create a project generator to generate an integration
-- How do we simplify work for non-sprint/kanban implementations like GitHub/GitLab?
-- Need to really flush out historical vs incremental from a state standpoint
-- Need good way to instrument and have good observability of the agents
-- Can we simplify / reduce some of the agent messages (payload data)
-- Need to think through how we do versioning of plugins/agent since they have to be built together
-- Support for mutations
-
-## Bugs/Fixes
-
-- Improve server shutdown
-
-## Ports
-
-- Jira
-- GitHub Issues
-- GitLab (Issues + Source)
-- BitBucket
-- Google GSuite
-- O365
-- MSFT DevOps
+- Finish UI SDK changes to webapp
+- Finish UI webapp for all integrations (Need design help from Congrove)
+- Validate Issue from GitHub on pipeline
+- Github user mapping validation
+- UI: Add on-premise UI
+- UI: Ability to re-auth
+- WebHook: need a model to track webhooks
+- Robin: do we still use PullRequestBranch?
+- Model: Ability to send active for repo, comment, etc when deleted
+- Export: need ability to deliver repo issues and show in the UI like we do today (entity_errors)
