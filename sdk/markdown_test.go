@@ -1,4 +1,4 @@
-package util
+package sdk
 
 import (
 	"testing"
@@ -27,8 +27,7 @@ func TestConvertMarkdownToHTML(t *testing.T) {
 <li><code>#F00A</code></li>
 <li><code>#FF0000</code></li>
 <li><code>#FF0000AA</code></li>
-</ul>
-`
+</ul>`
 
 	actual := ConvertMarkdownToHTML(text)
 
@@ -38,8 +37,7 @@ func TestConvertMarkdownToHTML(t *testing.T) {
 
 	text = `simple text`
 
-	expected = `<p>simple text</p>
-`
+	expected = `<p>simple text</p>`
 
 	actual = ConvertMarkdownToHTML(text)
 
@@ -56,8 +54,7 @@ func TestConvertMarkdownToHTML(t *testing.T) {
 
 <ul>
 <li>item 2</li>
-</ul>
-`
+</ul>`
 
 	actual = ConvertMarkdownToHTML(text)
 

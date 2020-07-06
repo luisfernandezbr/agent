@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/pinpt/agent.next/pkg/util"
+	"github.com/pinpt/agent.next/internal/util"
 	"github.com/pinpt/agent.next/runner"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/agent.next/sysinfo"
