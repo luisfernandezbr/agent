@@ -95,9 +95,11 @@ type NameID struct {
 
 // SourcecodePullRequestUpdateMutation is an update mutation for a pull request
 type SourcecodePullRequestUpdateMutation struct {
-	Title       *string                      `json:"title,omitempty"`       // Title is for updating the title to the pull request
-	Description *string                      `json:"description,omitempty"` // Description is for updating the description of the pull request
-	Status      *SourceCodePullRequestStatus `json:"status,omitempty"`      // Status is for changing the status of the pull request
+	Set struct {
+		Title       *string                      `json:"title,omitempty"`       // Title is for updating the title to the pull request
+		Description *string                      `json:"description,omitempty"` // Description is for updating the description of the pull request
+		Status      *SourceCodePullRequestStatus `json:"status,omitempty"`      // Status is for changing the status of the pull request
+	} `json:"set"`
 }
 
 // WorkIssueCreateMutation is a create mutation for a issue
