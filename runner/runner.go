@@ -151,11 +151,12 @@ func Main(integration sdk.Integration, args ...string) {
 			}
 
 			manager, err := emanager.New(emanager.Config{
-				Channel:     channel,
-				Logger:      logger,
-				Secret:      secret,
-				APIKey:      apikey,
-				SelfManaged: selfManaged,
+				Channel:        channel,
+				Logger:         logger,
+				Secret:         secret,
+				APIKey:         apikey,
+				SelfManaged:    selfManaged,
+				WebhookEnabled: true,
 			})
 			if err != nil {
 				log.Fatal(logger, "error starting integration", "err", err, "name", descriptor.Name)
