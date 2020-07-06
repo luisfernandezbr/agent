@@ -1,8 +1,9 @@
 import React from 'react';
+import styles from './styles.less';
 
 const Integration = () => {
 	return (
-		<>Your integration UI goes here</>
+		<div className={styles.Container}>Your integration UI goes here</div>
 	);
 };
 
