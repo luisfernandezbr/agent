@@ -58,14 +58,18 @@ type WorkIssueUpsert struct {
 }
 
 // NewWorkIssueUpsert will create a new upsert object for work.Issue which can be sent to an sdk.Pipe using Write
-func NewWorkIssueUpsert(customerID string, refID string, refType string, val WorkIssueUpsert) Model {
+func NewWorkIssueUpsert(customerID string, integrationInstanceID string, refID string, refType string, val WorkIssueUpsert) Model {
 	data := &agent.MutateData{
-		ID:    work.NewIssueID(customerID, refID, refType),
-		Model: work.IssueModelName.String(),
-		Set:   make(map[string]string),
-		Unset: make([]string, 0),
-		Push:  make(map[string]string),
-		Pull:  make([]string, 0), // FIXME: this isn't correct and needs to be a field -> []values
+		ID:                    NewWorkIssueID(customerID, refID, refType),
+		CustomerID:            customerID,
+		RefID:                 refID,
+		RefType:               refType,
+		IntegrationInstanceID: StringPointer(integrationInstanceID),
+		Model:                 work.IssueModelName.String(),
+		Set:                   make(map[string]string),
+		Unset:                 make([]string, 0),
+		Push:                  make(map[string]string),
+		Pull:                  make([]string, 0), // FIXME: this isn't correct and needs to be a field -> []values
 	}
 	// setters
 	if val.Set.Active != nil {
