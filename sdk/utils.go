@@ -2,7 +2,9 @@ package sdk
 
 import (
 	"encoding/json"
+	"io"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/pinpt/go-common/v10/datetime"
@@ -128,7 +130,17 @@ func Keys(m map[string]bool) []string {
 	return a
 }
 
-// Stringify will return a JSON stringified representation of vval
+// Stringify will return a JSON stringified representation of val
 func Stringify(val interface{}) string {
 	return pjson.Stringify(val)
+}
+
+// StringifyPretty will return a JSON stringified representation of val which is formatted
+func StringifyPretty(val interface{}) string {
+	return pjson.Stringify(val, true)
+}
+
+// StringifyReader sometimes you just need a reader that reads serialize json. this is your function
+func StringifyReader(val interface{}) io.Reader {
+	return strings.NewReader(Stringify(val))
 }
