@@ -13,7 +13,7 @@ require (
 	github.com/mailru/easyjson v0.7.1
 	github.com/pinpt/go-common/v10 v10.0.14
 	github.com/pinpt/httpclient v0.0.0-20200627153820-d374c2f15648 // indirect
-	github.com/pinpt/integration-sdk v0.0.1063
+	github.com/pinpt/integration-sdk v0.0.1065
 	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
 	github.com/russross/blackfriday/v2 v2.0.1
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94

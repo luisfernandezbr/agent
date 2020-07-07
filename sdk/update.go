@@ -14,8 +14,8 @@ type NameRefID struct {
 	Name  *string `json:"name,omitempty"`
 }
 
-// WorkIssueUpsert is an action for upserting a work.Issue
-type WorkIssueUpsert struct {
+// WorkIssueUpdate is an action for update a work.Issue
+type WorkIssueUpdate struct {
 	Set struct {
 		Title            *string
 		Description      *string
@@ -52,14 +52,14 @@ type WorkIssueUpsert struct {
 		ChangeLog *WorkIssueChangeLog
 	}
 	Pull struct {
-		Tags      *bool
-		SprintIDs *bool
+		Tags      *[]string
+		SprintIDs *[]string
 	}
 }
 
-// NewWorkIssueUpsert will create a new upsert object for work.Issue which can be sent to an sdk.Pipe using Write
-func NewWorkIssueUpsert(customerID string, integrationInstanceID string, refID string, refType string, val WorkIssueUpsert) Model {
-	data := &agent.MutateData{
+// NewWorkIssueUpdate will create a new update object for work.Issue which can be sent to an sdk.Pipe using Write
+func NewWorkIssueUpdate(customerID string, integrationInstanceID string, refID string, refType string, val WorkIssueUpdate) Model {
+	data := &agent.UpdateData{
 		ID:                    NewWorkIssueID(customerID, refID, refType),
 		CustomerID:            customerID,
 		RefID:                 refID,
@@ -69,7 +69,7 @@ func NewWorkIssueUpsert(customerID string, integrationInstanceID string, refID s
 		Set:                   make(map[string]string),
 		Unset:                 make([]string, 0),
 		Push:                  make(map[string]string),
-		Pull:                  make([]string, 0), // FIXME: this isn't correct and needs to be a field -> []values
+		Pull:                  make(map[string]string),
 	}
 	// setters
 	if val.Set.Active != nil {
@@ -163,10 +163,10 @@ func NewWorkIssueUpsert(customerID string, integrationInstanceID string, refID s
 	}
 	// pullers
 	if val.Pull.Tags != nil {
-		data.Pull = append(data.Pull, "tags")
+		data.Pull["tags"] = Stringify(*val.Pull.Tags)
 	}
-	if val.Pull.Tags != nil {
-		data.Pull = append(data.Pull, "sprint_ids")
+	if val.Pull.SprintIDs != nil {
+		data.Pull["sprint_ids"] = Stringify(*val.Pull.SprintIDs)
 	}
 	// always set the updated_date when upserting
 	data.Set["updated_date"] = Stringify(datetime.NewDateNow())
