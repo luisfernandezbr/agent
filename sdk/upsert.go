@@ -58,8 +58,8 @@ type WorkIssueUpsert struct {
 }
 
 // NewWorkIssueUpsert will create a new upsert object for work.Issue which can be sent to an sdk.Pipe using Write
-func NewWorkIssueUpsert(customerID string, refID string, refType string, val WorkIssueUpsert) interface{} {
-	data := agent.MutateData{
+func NewWorkIssueUpsert(customerID string, refID string, refType string, val WorkIssueUpsert) Model {
+	data := &agent.MutateData{
 		ID:    work.NewIssueID(customerID, refID, refType),
 		Model: work.IssueModelName.String(),
 		Set:   make(map[string]string),
