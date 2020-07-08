@@ -121,8 +121,8 @@ func (m *eventAPIManager) Create(customerID string, integrationInstanceID string
 	}
 	if res.Success {
 		url := res.URL
-		url += "?integration_instance_id=" + integrationInstanceID
-		log.Debug(m.logger, "created webhook", "url", url, "customer_id", customerID, "integration_instance_id", integrationInstanceID, "ref_type", refType, "ref_id", refID)
+		url += "?integration_instance_id=" + integrationInstanceID + "&scope=" + string(scope)
+		log.Debug(m.logger, "created webhook", "url", url, "customer_id", customerID, "integration_instance_id", integrationInstanceID, "ref_type", refType, "ref_id", refID, "scope", scope)
 		client := m.createGraphql()
 		variables := make(gql.Variables)
 		var err error
@@ -169,7 +169,29 @@ func (m *eventAPIManager) Create(customerID string, integrationInstanceID string
 
 // Delete will remove the webhook from the entity based on scope
 func (m *eventAPIManager) Delete(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope) error {
-	// TODO
+	client := m.createGraphql()
+	switch scope {
+	case sdk.WebHookScopeProject:
+		projectID := work.NewProjectID(customerID, refID, refType)
+		return work.ExecProjectWebhookDeleteMutation(client, projectID)
+	case sdk.WebHookScopeRepo:
+		repoID := sourcecode.NewRepoID(customerID, refType, refID)
+		return sourcecode.ExecRepoWebhookDeleteMutation(client, repoID)
+	case sdk.WebHookScopeOrg:
+		instance, err := agent.FindIntegrationInstance(client, integrationInstanceID)
+		if err != nil {
+			return err
+		}
+		hooks := make([]agent.IntegrationInstanceWebhooks, 0)
+		for _, webhook := range instance.Webhooks {
+			if *webhook.RefID != refID {
+				hooks = append(hooks, webhook)
+			}
+		}
+		variables := make(gql.Variables)
+		variables[agent.IntegrationInstanceModelWebhooksColumn] = hooks
+		return agent.ExecIntegrationInstanceSilentUpdateMutation(client, integrationInstanceID, variables, false)
+	}
 	return nil
 }
 
