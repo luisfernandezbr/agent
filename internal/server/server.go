@@ -410,6 +410,8 @@ func (s *Server) onEvent(evt event.SubscriptionEvent) error {
 		vars := make(graphql.Variables)
 		vars[agent.IntegrationInstanceModelExportAcknowledgedColumn] = true
 		vars[agent.IntegrationInstanceModelStateColumn] = agent.IntegrationStateExporting
+		vars[agent.IntegrationInstanceModelErroredColumn] = false
+		vars[agent.IntegrationInstanceModelErrorMessageColumn] = nil
 		// TODO(robin): add last export acknowledged date
 		if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, req.Integration.ID, vars, false); err != nil {
 			log.Error(s.logger, "error updating agent integration", "err", err, "id", req.Integration.ID)
@@ -423,6 +425,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent) error {
 		vars = make(graphql.Variables)
 		vars[agent.IntegrationInstanceModelStateColumn] = agent.IntegrationStateIdle
 		if errmessage != nil {
+			vars[agent.IntegrationInstanceModelErroredColumn] = true
 			vars[agent.IntegrationInstanceModelErrorMessageColumn] = *errmessage
 		}
 		var dt agent.IntegrationInstanceLastExportCompletedDate
@@ -475,6 +478,7 @@ func (s *Server) onWebhook(evt event.SubscriptionEvent) error {
 		// update the db with our new integration state
 		if errmessage != nil {
 			vars := make(graphql.Variables)
+			vars[agent.IntegrationInstanceModelErroredColumn] = true
 			vars[agent.IntegrationInstanceModelErrorMessageColumn] = *errmessage
 			if _, err := agent.ExecIntegrationInstanceUpdateMutation(cl, integrationInstanceID, vars, false); err != nil {
 				log.Error(s.logger, "error updating agent integration", "err", err, "id", integrationInstanceID)

@@ -78,7 +78,14 @@ func (m *eventAPIManager) createGraphql() gql.Client {
 	if m.secret != "" {
 		headers["x-api-key"] = m.secret
 	}
-	return gql.New(api.GraphService, m.apikey, headers)
+	url := api.BackendURL(api.GraphService, m.channel) + "/graphql"
+	client := gql.New(url, "", headers)
+	if m.apikey != "" {
+		client.SetHeader("Authorization", m.apikey)
+	}
+	client.SetHeader("Content-Type", "application/json")
+	client.SetHeader("User-Agent", "pinpt/agent")
+	return client
 }
 
 // Create is used by the integration to create a webhook on behalf of the integration for a given customer, reftype and refid

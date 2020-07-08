@@ -129,7 +129,10 @@ var PublishCmd = &cobra.Command{
 		log.Info(logger, "uploading", "size", pnum.ToBytesSize(stat.Size()))
 		resp, err := api.Put(ctx, channel, api.RegistryService, basepath, apikey, of, opts...)
 		if err != nil || resp.StatusCode != http.StatusAccepted {
-			buf, _ := ioutil.ReadAll(resp.Body)
+			var buf []byte
+			if resp != nil {
+				buf, _ = ioutil.ReadAll(resp.Body)
+			}
 			log.Fatal(logger, "error publishing your bundle", "err", err, "body", string(buf))
 		}
 		log.Info(logger, "🚀 published", "integration", descriptor.RefType, "version", version)
