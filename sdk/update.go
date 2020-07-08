@@ -168,7 +168,7 @@ func NewWorkIssueUpdate(customerID string, integrationInstanceID string, refID s
 	if val.Pull.SprintIDs != nil {
 		data.Pull["sprint_ids"] = Stringify(*val.Pull.SprintIDs)
 	}
-	// always set the updated_date when upserting
+	// always set the updated_date when updating
 	data.Set["updated_date"] = Stringify(datetime.NewDateNow())
 
 	// TODO: attachments, linked_issues

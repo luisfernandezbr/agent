@@ -21,6 +21,7 @@ type webhook struct {
 	pipe                  sdk.Pipe
 	headers               map[string]string
 	buf                   []byte
+	scope                 sdk.WebHookScope
 }
 
 var _ sdk.WebHook = (*webhook)(nil)
@@ -84,6 +85,10 @@ func (e *webhook) Resumed() error {
 	return nil
 }
 
+func (e *webhook) Scope() sdk.WebHookScope {
+	return e.scope
+}
+
 // Config is details for the configuration
 type Config struct {
 	Ctx                   context.Context
@@ -96,6 +101,7 @@ type Config struct {
 	Pipe                  sdk.Pipe
 	Buf                   []byte
 	Headers               map[string]string
+	Scope                 sdk.WebHookScope
 }
 
 // New will return an sdk.WebHook
@@ -115,5 +121,6 @@ func New(config Config) sdk.WebHook {
 		pipe:                  config.Pipe,
 		buf:                   config.Buf,
 		headers:               config.Headers,
+		scope:                 config.Scope,
 	}
 }

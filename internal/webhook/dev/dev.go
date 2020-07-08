@@ -18,6 +18,7 @@ type webhook struct {
 	headers               map[string]string
 	buf                   []byte
 	data                  map[string]interface{}
+	scope                 sdk.WebHookScope
 }
 
 var _ sdk.WebHook = (*webhook)(nil)
@@ -77,6 +78,11 @@ func (e *webhook) Resumed() error {
 	return nil
 }
 
+// Scope is the registered webhook scope
+func (e *webhook) Scope() sdk.WebHookScope {
+	return e.scope
+}
+
 // New will return an sdk.WebHook
 func New(
 	logger log.Logger,
@@ -89,6 +95,7 @@ func New(
 	headers map[string]string,
 	data map[string]interface{},
 	buf []byte,
+	scope sdk.WebHookScope,
 ) sdk.WebHook {
 	return &webhook{
 		logger:                logger,
@@ -101,5 +108,6 @@ func New(
 		headers:               headers,
 		data:                  data,
 		buf:                   buf,
+		scope:                 scope,
 	}
 }

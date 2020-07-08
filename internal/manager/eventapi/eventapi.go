@@ -14,9 +14,14 @@ import (
 	"github.com/pinpt/agent.next/internal/http"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/api"
+	"github.com/pinpt/go-common/v10/datetime"
 	"github.com/pinpt/go-common/v10/fileutil"
+	gql "github.com/pinpt/go-common/v10/graphql"
 	"github.com/pinpt/go-common/v10/httpdefaults"
 	"github.com/pinpt/go-common/v10/log"
+	"github.com/pinpt/integration-sdk/agent"
+	"github.com/pinpt/integration-sdk/sourcecode"
+	"github.com/pinpt/integration-sdk/work"
 )
 
 // ErrWebHookDisabled is returned if webhook is disabled
@@ -34,6 +39,8 @@ type eventAPIManager struct {
 }
 
 var _ sdk.Manager = (*eventAPIManager)(nil)
+var _ sdk.WebHookManager = (*eventAPIManager)(nil)
+var _ sdk.AuthManager = (*eventAPIManager)(nil)
 
 // Close is called on shutdown to cleanup any resources
 func (m *eventAPIManager) Close() error {
@@ -56,8 +63,27 @@ func (m *eventAPIManager) HTTPManager() sdk.HTTPClientManager {
 	return http.New(m.transport)
 }
 
-// CreateWebHook is used by the integration to create a webhook on behalf of the integration for a given customer and refid
-func (m *eventAPIManager) CreateWebHook(customerID, refType, integrationInstanceID, refID string) (string, error) {
+// WebHookManager returns the WebHook manager instance
+func (m *eventAPIManager) WebHookManager() sdk.WebHookManager {
+	return m
+}
+
+// AuthManager returns the Auth manager instance
+func (m *eventAPIManager) AuthManager() sdk.AuthManager {
+	return m
+}
+
+func (m *eventAPIManager) createGraphql() gql.Client {
+	headers := make(map[string]string)
+	if m.secret != "" {
+		headers["x-api-key"] = m.secret
+	}
+	return gql.New(api.GraphService, m.apikey, headers)
+}
+
+// Create is used by the integration to create a webhook on behalf of the integration for a given customer, reftype and refid
+// the result will be a fully qualified URL to the webhook endpoint that should be registered with the integration
+func (m *eventAPIManager) Create(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope) (string, error) {
 	if !m.webhookEnabled {
 		return "", ErrWebHookDisabled
 	}
@@ -72,6 +98,7 @@ func (m *eventAPIManager) CreateWebHook(customerID, refType, integrationInstance
 			"integration_instance_id": integrationInstanceID,
 			"self_managed":            fmt.Sprintf("%v", m.selfManaged),
 			"customer_id":             customerID,
+			"scope":                   string(scope),
 		},
 		"customer_id": customerID,
 		"system":      refType,
@@ -96,9 +123,139 @@ func (m *eventAPIManager) CreateWebHook(customerID, refType, integrationInstance
 		url := res.URL
 		url += "?integration_instance_id=" + integrationInstanceID
 		log.Debug(m.logger, "created webhook", "url", url, "customer_id", customerID, "integration_instance_id", integrationInstanceID, "ref_type", refType, "ref_id", refID)
-		return url, nil
+		client := m.createGraphql()
+		variables := make(gql.Variables)
+		var err error
+		switch scope {
+		case sdk.WebHookScopeProject:
+			variables[work.ProjectWebhookModelURLColumn] = url
+			variables[work.ProjectWebhookModelEnabledColumn] = true
+			variables[work.ProjectWebhookModelErroredColumn] = false
+			err = work.ExecProjectWebhookSilentUpdateMutation(client, integrationInstanceID, variables, false)
+		case sdk.WebHookScopeRepo:
+			variables[sourcecode.RepoWebhookModelURLColumn] = url
+			variables[sourcecode.RepoWebhookModelEnabledColumn] = true
+			variables[sourcecode.RepoWebhookModelErroredColumn] = false
+			err = sourcecode.ExecRepoWebhookSilentUpdateMutation(client, integrationInstanceID, variables, false)
+		case sdk.WebHookScopeOrg:
+			instance, err := agent.FindIntegrationInstance(client, integrationInstanceID)
+			if err != nil {
+				return "", fmt.Errorf("error finding the integration instance: %w", err)
+			}
+			var found bool
+			for _, webhook := range instance.Webhooks {
+				if *webhook.RefID == refID {
+					webhook.URL = sdk.StringPointer(url)
+					webhook.Enabled = true
+					webhook.ErrorMessage = nil
+					webhook.Errored = false
+					found = true
+				}
+			}
+			if !found {
+				instance.Webhooks = append(instance.Webhooks, agent.IntegrationInstanceWebhooks{
+					URL:     sdk.StringPointer(url),
+					RefID:   sdk.StringPointer(refID),
+					Enabled: true,
+				})
+			}
+			variables[agent.IntegrationInstanceModelWebhooksColumn] = instance.Webhooks
+			err = agent.ExecIntegrationInstanceSilentUpdateMutation(client, integrationInstanceID, variables, false)
+		}
+		return url, err
 	}
-	return "", fmt.Errorf("failed to create webhook url")
+	return "", fmt.Errorf("failed to create webhook url: %w", err)
+}
+
+// Delete will remove the webhook from the entity based on scope
+func (m *eventAPIManager) Delete(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope) error {
+	// TODO
+	return nil
+}
+
+// Exists returns true if the webhook is registered for the given entity based on ref_id and scope
+func (m *eventAPIManager) Exists(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope) bool {
+	client := m.createGraphql()
+	switch scope {
+	case sdk.WebHookScopeProject:
+		webhook, err := work.FindProjectWebhook(client, integrationInstanceID)
+		if err == nil && webhook != nil && webhook.RefID == refID {
+			return true
+		}
+	case sdk.WebHookScopeRepo:
+		webhook, err := sourcecode.FindRepoWebhook(client, integrationInstanceID)
+		if err == nil && webhook != nil && webhook.RefID == refID {
+			return true
+		}
+	case sdk.WebHookScopeOrg:
+		instance, err := agent.FindIntegrationInstance(client, integrationInstanceID)
+		if err == nil {
+			for _, webhook := range instance.Webhooks {
+				if *webhook.RefID == refID {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// Errored will set the errored state on the webhook and the message will be the Error() value of the error
+func (m *eventAPIManager) Errored(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope, theerror error) {
+	client := m.createGraphql()
+	variables := make(gql.Variables)
+	switch scope {
+	case sdk.WebHookScopeProject:
+		projectID := sdk.NewWorkProjectID(customerID, refID, refType)
+		variables[work.ProjectErrorModelIDColumn] = projectID
+		variables[work.ProjectErrorModelCustomerIDColumn] = customerID
+		variables[work.ProjectErrorModelIntegrationInstanceIDColumn] = integrationInstanceID
+		variables[work.ProjectErrorModelProjectIDColumn] = projectID
+		variables[work.ProjectErrorModelErroredColumn] = true
+		variables[work.ProjectErrorModelErrorMessageColumn] = theerror.Error()
+		variables[work.ProjectErrorModelRefIDColumn] = refID
+		variables[work.ProjectErrorModelRefTypeColumn] = refType
+		variables[work.ProjectErrorModelUpdatedAtColumn] = datetime.EpochNow()
+		if err := work.ExecProjectErrorSilentUpdateMutation(client, projectID, variables, true); err != nil {
+			log.Error(m.logger, "error setting the instance project errored", "err", err, "integration_instance_id", integrationInstanceID, "customer_id", customerID, "project_id", projectID)
+		}
+	case sdk.WebHookScopeRepo:
+		repoID := sdk.NewSourceCodeRepoID(customerID, refID, refType)
+		variables[sourcecode.RepoErrorModelIDColumn] = repoID
+		variables[sourcecode.RepoErrorModelCustomerIDColumn] = customerID
+		variables[sourcecode.RepoErrorModelIntegrationInstanceIDColumn] = integrationInstanceID
+		variables[sourcecode.RepoErrorModelRepoIDColumn] = repoID
+		variables[sourcecode.RepoErrorModelErroredColumn] = true
+		variables[sourcecode.RepoErrorModelErrorMessageColumn] = theerror.Error()
+		variables[sourcecode.RepoErrorModelRefIDColumn] = refID
+		variables[sourcecode.RepoErrorModelRefTypeColumn] = refType
+		variables[sourcecode.RepoErrorModelUpdatedAtColumn] = datetime.EpochNow()
+		if err := sourcecode.ExecRepoErrorSilentUpdateMutation(client, repoID, variables, true); err != nil {
+			log.Error(m.logger, "error setting the instance repo errored", "err", err, "integration_instance_id", integrationInstanceID, "customer_id", customerID, "repo_id", repoID)
+		}
+	case sdk.WebHookScopeOrg:
+		instance, err := agent.FindIntegrationInstance(client, integrationInstanceID)
+		if err != nil {
+			log.Error(m.logger, "error finding the integration instance", "err", err, "integration_instance_id", integrationInstanceID, "customer_id", customerID)
+			return
+		}
+		for _, webhook := range instance.Webhooks {
+			if *webhook.RefID == refID {
+				variables[agent.IntegrationInstanceModelWebhooksErroredColumn] = true
+				variables[agent.IntegrationInstanceModelWebhooksErrorMessageColumn] = theerror.Error()
+				if err := agent.ExecIntegrationInstanceSilentUpdateMutation(client, integrationInstanceID, variables, false); err != nil {
+					log.Error(m.logger, "error setting the integration instance errored", "err", err, "integration_instance_id", integrationInstanceID, "customer_id", customerID)
+				}
+				return
+			}
+		}
+		// if we don't have a webhook, we need to just update on the instance itself
+		variables[agent.IntegrationInstanceModelErrorMessageColumn] = theerror.Error()
+		variables[agent.IntegrationInstanceModelErroredColumn] = true
+		if err := agent.ExecIntegrationInstanceSilentUpdateMutation(client, integrationInstanceID, variables, false); err != nil {
+			log.Error(m.logger, "error setting the integration instance errored", "err", err, "integration_instance_id", integrationInstanceID, "customer_id", customerID)
+		}
+	}
 }
 
 // RefreshOAuth2Token will refresh the OAuth2 access token using the provided refreshToken and return a new access token

@@ -1,5 +1,17 @@
 package sdk
 
+// WebHookScope is the scope of the webhook
+type WebHookScope string
+
+const (
+	// WebHookScopeOrg is the org scope for a webhook
+	WebHookScopeOrg WebHookScope = "org"
+	// WebHookScopeRepo is the repo scope for a webhook
+	WebHookScopeRepo WebHookScope = "repo"
+	// WebHookScopeProject is the project scope for a webhook
+	WebHookScopeProject WebHookScope = "project"
+)
+
 // WebHook is a control interafce for web hook data received by pinpoint on behalf of the integration
 type WebHook interface {
 	Control
@@ -21,4 +33,19 @@ type WebHook interface {
 	Bytes() []byte
 	// Headers are the headers that came from the web hook
 	Headers() map[string]string
+	// Scope is the registered webhook scope
+	Scope() WebHookScope
+}
+
+// WebHookManager is the manager for dealing with WebHooks
+type WebHookManager interface {
+	// Create is used by the integration to create a webhook on behalf of the integration for a given customer, reftype and refid
+	// the result will be a fully qualified URL to the webhook endpoint that should be registered with the integration
+	Create(customerID string, integrationInstanceID string, refType string, refID string, scope WebHookScope) (string, error)
+	// Delete will remove the webhook from the entity based on scope
+	Delete(customerID string, integrationInstanceID string, refType string, refID string, scope WebHookScope) error
+	// Exists returns true if the webhook is registered for the given entity based on ref_id and scope
+	Exists(customerID string, integrationInstanceID string, refType string, refID string, scope WebHookScope) bool
+	// Errored will set the errored state on the webhook and the message will be the Error() value of the error
+	Errored(customerID string, integrationInstanceID string, refType string, refID string, scope WebHookScope, err error)
 }

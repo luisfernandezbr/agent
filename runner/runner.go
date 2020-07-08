@@ -363,6 +363,7 @@ func Main(integration sdk.Integration, args ...string) {
 				headers,
 				data,
 				[]byte(datastr),
+				sdk.WebHookScopeOrg, // not used
 			)
 			// TODO(robin): use context
 			_, cancel := context.WithCancel(context.Background())

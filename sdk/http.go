@@ -150,7 +150,7 @@ func WithOAuth2Refresh(manager Manager, refType string, accessToken string, refr
 		}
 		if opt.Response.StatusCode == http.StatusUnauthorized && refreshToken != "" {
 			var err error
-			token, err = manager.RefreshOAuth2Token(refType, refreshToken)
+			token, err = manager.AuthManager().RefreshOAuth2Token(refType, refreshToken)
 			if err != nil {
 				return err
 			}
