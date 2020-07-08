@@ -47,9 +47,9 @@ type WorkIssueUpdate struct {
 		PlannedEndDate   *bool
 	}
 	Push struct {
-		Tags      *[]string
-		SprintIDs *[]string
-		ChangeLog *WorkIssueChangeLog
+		Tags       *[]string
+		SprintIDs  *[]string
+		ChangeLogs *[]WorkIssueChangeLog
 	}
 	Pull struct {
 		Tags      *[]string
@@ -158,8 +158,8 @@ func NewWorkIssueUpdate(customerID string, integrationInstanceID string, refID s
 	if val.Push.SprintIDs != nil {
 		data.Push["sprint_ids"] = Stringify(*val.Push.SprintIDs)
 	}
-	if val.Push.ChangeLog != nil {
-		data.Push["changelog"] = Stringify(*val.Push.ChangeLog)
+	if val.Push.ChangeLogs != nil {
+		data.Push["change_log"] = Stringify(*val.Push.ChangeLogs)
 	}
 	// pullers
 	if val.Pull.Tags != nil {
@@ -172,6 +172,8 @@ func NewWorkIssueUpdate(customerID string, integrationInstanceID string, refID s
 	data.Set["updated_date"] = Stringify(datetime.NewDateNow())
 
 	// TODO: attachments, linked_issues
+
+	// fmt.Println(StringifyPretty(data))
 
 	return data
 }

@@ -11,12 +11,23 @@ import (
 	"github.com/pinpt/go-common/v10/hash"
 	pjson "github.com/pinpt/go-common/v10/json"
 	"github.com/pinpt/go-common/v10/log"
+	pn "github.com/pinpt/go-common/v10/number"
 	ps "github.com/pinpt/go-common/v10/strings"
 )
 
 // StringPointer return a string pointer from a value
 func StringPointer(val interface{}) *string {
 	return ps.Pointer(val)
+}
+
+// StringArrayPointer returns a pointer to the value
+func StringArrayPointer(vals []string) *[]string {
+	return &vals
+}
+
+// BoolPointer returns a bool pointer from a value
+func BoolPointer(val bool) *bool {
+	return pn.BoolPointer(val)
 }
 
 // Hash will convert all objects to a string and return a SHA256 of the concatenated values.

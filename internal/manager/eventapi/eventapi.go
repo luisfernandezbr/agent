@@ -120,8 +120,7 @@ func (m *eventAPIManager) Create(customerID string, integrationInstanceID string
 		return "", fmt.Errorf("error creating webhook url. %w", err)
 	}
 	if res.Success {
-		url := res.URL
-		url += "?integration_instance_id=" + integrationInstanceID + "&scope=" + string(scope)
+		url := res.URL + "?integration_instance_id=" + integrationInstanceID + "&scope=" + string(scope)
 		log.Debug(m.logger, "created webhook", "url", url, "customer_id", customerID, "integration_instance_id", integrationInstanceID, "ref_type", refType, "ref_id", refID, "scope", scope)
 		client := m.createGraphql()
 		variables := make(gql.Variables)
