@@ -162,7 +162,7 @@ func (m *eventAPIManager) Create(customerID string, integrationInstanceID string
 			}
 			var found bool
 			for _, webhook := range instance.Webhooks {
-				if *webhook.RefID == refID {
+				if (webhook.RefID == nil && refID == "") || (webhook.RefID != nil && *webhook.RefID == refID) {
 					webhook.URL = sdk.StringPointer(url)
 					webhook.Enabled = true
 					webhook.ErrorMessage = nil
@@ -206,7 +206,7 @@ func (m *eventAPIManager) Delete(customerID string, integrationInstanceID string
 		}
 		hooks := make([]agent.IntegrationInstanceWebhooks, 0)
 		for _, webhook := range instance.Webhooks {
-			if *webhook.RefID != refID {
+			if (webhook.RefID == nil && refID == "") || (webhook.RefID != nil && *webhook.RefID == refID) {
 				hooks = append(hooks, webhook)
 			}
 		}
@@ -240,7 +240,7 @@ func (m *eventAPIManager) Exists(customerID string, integrationInstanceID string
 		instance, err := agent.FindIntegrationInstance(client, integrationInstanceID)
 		if err == nil {
 			for _, webhook := range instance.Webhooks {
-				if *webhook.RefID == refID {
+				if (webhook.RefID == nil && refID == "") || (webhook.RefID != nil && *webhook.RefID == refID) {
 					m.cache.SetDefault(m.webhookCacheKey(customerID, integrationInstanceID, refType, refID, scope), *webhook.URL)
 					return true
 				}
@@ -299,7 +299,7 @@ func (m *eventAPIManager) Errored(customerID string, integrationInstanceID strin
 			return
 		}
 		for _, webhook := range instance.Webhooks {
-			if *webhook.RefID == refID {
+			if (webhook.RefID == nil && refID == "") || (webhook.RefID != nil && *webhook.RefID == refID) {
 				variables[agent.IntegrationInstanceModelWebhooksErroredColumn] = true
 				variables[agent.IntegrationInstanceModelWebhooksErrorMessageColumn] = theerror.Error()
 				if err := agent.ExecIntegrationInstanceSilentUpdateMutation(client, integrationInstanceID, variables, false); err != nil {
