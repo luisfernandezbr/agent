@@ -60,7 +60,7 @@ func (m *devManager) AuthManager() sdk.AuthManager {
 }
 
 // CreateWebHook is used by the integration to create a webhook on behalf of the integration for a given customer and refid
-func (m *devManager) Create(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope) (string, error) {
+func (m *devManager) Create(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope, params ...string) (string, error) {
 	return "", fmt.Errorf("cannot create a webhook in dev mode")
 }
 
@@ -70,6 +70,11 @@ func (m *devManager) Delete(customerID string, integrationInstanceID string, ref
 
 func (m *devManager) Exists(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope) bool {
 	return false
+}
+
+// HookURL will return the webhook url
+func (m *devManager) HookURL(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope) (string, error) {
+	return "", fmt.Errorf("no webhook in dev mode")
 }
 
 func (m *devManager) Errored(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope, theerror error) {

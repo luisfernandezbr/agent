@@ -8,8 +8,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/jhaynie/go-vcr/v2/recorder"
+	"github.com/patrickmn/go-cache"
 	"github.com/pinpt/agent.next/internal/graphql"
 	"github.com/pinpt/agent.next/internal/http"
 	"github.com/pinpt/agent.next/sdk"
@@ -17,6 +19,7 @@ import (
 	"github.com/pinpt/go-common/v10/datetime"
 	"github.com/pinpt/go-common/v10/fileutil"
 	gql "github.com/pinpt/go-common/v10/graphql"
+	"github.com/pinpt/go-common/v10/hash"
 	"github.com/pinpt/go-common/v10/httpdefaults"
 	"github.com/pinpt/go-common/v10/log"
 	"github.com/pinpt/integration-sdk/agent"
@@ -36,6 +39,7 @@ type eventAPIManager struct {
 	webhookEnabled bool
 	transport      gohttp.RoundTripper
 	recorder       *recorder.Recorder
+	cache          *cache.Cache
 }
 
 var _ sdk.Manager = (*eventAPIManager)(nil)
@@ -88,9 +92,13 @@ func (m *eventAPIManager) createGraphql() gql.Client {
 	return client
 }
 
+func (m *eventAPIManager) webhookCacheKey(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope) string {
+	return hash.Values(customerID, integrationInstanceID, refType, refID, string(scope))
+}
+
 // Create is used by the integration to create a webhook on behalf of the integration for a given customer, reftype and refid
 // the result will be a fully qualified URL to the webhook endpoint that should be registered with the integration
-func (m *eventAPIManager) Create(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope) (string, error) {
+func (m *eventAPIManager) Create(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope, params ...string) (string, error) {
 	if !m.webhookEnabled {
 		return "", ErrWebHookDisabled
 	}
@@ -127,7 +135,11 @@ func (m *eventAPIManager) Create(customerID string, integrationInstanceID string
 		return "", fmt.Errorf("error creating webhook url. %w", err)
 	}
 	if res.Success {
-		url := res.URL + "?integration_instance_id=" + integrationInstanceID + "&scope=" + string(scope)
+		qs := strings.Join(params, "&")
+		if qs != "" {
+			qs = "&" + qs
+		}
+		url := res.URL + "?integration_instance_id=" + integrationInstanceID + "&scope=" + string(scope) + qs
 		log.Debug(m.logger, "created webhook", "url", url, "customer_id", customerID, "integration_instance_id", integrationInstanceID, "ref_type", refType, "ref_id", refID, "scope", scope)
 		client := m.createGraphql()
 		variables := make(gql.Variables)
@@ -168,6 +180,9 @@ func (m *eventAPIManager) Create(customerID string, integrationInstanceID string
 			variables[agent.IntegrationInstanceModelWebhooksColumn] = instance.Webhooks
 			err = agent.ExecIntegrationInstanceSilentUpdateMutation(client, integrationInstanceID, variables, false)
 		}
+		if err != nil {
+			m.cache.SetDefault(m.webhookCacheKey(customerID, integrationInstanceID, refType, refID, scope), url)
+		}
 		return url, err
 	}
 	return "", fmt.Errorf("failed to create webhook url: %w", err)
@@ -175,6 +190,7 @@ func (m *eventAPIManager) Create(customerID string, integrationInstanceID string
 
 // Delete will remove the webhook from the entity based on scope
 func (m *eventAPIManager) Delete(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope) error {
+	m.cache.Delete(m.webhookCacheKey(customerID, integrationInstanceID, refType, refID, scope))
 	client := m.createGraphql()
 	switch scope {
 	case sdk.WebHookScopeProject:
@@ -203,16 +219,21 @@ func (m *eventAPIManager) Delete(customerID string, integrationInstanceID string
 
 // Exists returns true if the webhook is registered for the given entity based on ref_id and scope
 func (m *eventAPIManager) Exists(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope) bool {
+	if _, ok := m.cache.Get(m.webhookCacheKey(customerID, integrationInstanceID, refType, refID, scope)); ok {
+		return ok
+	}
 	client := m.createGraphql()
 	switch scope {
 	case sdk.WebHookScopeProject:
 		webhook, err := work.FindProjectWebhook(client, integrationInstanceID)
 		if err == nil && webhook != nil && webhook.RefID == refID {
+			m.cache.SetDefault(m.webhookCacheKey(customerID, integrationInstanceID, refType, refID, scope), *webhook.URL)
 			return true
 		}
 	case sdk.WebHookScopeRepo:
 		webhook, err := sourcecode.FindRepoWebhook(client, integrationInstanceID)
 		if err == nil && webhook != nil && webhook.RefID == refID {
+			m.cache.SetDefault(m.webhookCacheKey(customerID, integrationInstanceID, refType, refID, scope), *webhook.URL)
 			return true
 		}
 	case sdk.WebHookScopeOrg:
@@ -220,12 +241,22 @@ func (m *eventAPIManager) Exists(customerID string, integrationInstanceID string
 		if err == nil {
 			for _, webhook := range instance.Webhooks {
 				if *webhook.RefID == refID {
+					m.cache.SetDefault(m.webhookCacheKey(customerID, integrationInstanceID, refType, refID, scope), *webhook.URL)
 					return true
 				}
 			}
 		}
 	}
 	return false
+}
+
+// HookURL will return the webhook url
+func (m *eventAPIManager) HookURL(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope) (string, error) {
+	val, ok := m.cache.Get(m.webhookCacheKey(customerID, integrationInstanceID, refType, refID, scope))
+	if !ok {
+		return "", fmt.Errorf("webhook not found")
+	}
+	return val.(string), nil
 }
 
 // Errored will set the errored state on the webhook and the message will be the Error() value of the error
@@ -367,5 +398,6 @@ func New(cfg Config) (m sdk.Manager, err error) {
 		webhookEnabled: cfg.WebhookEnabled,
 		transport:      transport,
 		recorder:       r,
+		cache:          cache.New(time.Minute*5, time.Minute*6),
 	}, nil
 }

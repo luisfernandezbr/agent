@@ -41,11 +41,13 @@ type WebHook interface {
 type WebHookManager interface {
 	// Create is used by the integration to create a webhook on behalf of the integration for a given customer, reftype and refid
 	// the result will be a fully qualified URL to the webhook endpoint that should be registered with the integration
-	Create(customerID string, integrationInstanceID string, refType string, refID string, scope WebHookScope) (string, error)
+	Create(customerID string, integrationInstanceID string, refType string, refID string, scope WebHookScope, params ...string) (string, error)
 	// Delete will remove the webhook from the entity based on scope
 	Delete(customerID string, integrationInstanceID string, refType string, refID string, scope WebHookScope) error
 	// Exists returns true if the webhook is registered for the given entity based on ref_id and scope
 	Exists(customerID string, integrationInstanceID string, refType string, refID string, scope WebHookScope) bool
 	// Errored will set the errored state on the webhook and the message will be the Error() value of the error
 	Errored(customerID string, integrationInstanceID string, refType string, refID string, scope WebHookScope, err error)
+	// HookURL will return the webhook url
+	HookURL(customerID string, integrationInstanceID string, refType string, refID string, scope WebHookScope) (string, error)
 }

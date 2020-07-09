@@ -11,6 +11,7 @@ require (
 	github.com/go-redis/redis/v8 v8.0.0-beta.5
 	github.com/jhaynie/go-vcr/v2 v2.0.2
 	github.com/mailru/easyjson v0.7.1
+	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pinpt/go-common/v10 v10.0.15
 	github.com/pinpt/httpclient v0.0.0-20200627153820-d374c2f15648 // indirect
 	github.com/pinpt/integration-sdk v0.0.1070
