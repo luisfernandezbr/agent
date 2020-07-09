@@ -216,6 +216,9 @@ type WorkProjectIssueTypes = work.ProjectIssueTypes
 // WorkIssueTransitions is the issue transitions
 type WorkIssueTransitions = work.IssueTransitions
 
+// WorkProjectCapability is the project capability
+type WorkProjectCapability = work.ProjectCapability
+
 // NewWorkProjectID will return the work project id
 func NewWorkProjectID(customerID string, refID string, refType string) string {
 	return work.NewProjectID(customerID, refID, refType)

@@ -147,8 +147,9 @@ func (p *eventAPIPipe) send(model string, f *wrapperFile) error {
 		Objects:               pjson.Stringify(map[string]string{model: base64.StdEncoding.EncodeToString(buf)}),
 	}
 	headers := map[string]string{
-		"customer_id": p.customerID,
-		"uuid":        p.uuid,
+		"customer_id":             p.customerID,
+		"uuid":                    p.uuid,
+		"integration_instance_id": p.integrationInstanceID,
 	}
 	if p.jobid != "" {
 		headers["jobid"] = p.jobid
@@ -205,7 +206,7 @@ func (p *eventAPIPipe) run() {
 			}
 			p.mu.Unlock()
 		case <-p.ctx.Done():
-			log.Debug(p.logger, "run ctx is done")
+			log.Debug(p.logger, "pipe run ctx is done")
 			ticker.Stop()
 			// hold lock so we can safely close channel
 			lock.Lock()
