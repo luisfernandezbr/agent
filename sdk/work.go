@@ -207,6 +207,15 @@ const WorkProjectAffiliationUser = work.ProjectAffiliationUser
 // WorkProjectAffiliationThirdparty is the enumeration value for thirdparty
 const WorkProjectAffiliationThirdparty = work.ProjectAffiliationThirdparty
 
+// WorkProjectIssueResolutions is a work.ProjectIssueResolutions
+type WorkProjectIssueResolutions = work.ProjectIssueResolutions
+
+// WorkProjectIssueTypes is a work.ProjectIssueTypes
+type WorkProjectIssueTypes = work.ProjectIssueTypes
+
+// WorkIssueTransitions is the issue transitions
+type WorkIssueTransitions = work.IssueTransitions
+
 // NewWorkProjectID will return the work project id
 func NewWorkProjectID(customerID string, refID string, refType string) string {
 	return work.NewProjectID(customerID, refID, refType)

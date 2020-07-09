@@ -100,7 +100,7 @@ func (m *eventAPIManager) webhookCacheKey(customerID string, integrationInstance
 // the result will be a fully qualified URL to the webhook endpoint that should be registered with the integration
 func (m *eventAPIManager) Create(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope, params ...string) (string, error) {
 	if !m.webhookEnabled {
-		return "", ErrWebHookDisabled
+		return "", nil
 	}
 	theurl := sdk.JoinURL(
 		api.BackendURL(api.EventService, m.channel),
