@@ -64,7 +64,7 @@ func CreateMutationPayloadFromData(model string, action MutationAction, buf []by
 			err := json.Unmarshal(buf, &payload)
 			return &payload, err
 		case work.SprintModelName.String():
-			var payload WorkSprintCreateMutation
+			var payload AgileSprintCreateMutation
 			err := json.Unmarshal(buf, &payload)
 			return &payload, err
 		}
@@ -79,7 +79,7 @@ func CreateMutationPayloadFromData(model string, action MutationAction, buf []by
 			err := json.Unmarshal(buf, &payload)
 			return &payload, err
 		case work.SprintModelName.String():
-			var payload WorkSprintUpdateMutation
+			var payload AgileSprintUpdateMutation
 			err := json.Unmarshal(buf, &payload)
 			return &payload, err
 		}
@@ -132,26 +132,26 @@ type WorkIssueUpdateMutation struct {
 	} `json:"unset"`
 }
 
-// WorkSprintCreateMutation is an create mutation for a sprint
-type WorkSprintCreateMutation struct {
-	Name         string           `json:"name"`             // Name is the name of the sprint
-	Goal         *string          `json:"goal,omitempty"`   // Goal is the optional goal for the sprint
-	Status       WorkSprintStatus `json:"status,omitempty"` // Status is the status of the sprint
-	StartDate    time.Time        `json:"start_date"`       // StartDate is the start date for the sprint
-	EndDate      time.Time        `json:"end_date"`         // EndDate is the end date for the sprint
-	IssueRefIDs  []string         `json:"issue_ref_ids"`    // IssueRefIDs is an array of issue ref_ids to add to the sprint
-	ProjectRefID string           `json:"project_id"`       // ProjectID is the id to the issue project as a ref_id
+// AgileSprintCreateMutation is an create mutation for a sprint
+type AgileSprintCreateMutation struct {
+	Name         string            `json:"name"`             // Name is the name of the sprint
+	Goal         *string           `json:"goal,omitempty"`   // Goal is the optional goal for the sprint
+	Status       AgileSprintStatus `json:"status,omitempty"` // Status is the status of the sprint
+	StartDate    time.Time         `json:"start_date"`       // StartDate is the start date for the sprint
+	EndDate      time.Time         `json:"end_date"`         // EndDate is the end date for the sprint
+	IssueRefIDs  []string          `json:"issue_ref_ids"`    // IssueRefIDs is an array of issue ref_ids to add to the sprint
+	ProjectRefID string            `json:"project_id"`       // ProjectID is the id to the issue project as a ref_id
 }
 
-// WorkSprintUpdateMutation is an update mutation for a sprint
-type WorkSprintUpdateMutation struct {
+// AgileSprintUpdateMutation is an update mutation for a sprint
+type AgileSprintUpdateMutation struct {
 	Set struct {
-		Name        *string           `json:"name,omitempty"`          // Name is the name of the sprint to update
-		Goal        *string           `json:"goal,omitempty"`          // Goal is the optional goal for the sprint
-		Status      *WorkSprintStatus `json:"status,omitempty"`        // Status is the status of the sprint
-		StartDate   *time.Time        `json:"start_date,omitempty"`    // StartDate is the start date for the sprint
-		EndDate     *time.Time        `json:"end_date,omitempty"`      // EndDate is the end date for the sprint
-		IssueRefIDs []string          `json:"issue_ref_ids,omitempty"` // IssueRefIDs is an array of issue ref_ids to add to the sprint
+		Name        *string            `json:"name,omitempty"`          // Name is the name of the sprint to update
+		Goal        *string            `json:"goal,omitempty"`          // Goal is the optional goal for the sprint
+		Status      *AgileSprintStatus `json:"status,omitempty"`        // Status is the status of the sprint
+		StartDate   *time.Time         `json:"start_date,omitempty"`    // StartDate is the start date for the sprint
+		EndDate     *time.Time         `json:"end_date,omitempty"`      // EndDate is the end date for the sprint
+		IssueRefIDs []string           `json:"issue_ref_ids,omitempty"` // IssueRefIDs is an array of issue ref_ids to add to the sprint
 	} `json:"set"`
 	Unset struct {
 		IssueRefIDs []string `json:"issue_ref_ids,omitempty"` // IssueRefIDs is an array of issue ref_ids to remove from the sprint

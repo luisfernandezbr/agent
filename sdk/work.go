@@ -24,12 +24,6 @@ type WorkIssueType = work.IssueType
 // WorkProject is a project
 type WorkProject = work.Project
 
-// WorkSprint is a sprint
-type WorkSprint = work.Sprint
-
-// WorkKanbanBoard is a kanban board
-type WorkKanbanBoard = work.KanbanBoard
-
 // WorkUser is a user in the work system
 type WorkUser = work.User
 
@@ -128,30 +122,6 @@ type WorkIssueCommentCreatedDate = work.IssueCommentCreatedDate
 
 // WorkIssueCommentUpdatedDate is the issue comment updated date
 type WorkIssueCommentUpdatedDate = work.IssueCommentUpdatedDate
-
-// WorkSprintCompletedDate is the sprint completed date
-type WorkSprintCompletedDate = work.SprintCompletedDate
-
-// WorkSprintEndedDate is the sprint ended date
-type WorkSprintEndedDate = work.SprintEndedDate
-
-// WorkSprintStartedDate is the sprint started date
-type WorkSprintStartedDate = work.SprintStartedDate
-
-// WorkSprintStatus is the sprint status enum
-type WorkSprintStatus = work.SprintStatus
-
-// WorkSprintStatusActive is the enumeration value for active
-const WorkSprintStatusActive WorkSprintStatus = work.SprintStatusActive
-
-// WorkSprintStatusFuture is the enumeration value for future
-const WorkSprintStatusFuture WorkSprintStatus = work.SprintStatusFuture
-
-// WorkSprintStatusClosed is the enumeration value for closed
-const WorkSprintStatusClosed WorkSprintStatus = work.SprintStatusClosed
-
-// WorkKanbanBoardColumns is the kanban board columns
-type WorkKanbanBoardColumns = work.KanbanBoardColumns
 
 // WorkIssueTypeMappedType is the issue type mapped type enum
 type WorkIssueTypeMappedType = work.IssueTypeMappedType
