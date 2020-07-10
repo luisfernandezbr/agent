@@ -64,10 +64,10 @@ func NewAgileBoardID(customerID string, refID string, refType string) string {
 
 // NewAgileKanbanID will return the agile kanban id
 func NewAgileKanbanID(customerID string, refID string, refType string) string {
-	return agile.NewKanbanID(customerID, refID, refType, "")
+	return agile.NewKanbanID(customerID, refID, refType)
 }
 
 // NewAgileSprintID will return the agile sprint id
 func NewAgileSprintID(customerID string, refID string, refType string) string {
-	return agile.NewSprintID(customerID, refID, refType, "")
+	return agile.NewSprintID(customerID, refID, refType)
 }
