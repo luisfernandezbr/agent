@@ -9,6 +9,18 @@ import "github.com/pinpt/integration-sdk/work/agile"
 // AgileBoard is the agile board
 type AgileBoard = agile.Board
 
+// AgileBoardType is the board type
+type AgileBoardType = agile.BoardType
+
+// AgileBoardTypeScrum is the enumeration value for scrum
+const AgileBoardTypeScrum = agile.BoardTypeScrum
+
+// AgileBoardTypeKanban is the enumeration value for kanban
+const AgileBoardTypeKanban = agile.BoardTypeKanban
+
+// AgileBoardTypeOther is the enumeration value for other
+const AgileBoardTypeOther = agile.BoardTypeOther
+
 // AgileKanban is a kanban board
 type AgileKanban = agile.Kanban
 
@@ -44,3 +56,18 @@ const AgileSprintStatusActive = agile.SprintStatusActive
 
 // AgileSprintStatusFuture is the enumeration value for future
 const AgileSprintStatusFuture = agile.SprintStatusFuture
+
+// NewAgileBoardID will return the agile board id
+func NewAgileBoardID(customerID string, refID string, refType string) string {
+	return agile.NewBoardID(customerID, refID, refType)
+}
+
+// NewAgileKanbanID will return the agile kanban id
+func NewAgileKanbanID(customerID string, refID string, refType string) string {
+	return agile.NewKanbanID(customerID, refID, refType, "")
+}
+
+// NewAgileSprintID will return the agile sprint id
+func NewAgileSprintID(customerID string, refID string, refType string) string {
+	return agile.NewSprintID(customerID, refID, refType, "")
+}

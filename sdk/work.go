@@ -219,16 +219,6 @@ func NewWorkIssueTypeID(customerID string, refType string, refID string) string 
 	return work.NewIssueTypeID(customerID, refType, refID)
 }
 
-// NewWorkKanbanBoardID will return the work kanban board id
-func NewWorkKanbanBoardID(customerID string, refID string, refType string) string {
-	return work.NewKanbanBoardID(customerID, refType, refID)
-}
-
-// NewWorkSprintID will return the work sprint id
-func NewWorkSprintID(customerID string, refID string, refType string) string {
-	return work.NewSprintID(customerID, refID, refType)
-}
-
 // NewWorkUserID will return the work user id
 func NewWorkUserID(customerID string, refID string, refType string) string {
 	return work.NewUserID(customerID, refID, refType)
