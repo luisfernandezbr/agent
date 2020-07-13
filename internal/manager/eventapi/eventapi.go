@@ -149,12 +149,12 @@ func (m *eventAPIManager) Create(customerID string, integrationInstanceID string
 			variables[work.ProjectWebhookModelURLColumn] = url
 			variables[work.ProjectWebhookModelEnabledColumn] = true
 			variables[work.ProjectWebhookModelErroredColumn] = false
-			err = work.ExecProjectWebhookSilentUpdateMutation(client, integrationInstanceID, variables, false)
+			err = work.ExecProjectWebhookSilentUpdateMutation(client, integrationInstanceID, variables, true)
 		case sdk.WebHookScopeRepo:
 			variables[sourcecode.RepoWebhookModelURLColumn] = url
 			variables[sourcecode.RepoWebhookModelEnabledColumn] = true
 			variables[sourcecode.RepoWebhookModelErroredColumn] = false
-			err = sourcecode.ExecRepoWebhookSilentUpdateMutation(client, integrationInstanceID, variables, false)
+			err = sourcecode.ExecRepoWebhookSilentUpdateMutation(client, integrationInstanceID, variables, true)
 		case sdk.WebHookScopeOrg:
 			instance, err := agent.FindIntegrationInstance(client, integrationInstanceID)
 			if err != nil {
@@ -178,7 +178,7 @@ func (m *eventAPIManager) Create(customerID string, integrationInstanceID string
 				})
 			}
 			variables[agent.IntegrationInstanceModelWebhooksColumn] = instance.Webhooks
-			err = agent.ExecIntegrationInstanceSilentUpdateMutation(client, integrationInstanceID, variables, false)
+			err = agent.ExecIntegrationInstanceSilentUpdateMutation(client, integrationInstanceID, variables, true)
 		}
 		if err != nil {
 			m.cache.SetDefault(m.webhookCacheKey(customerID, integrationInstanceID, refType, refID, scope), url)
