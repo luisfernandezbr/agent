@@ -145,7 +145,7 @@ func (m *eventAPIManager) Create(customerID string, integrationInstanceID string
 		var err error
 		switch scope {
 		case sdk.WebHookScopeProject:
-			projectID := work.NewProjectID(customerID, refType, refID)
+			projectID := work.NewProjectID(customerID, refID, refType)
 			variables[work.ProjectWebhookModelURLColumn] = url
 			variables[work.ProjectWebhookModelIntegrationInstanceIDColumn] = integrationInstanceID
 			variables[work.ProjectWebhookModelProjectIDColumn] = projectID
@@ -204,7 +204,7 @@ func (m *eventAPIManager) Delete(customerID string, integrationInstanceID string
 	client := m.createGraphql(customerID)
 	switch scope {
 	case sdk.WebHookScopeProject:
-		projectID := work.NewProjectID(customerID, refType, refID)
+		projectID := work.NewProjectID(customerID, refID, refType)
 		return work.ExecProjectWebhookDeleteMutation(client, work.NewProjectWebhookID(customerID, projectID))
 	case sdk.WebHookScopeRepo:
 		repoID := sourcecode.NewRepoID(customerID, refType, refID)
@@ -237,7 +237,7 @@ func (m *eventAPIManager) Exists(customerID string, integrationInstanceID string
 	client := m.createGraphql(customerID)
 	switch scope {
 	case sdk.WebHookScopeProject:
-		projectID := work.NewProjectID(customerID, refType, refID)
+		projectID := work.NewProjectID(customerID, refID, refType)
 		webhook, err := work.FindProjectWebhook(client, work.NewProjectWebhookID(customerID, projectID))
 		if err == nil && webhook != nil && webhook.RefID == refID {
 			m.cache.SetDefault(dbid, *webhook.URL)
@@ -280,7 +280,7 @@ func (m *eventAPIManager) Errored(customerID string, integrationInstanceID strin
 	variables := make(gql.Variables)
 	switch scope {
 	case sdk.WebHookScopeProject:
-		projectID := work.NewProjectID(customerID, refType, refID)
+		projectID := work.NewProjectID(customerID, refID, refType)
 		variables[work.ProjectErrorModelCustomerIDColumn] = customerID
 		variables[work.ProjectErrorModelIntegrationInstanceIDColumn] = integrationInstanceID
 		variables[work.ProjectErrorModelProjectIDColumn] = projectID
