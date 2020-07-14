@@ -146,7 +146,6 @@ func (m *eventAPIManager) Create(customerID string, integrationInstanceID string
 		switch scope {
 		case sdk.WebHookScopeProject:
 			projectID := work.NewProjectID(customerID, refID, refType)
-			variables[work.ProjectWebhookModelIDColumn] = work.NewProjectErrorID(customerID, projectID)
 			variables[work.ProjectWebhookModelURLColumn] = url
 			variables[work.ProjectWebhookModelIntegrationInstanceIDColumn] = integrationInstanceID
 			variables[work.ProjectWebhookModelProjectIDColumn] = projectID
@@ -157,7 +156,6 @@ func (m *eventAPIManager) Create(customerID string, integrationInstanceID string
 			err = work.ExecProjectWebhookSilentUpdateMutation(client, work.NewProjectWebhookID(customerID, projectID), variables, true)
 		case sdk.WebHookScopeRepo:
 			repoID := sourcecode.NewRepoID(customerID, refType, refID)
-			variables[sourcecode.RepoWebhookModelIDColumn] = sourcecode.NewRepoErrorID(customerID, repoID)
 			variables[sourcecode.RepoWebhookModelURLColumn] = url
 			variables[sourcecode.RepoWebhookModelIntegrationInstanceIDColumn] = integrationInstanceID
 			variables[sourcecode.RepoWebhookModelRepoIDColumn] = repoID
@@ -283,7 +281,6 @@ func (m *eventAPIManager) Errored(customerID string, integrationInstanceID strin
 	switch scope {
 	case sdk.WebHookScopeProject:
 		projectID := work.NewProjectID(customerID, refID, refType)
-		variables[work.ProjectErrorModelIDColumn] = work.NewProjectErrorID(customerID, projectID)
 		variables[work.ProjectErrorModelCustomerIDColumn] = customerID
 		variables[work.ProjectErrorModelIntegrationInstanceIDColumn] = integrationInstanceID
 		variables[work.ProjectErrorModelProjectIDColumn] = projectID
@@ -297,7 +294,6 @@ func (m *eventAPIManager) Errored(customerID string, integrationInstanceID strin
 		}
 	case sdk.WebHookScopeRepo:
 		repoID := sourcecode.NewRepoID(customerID, refType, refID)
-		variables[sourcecode.RepoErrorModelIDColumn] = sourcecode.NewRepoErrorID(customerID, repoID)
 		variables[sourcecode.RepoErrorModelCustomerIDColumn] = customerID
 		variables[sourcecode.RepoErrorModelIntegrationInstanceIDColumn] = integrationInstanceID
 		variables[sourcecode.RepoErrorModelRepoIDColumn] = repoID
