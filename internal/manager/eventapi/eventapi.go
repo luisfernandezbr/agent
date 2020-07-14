@@ -281,6 +281,7 @@ func (m *eventAPIManager) Errored(customerID string, integrationInstanceID strin
 	switch scope {
 	case sdk.WebHookScopeProject:
 		projectID := work.NewProjectID(customerID, refID, refType)
+		variables[work.ProjectErrorModelIDColumn] = work.NewProjectErrorID(customerID, projectID)
 		variables[work.ProjectErrorModelCustomerIDColumn] = customerID
 		variables[work.ProjectErrorModelIntegrationInstanceIDColumn] = integrationInstanceID
 		variables[work.ProjectErrorModelProjectIDColumn] = projectID
@@ -294,6 +295,7 @@ func (m *eventAPIManager) Errored(customerID string, integrationInstanceID strin
 		}
 	case sdk.WebHookScopeRepo:
 		repoID := sourcecode.NewRepoID(customerID, refType, refID)
+		variables[sourcecode.RepoErrorModelIDColumn] = sourcecode.NewRepoErrorID(customerID, repoID)
 		variables[sourcecode.RepoErrorModelCustomerIDColumn] = customerID
 		variables[sourcecode.RepoErrorModelIntegrationInstanceIDColumn] = integrationInstanceID
 		variables[sourcecode.RepoErrorModelRepoIDColumn] = repoID
