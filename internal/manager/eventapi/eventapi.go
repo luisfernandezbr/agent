@@ -262,7 +262,7 @@ func (m *eventAPIManager) Exists(customerID string, integrationInstanceID string
 		}
 	case sdk.WebHookScopeOrg:
 		instance, err := agent.FindIntegrationInstance(client, dbid)
-		if err == nil {
+		if err == nil && instance != nil && instance.Webhooks != nil {
 			for _, webhook := range instance.Webhooks {
 				if (webhook.RefID == nil && refID == "") || (webhook.RefID != nil && *webhook.RefID == refID) {
 					m.cache.SetDefault(dbid, *webhook.URL)
