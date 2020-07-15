@@ -146,24 +146,34 @@ func (m *eventAPIManager) Create(customerID string, integrationInstanceID string
 		switch scope {
 		case sdk.WebHookScopeProject:
 			projectID := work.NewProjectID(customerID, refID, refType)
-			variables[work.ProjectWebhookModelURLColumn] = url
-			variables[work.ProjectWebhookModelIntegrationInstanceIDColumn] = integrationInstanceID
-			variables[work.ProjectWebhookModelProjectIDColumn] = projectID
-			variables[work.ProjectWebhookModelRefIDColumn] = refID
-			variables[work.ProjectWebhookModelRefTypeColumn] = refType
-			variables[work.ProjectWebhookModelEnabledColumn] = true
-			variables[work.ProjectWebhookModelErroredColumn] = false
-			err = work.ExecProjectWebhookSilentUpdateMutation(client, work.NewProjectWebhookID(customerID, projectID), variables, true)
+			id := work.NewProjectWebhookID(customerID, projectID)
+			work.ExecProjectWebhookDeleteMutation(client, id)
+			object := work.ProjectWebhook{
+				ID:                    id,
+				CustomerID:            customerID,
+				URL:                   &url,
+				IntegrationInstanceID: &integrationInstanceID,
+				ProjectID:             projectID,
+				RefID:                 refID,
+				RefType:               refType,
+				Enabled:               true,
+			}
+			err = work.CreateProjectWebhook(client, object)
 		case sdk.WebHookScopeRepo:
 			repoID := sourcecode.NewRepoID(customerID, refType, refID)
-			variables[sourcecode.RepoWebhookModelURLColumn] = url
-			variables[sourcecode.RepoWebhookModelIntegrationInstanceIDColumn] = integrationInstanceID
-			variables[sourcecode.RepoWebhookModelRepoIDColumn] = repoID
-			variables[sourcecode.RepoWebhookModelRefIDColumn] = refID
-			variables[sourcecode.RepoWebhookModelRefTypeColumn] = refType
-			variables[sourcecode.RepoWebhookModelEnabledColumn] = true
-			variables[sourcecode.RepoWebhookModelErroredColumn] = false
-			err = sourcecode.ExecRepoWebhookSilentUpdateMutation(client, sourcecode.NewRepoWebhookID(customerID, repoID), variables, true)
+			id := sourcecode.NewRepoWebhookID(customerID, repoID)
+			sourcecode.ExecRepoWebhookDeleteMutation(client, id)
+			object := sourcecode.RepoWebhook{
+				ID:                    id,
+				CustomerID:            customerID,
+				URL:                   &url,
+				IntegrationInstanceID: &integrationInstanceID,
+				RepoID:                repoID,
+				RefID:                 refID,
+				RefType:               refType,
+				Enabled:               true,
+			}
+			err = sourcecode.CreateRepoWebhook(client, object)
 		case sdk.WebHookScopeOrg:
 			instance, err := agent.FindIntegrationInstance(client, integrationInstanceID)
 			if err != nil {
@@ -187,7 +197,7 @@ func (m *eventAPIManager) Create(customerID string, integrationInstanceID string
 				})
 			}
 			variables[agent.IntegrationInstanceModelWebhooksColumn] = instance.Webhooks
-			err = agent.ExecIntegrationInstanceSilentUpdateMutation(client, integrationInstanceID, variables, true)
+			err = agent.ExecIntegrationInstanceSilentUpdateMutation(client, integrationInstanceID, variables, false)
 		}
 		if err != nil {
 			m.cache.SetDefault(dbid, url)
@@ -281,28 +291,37 @@ func (m *eventAPIManager) Errored(customerID string, integrationInstanceID strin
 	switch scope {
 	case sdk.WebHookScopeProject:
 		projectID := work.NewProjectID(customerID, refID, refType)
-		variables[work.ProjectErrorModelCustomerIDColumn] = customerID
-		variables[work.ProjectErrorModelIntegrationInstanceIDColumn] = integrationInstanceID
-		variables[work.ProjectErrorModelProjectIDColumn] = projectID
-		variables[work.ProjectErrorModelErroredColumn] = true
-		variables[work.ProjectErrorModelErrorMessageColumn] = theerror.Error()
-		variables[work.ProjectErrorModelRefIDColumn] = refID
-		variables[work.ProjectErrorModelRefTypeColumn] = refType
-		variables[work.ProjectErrorModelUpdatedAtColumn] = datetime.EpochNow()
-		if err := work.ExecProjectErrorSilentUpdateMutation(client, work.NewProjectWebhookID(customerID, projectID), variables, true); err != nil {
+		id := work.NewProjectErrorID(customerID, projectID)
+		work.ExecProjectErrorDeleteMutation(client, id)
+		object := work.ProjectError{
+			ID:                    id,
+			CustomerID:            customerID,
+			ProjectID:             projectID,
+			IntegrationInstanceID: &integrationInstanceID,
+			Errored:               true,
+			ErrorMessage:          sdk.StringPointer(theerror.Error()),
+			RefID:                 refID,
+			RefType:               refType,
+			UpdatedAt:             datetime.EpochNow(),
+		}
+		if err := work.CreateProjectError(client, object); err != nil {
 			log.Error(m.logger, "error setting the instance project errored", "err", err, "integration_instance_id", integrationInstanceID, "customer_id", customerID, "project_id", projectID)
 		}
 	case sdk.WebHookScopeRepo:
 		repoID := sourcecode.NewRepoID(customerID, refType, refID)
-		variables[sourcecode.RepoErrorModelCustomerIDColumn] = customerID
-		variables[sourcecode.RepoErrorModelIntegrationInstanceIDColumn] = integrationInstanceID
-		variables[sourcecode.RepoErrorModelRepoIDColumn] = repoID
-		variables[sourcecode.RepoErrorModelErroredColumn] = true
-		variables[sourcecode.RepoErrorModelErrorMessageColumn] = theerror.Error()
-		variables[sourcecode.RepoErrorModelRefIDColumn] = refID
-		variables[sourcecode.RepoErrorModelRefTypeColumn] = refType
-		variables[sourcecode.RepoErrorModelUpdatedAtColumn] = datetime.EpochNow()
-		if err := sourcecode.ExecRepoErrorSilentUpdateMutation(client, sourcecode.NewRepoWebhookID(customerID, repoID), variables, true); err != nil {
+		id := sourcecode.NewRepoErrorID(customerID, repoID)
+		object := sourcecode.RepoError{
+			ID:                    id,
+			CustomerID:            customerID,
+			RepoID:                repoID,
+			IntegrationInstanceID: &integrationInstanceID,
+			Errored:               true,
+			ErrorMessage:          sdk.StringPointer(theerror.Error()),
+			RefID:                 refID,
+			RefType:               refType,
+			UpdatedAt:             datetime.EpochNow(),
+		}
+		if err := sourcecode.CreateRepoError(client, object); err != nil {
 			log.Error(m.logger, "error setting the instance repo errored", "err", err, "integration_instance_id", integrationInstanceID, "customer_id", customerID, "repo_id", repoID)
 		}
 	case sdk.WebHookScopeOrg:
