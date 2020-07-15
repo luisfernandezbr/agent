@@ -9,7 +9,7 @@ import (
 	"github.com/pinpt/go-common/v10/api"
 	"github.com/pinpt/go-common/v10/datetime"
 	"github.com/pinpt/go-common/v10/event"
-	"github.com/pinpt/go-common/v10/graphql"
+	gql "github.com/pinpt/go-common/v10/graphql"
 	"github.com/pinpt/go-common/v10/log"
 	"github.com/pinpt/integration-sdk/agent"
 )
@@ -66,20 +66,21 @@ func (e *export) Pipe() sdk.Pipe {
 	return e.pipe
 }
 
-func (e *export) updateIntegration(vars graphql.Variables) error {
-	// update the db with our new integration state
-	cl, err := graphql.NewClient(
-		e.customerID,
-		"",
-		e.secret,
-		api.BackendURL(api.GraphService, e.channel),
-	)
+func (e *export) createGraphql() gql.Client {
+	url := api.BackendURL(api.GraphService, e.channel)
+	client, err := gql.NewClient(e.customerID, "", e.secret, url)
 	if err != nil {
-		return err
+		panic(err)
 	}
 	if e.apikey != "" {
-		cl.SetHeader("Authorization", e.apikey)
+		client.SetHeader("Authorization", e.apikey)
 	}
+	return client
+}
+
+func (e *export) updateIntegration(vars gql.Variables) error {
+	// update the db with our new integration state
+	cl := e.createGraphql()
 	if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, e.integrationInstanceID, vars, false); err != nil {
 		return err
 	}
@@ -99,7 +100,7 @@ func (e *export) Paused(resetAt time.Time) error {
 	log.Info(e.logger, "paused", "reset", resetAt, "duration", time.Until(resetAt))
 	var dt agent.IntegrationInstanceThrottledUntil
 	sdk.ConvertTimeToDateModel(resetAt, &dt)
-	return e.updateIntegration(graphql.Variables{
+	return e.updateIntegration(gql.Variables{
 		agent.IntegrationInstanceModelThrottledColumn:      true,
 		agent.IntegrationInstanceModelThrottledUntilColumn: dt,
 		agent.IntegrationInstanceModelUpdatedAtColumn:      datetime.EpochNow(),
@@ -116,9 +117,10 @@ func (e *export) Resumed() error {
 	e.paused = false
 	e.mu.Unlock()
 	log.Info(e.logger, "pause resumed")
-	return e.updateIntegration(graphql.Variables{
+	var dt agent.IntegrationInstanceThrottledUntil
+	return e.updateIntegration(gql.Variables{
 		agent.IntegrationModelThrottledColumn:      false,
-		agent.IntegrationModelThrottledUntilColumn: map[string]interface{}{},
+		agent.IntegrationModelThrottledUntilColumn: dt,
 		agent.IntegrationModelUpdatedAtColumn:      datetime.EpochNow(),
 	})
 }
