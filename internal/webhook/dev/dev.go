@@ -14,6 +14,7 @@ type webhook struct {
 	customerID            string
 	integrationInstanceID string
 	refID                 string
+	url                   string
 	pipe                  sdk.Pipe
 	headers               map[string]string
 	buf                   []byte
@@ -63,6 +64,11 @@ func (e *webhook) Bytes() []byte {
 	return e.buf
 }
 
+// URL the webhook callback url
+func (e *webhook) URL() string {
+	return e.url
+}
+
 // Headers are the headers that came from the web hook
 func (e *webhook) Headers() map[string]string {
 	return e.headers
@@ -89,6 +95,7 @@ func New(
 	config sdk.Config,
 	state sdk.State,
 	customerID string,
+	webhookURL string,
 	refID string,
 	integrationInstanceID string,
 	pipe sdk.Pipe,
@@ -109,5 +116,6 @@ func New(
 		data:                  data,
 		buf:                   buf,
 		scope:                 scope,
+		url:                   webhookURL,
 	}
 }

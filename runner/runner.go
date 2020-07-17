@@ -348,6 +348,7 @@ func Main(integration sdk.Integration, args ...string) {
 				}
 			}
 			refID, _ := cmd.Flags().GetString("ref-id")
+			webhookURL, _ := cmd.Flags().GetString("webhook-url")
 			headers["ref_id"] = refID
 			headers["customer_id"] = "1234"
 			headers["integration_instance_id"] = "1"
@@ -357,6 +358,7 @@ func Main(integration sdk.Integration, args ...string) {
 				intconfig,
 				stateobj,
 				"1234",
+				webhookURL,
 				refID,
 				"1",
 				pipe,
@@ -519,6 +521,7 @@ func Main(integration sdk.Integration, args ...string) {
 	devWebhookCmd.Flags().String("input", "", "the json payload of the webhook")
 	devWebhookCmd.Flags().String("header", "", "the headers of the webhook")
 	devWebhookCmd.Flags().String("ref-id", "", "the refid on the webhook")
+	devWebhookCmd.Flags().String("webhook-url", "", "the url on the webhook")
 
 	// dev mutation command
 	devMutationCmd.Flags().String("dir", "", "directory to place files when in dev mode")
