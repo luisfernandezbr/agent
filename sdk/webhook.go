@@ -31,6 +31,8 @@ type WebHook interface {
 	Data() (map[string]interface{}, error)
 	// Bytes will return the underlying data as bytes
 	Bytes() []byte
+	// URL the webhook callback url
+	URL() string
 	// Headers are the headers that came from the web hook
 	Headers() map[string]string
 	// Scope is the registered webhook scope
