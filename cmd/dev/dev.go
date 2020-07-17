@@ -145,7 +145,8 @@ var DevCmd = createDevCommand("dev", "dev-export", "run an integration in develo
 
 var webHookCmd = createDevCommand("webhook", "dev-webhook", "run an integration in development mode and feed it a webhook", true, func(cmd *cobra.Command, args []string) []string {
 	refID, _ := cmd.Flags().GetString("ref-id")
-	return append(args, "--ref-id", refID)
+	webhookURL, _ := cmd.Flags().GetString("webhook-url")
+	return append(args, "--ref-id", refID, "--webhook-url", webhookURL)
 })
 
 var mutationCmd = createDevCommand("mutation", "dev-mutation", "run an integration in development mode and feed it a mutation", true, func(cmd *cobra.Command, args []string) []string {
@@ -167,5 +168,7 @@ func init() {
 	webHookCmd.Flags().StringArray("header", []string{}, "headers key/value pair such as a=b")
 	webHookCmd.Flags().String("input", "", "json body of a webhook payload, as a string or file")
 	webHookCmd.Flags().String("ref-id", "9999", "the ref_id value")
+	webHookCmd.Flags().String("webhook-url", "http://example.com/hook/123456", "the webhook url value")
+
 	mutationCmd.Flags().String("input", "", "json body of a mutation payload, as a string or file")
 }
