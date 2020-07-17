@@ -98,6 +98,7 @@ type Config struct {
 	CustomerID            string
 	RefID                 string
 	IntegrationInstanceID string
+	WebHookURL            string
 	Pipe                  sdk.Pipe
 	Buf                   []byte
 	Headers               map[string]string
