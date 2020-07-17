@@ -397,7 +397,7 @@ func enrollAgent(logger log.Logger, channel string, configFileName string) (*run
 
 // enrollAgentCmd will authenticate with pinpoint and create an agent enrollment
 var enrollAgentCmd = &cobra.Command{
-	Use:    "enroll-agent",
+	Use:    "enroll",
 	Short:  "connect this agent to Pinpoint's backend",
 	Hidden: true,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -561,9 +561,12 @@ var runCmd = &cobra.Command{
 							log.Error(logger, "error copying integration", "err", err)
 							break exit
 						}
+						log.Info(logger, "new integration detected, will restart in 15s", "version", instance.Version)
 						restartLock.Lock()
 						restarting = true
+						restarted = 0
 						version = instance.Version
+						time.Sleep(time.Second * 15)
 						restart <- true // force a new download
 						restartLock.Unlock()
 					case "delete", "DELETE":

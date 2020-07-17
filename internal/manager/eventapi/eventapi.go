@@ -227,8 +227,9 @@ func (m *eventAPIManager) Delete(customerID string, integrationInstanceID string
 		hooks := make([]agent.IntegrationInstanceWebhooks, 0)
 		for _, webhook := range instance.Webhooks {
 			if (webhook.RefID == nil && refID == "") || (webhook.RefID != nil && *webhook.RefID == refID) {
-				hooks = append(hooks, webhook)
+				continue
 			}
+			hooks = append(hooks, webhook)
 		}
 		variables := make(gql.Variables)
 		variables[agent.IntegrationInstanceModelWebhooksColumn] = hooks
@@ -241,7 +242,7 @@ func (m *eventAPIManager) Delete(customerID string, integrationInstanceID string
 func (m *eventAPIManager) Exists(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope) bool {
 
 	dbid := m.webhookCacheKey(customerID, integrationInstanceID, refType, refID, scope)
-	if _, ok := m.cache.Get(dbid); ok {
+	if val, ok := m.cache.Get(dbid); ok && val != nil {
 		return ok
 	}
 	client := m.createGraphql(customerID)
@@ -261,7 +262,7 @@ func (m *eventAPIManager) Exists(customerID string, integrationInstanceID string
 			return true
 		}
 	case sdk.WebHookScopeOrg:
-		instance, err := agent.FindIntegrationInstance(client, dbid)
+		instance, err := agent.FindIntegrationInstance(client, integrationInstanceID)
 		if err == nil && instance != nil && instance.Webhooks != nil {
 			for _, webhook := range instance.Webhooks {
 				if (webhook.RefID == nil && refID == "") || (webhook.RefID != nil && *webhook.RefID == refID) {
@@ -310,6 +311,7 @@ func (m *eventAPIManager) Errored(customerID string, integrationInstanceID strin
 	case sdk.WebHookScopeRepo:
 		repoID := sourcecode.NewRepoID(customerID, refType, refID)
 		id := sourcecode.NewRepoErrorID(customerID, repoID)
+		sourcecode.ExecRepoErrorDeleteMutation(client, id)
 		object := sourcecode.RepoError{
 			ID:                    id,
 			CustomerID:            customerID,

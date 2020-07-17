@@ -44,8 +44,7 @@ func createDBChangeSubscriptionFilter(refType string) *event.SubscriptionFilter 
 		modelexpr = append(modelexpr, fmt.Sprintf(`model:"%s"`, model))
 	}
 	return &event.SubscriptionFilter{
-		HeaderExpr: "(" + strings.Join(modelexpr, " OR ") + ")",
-		ObjectExpr: fmt.Sprintf(`ref_type:"%s"`, refType),
+		HeaderExpr: "(" + strings.Join(modelexpr, " OR ") + `) AND origin:"graph-api"`,
 	}
 }
 
@@ -65,14 +64,16 @@ func createDBChangeEvent(data string) (*DbChangeEvent, error) {
 
 // Subscriber is a convenience wrapper around a subscription channel
 type Subscriber struct {
-	ch     *event.SubscriptionChannel
-	cb     SubscriberCallback
-	logger log.Logger
+	ch       *event.SubscriptionChannel
+	cb       SubscriberCallback
+	logger   log.Logger
+	location string
+	refType  string
 }
 
 func (s *Subscriber) run() {
 	for event := range s.ch.Channel() {
-		if err := s.cb(event); err != nil {
+		if err := s.cb(event, s.refType, s.location); err != nil {
 			log.Error(s.logger, "error from callback", "err", err)
 		}
 	}
@@ -84,20 +85,20 @@ func (s *Subscriber) Close() error {
 }
 
 // SubscriberCallback is the callback for processing events
-type SubscriberCallback func(event event.SubscriptionEvent) error
+type SubscriberCallback func(event event.SubscriptionEvent, refType string, location string) error
 
 // NewDBChangeSubscriber will return a db change subscriber
-func NewDBChangeSubscriber(config Config, callback SubscriberCallback) (*Subscriber, error) {
-	return NewEventSubscriber(config, []string{"ops.db.Change"}, createDBChangeSubscriptionFilter(config.Integration.Descriptor.RefType), callback)
+func NewDBChangeSubscriber(config Config, location agent.ExportIntegrationLocation, callback SubscriberCallback) (*Subscriber, error) {
+	return NewEventSubscriber(config, []string{"ops.db.Change"}, createDBChangeSubscriptionFilter(config.Integration.Descriptor.RefType), location, callback)
 }
 
 // NewEventSubscriber will return an event subscriber
-func NewEventSubscriber(config Config, topics []string, filters *event.SubscriptionFilter, callback SubscriberCallback) (*Subscriber, error) {
-	headers := map[string]string{}
+func NewEventSubscriber(config Config, topics []string, filters *event.SubscriptionFilter, location agent.ExportIntegrationLocation, callback SubscriberCallback) (*Subscriber, error) {
 	httpheaders := map[string]string{}
 	if config.Secret != "" {
 		httpheaders["x-api-key"] = config.Secret
 	}
+	log.Info(config.Logger, "creating NewEventSubscriber", "topics", topics, "headers", filters.HeaderExpr, "object", filters.ObjectExpr)
 	ch, err := event.NewSubscription(config.Ctx, event.Subscription{
 		Logger:            config.Logger,
 		Topics:            topics,
@@ -107,17 +108,19 @@ func NewEventSubscriber(config Config, topics []string, filters *event.Subscript
 		DisableAutoCommit: true,
 		Channel:           config.Channel,
 		DisablePing:       true,
-		Headers:           headers,
 		Filter:            filters,
 	})
 	if err != nil {
 		return nil, err
 	}
 	s := &Subscriber{
-		ch:     ch,
-		cb:     callback,
-		logger: config.Logger,
+		ch:       ch,
+		cb:       callback,
+		logger:   config.Logger,
+		location: location.String(),
+		refType:  config.Integration.Descriptor.RefType,
 	}
+	ch.WaitForReady()
 	go s.run()
 	return s, nil
 }

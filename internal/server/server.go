@@ -57,6 +57,7 @@ type Server struct {
 	event    *Subscriber
 	webhook  *Subscriber
 	mutation *Subscriber
+	location string
 }
 
 var _ io.Closer = (*Server)(nil)
@@ -347,30 +348,49 @@ func (s *Server) calculateIntegrationHashCode(integration *agent.IntegrationInst
 	)
 }
 
-func (s *Server) onDBChange(evt event.SubscriptionEvent) error {
+func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, location string) error {
+	if refType != s.config.Integration.Descriptor.RefType || location != s.location {
+		// skip db changes we're not targeting
+		evt.Commit()
+		log.Debug(s.logger, "skipping db change since we're not targeted", "need_location", s.location, "need_reftype", s.config.Integration.Descriptor.RefType, "location", location, "ref_type", refType)
+		return nil
+	}
 	ch, err := createDBChangeEvent(evt.Data)
 	if err != nil {
 		return err
 	}
-	log.Debug(s.logger, "received db change", ch)
+	log.Debug(s.logger, "received db change", "evt", ch)
 	switch ch.Model {
-	case agent.IntegrationModelName.String():
+	case agent.IntegrationInstanceModelName.String():
 		// integration has changed so we need to either enroll or dismiss
 		if integration, ok := ch.Object.(*agent.IntegrationInstance); ok {
-			cachekey := "agent:" + integration.CustomerID + ":" + integration.ID + ":hashcode"
-			res, _ := s.config.RedisClient.Get(s.config.Ctx, cachekey).Result()
-			hashcode := s.calculateIntegrationHashCode(integration)
+			cachekey := "agent:" + integration.CustomerID + ":" + integration.ID
 			// check to see if this is a delete OR we've deactivated the integration
 			if ch.Action == Delete || !integration.Active {
-				// delete the integration cache key and then signal a removal
-				s.config.RedisClient.Del(s.config.Ctx, cachekey)
-				if err := s.handleRemoveIntegration(integration); err != nil {
-					log.Error(s.logger, "error removing integration", "err", err, "id", integration.ID)
+				// check cache key or you will get into an infinite loop
+				val := s.config.RedisClient.Exists(s.config.Ctx, cachekey).Val()
+				if val > 0 {
+					// delete the integration cache key and then signal a removal
+					s.config.RedisClient.Del(s.config.Ctx, cachekey)
+					log.Info(s.logger, "an integration instance has been deleted", "id", integration.ID, "customer_id", integration.CustomerID)
+					if err := s.handleRemoveIntegration(integration); err != nil {
+						log.Error(s.logger, "error removing integration", "err", err, "id", integration.ID)
+					}
+					// TODO: remove all the project/repo errors
 				}
 			} else {
-				if res != hashcode {
+				var install bool
+				hashcode := s.calculateIntegrationHashCode(integration)
+				if ch.Action == Create {
+					install = true
+				} else {
+					res, _ := s.config.RedisClient.Get(s.config.Ctx, cachekey).Result()
+					install = res != hashcode
+				}
+				if install {
 					// update our hash key and then signal an addition
 					s.config.RedisClient.Set(s.config.Ctx, cachekey, hashcode, 0)
+					log.Info(s.logger, "an integration instance has been added", "id", integration.ID, "customer_id", integration.CustomerID)
 					if err := s.handleAddIntegration(integration); err != nil {
 						log.Error(s.logger, "error adding integration", "err", err, "id", integration.ID)
 					}
@@ -382,7 +402,23 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent) error {
 	return nil
 }
 
-func (s *Server) onEvent(evt event.SubscriptionEvent) error {
+func (s *Server) newGraphqlClient(customerID string) (graphql.Client, error) {
+	cl, err := graphql.NewClient(
+		customerID,
+		"",
+		s.config.Secret,
+		api.BackendURL(api.GraphService, s.config.Channel),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if s.config.APIKey != "" {
+		cl.SetHeader("Authorization", s.config.APIKey)
+	}
+	return cl, nil
+}
+
+func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location string) error {
 	log.Debug(s.logger, "received event", "evt", evt)
 	switch evt.Model {
 	case agent.ExportModelName.String():
@@ -394,18 +430,10 @@ func (s *Server) onEvent(evt event.SubscriptionEvent) error {
 			log.Info(s.logger, "skipping export request, too old", "age", time.Since(evt.Timestamp), "id", evt.ID)
 			break
 		}
-		cl, err := graphql.NewClient(
-			req.CustomerID,
-			"",
-			s.config.Secret,
-			api.BackendURL(api.GraphService, s.config.Channel),
-		)
+		cl, err := s.newGraphqlClient(req.CustomerID)
 		if err != nil {
 			evt.Commit()
 			return fmt.Errorf("error creating graphql client: %w", err)
-		}
-		if s.config.APIKey != "" {
-			cl.SetHeader("Authorization", s.config.APIKey)
 		}
 		// update the integration state to acknowledge that we are exporting
 		vars := make(graphql.Variables)
@@ -438,7 +466,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent) error {
 	return nil
 }
 
-func (s *Server) onWebhook(evt event.SubscriptionEvent) error {
+func (s *Server) onWebhook(evt event.SubscriptionEvent, refType string, location string) error {
 	log.Debug(s.logger, "received webhook event", "evt", evt)
 	switch evt.Model {
 	case web.HookModelName.String():
@@ -470,9 +498,6 @@ func (s *Server) onWebhook(evt event.SubscriptionEvent) error {
 		if err != nil {
 			log.Error(s.logger, "error creating graphql client", "err',err")
 		}
-		if s.config.APIKey != "" {
-			cl.SetHeader("Authorization", s.config.APIKey)
-		}
 		var errmessage *string
 		// TODO(robin): maybe scrub some event-api related fields out of the headers
 		if err := s.handleWebhook(s.logger, cl, integrationInstanceID, customerID, wehbookURL, evt.Headers["ref_id"], wh); err != nil {
@@ -493,7 +518,7 @@ func (s *Server) onWebhook(evt event.SubscriptionEvent) error {
 	return nil
 }
 
-func (s *Server) onMutation(evt event.SubscriptionEvent) error {
+func (s *Server) onMutation(evt event.SubscriptionEvent, refType string, location string) error {
 	log.Debug(s.logger, "received mutation event", "evt", evt)
 	switch evt.Model {
 	case agent.MutationModelName.String():
@@ -505,17 +530,9 @@ func (s *Server) onMutation(evt event.SubscriptionEvent) error {
 			log.Error(s.logger, "mutation event is missing integration instance id, skipping")
 			break
 		}
-		cl, err := graphql.NewClient(
-			m.CustomerID,
-			"",
-			s.config.Secret,
-			api.BackendURL(api.GraphService, s.config.Channel),
-		)
+		cl, err := s.newGraphqlClient(m.CustomerID)
 		if err != nil {
 			log.Error(s.logger, "error creating graphql client", "err',err")
-		}
-		if s.config.APIKey != "" {
-			cl.SetHeader("Authorization", s.config.APIKey)
 		}
 		var errmessage *string
 		// TODO(robin): maybe scrub some event-api related fields out of the headers
@@ -549,18 +566,19 @@ func (s *Server) onMutation(evt event.SubscriptionEvent) error {
 
 // New returns a new server instance
 func New(config Config) (*Server, error) {
-	server := &Server{
-		config: config,
-		logger: log.With(config.Logger, "pkg", "server"),
-	}
-	var err error
-	server.dbchange, err = NewDBChangeSubscriber(config, server.onDBChange)
-	if err != nil {
-		return nil, err
-	}
 	location := agent.ExportIntegrationLocationPrivate
 	if config.Secret != "" {
 		location = agent.ExportIntegrationLocationCloud
+	}
+	server := &Server{
+		config:   config,
+		logger:   log.With(config.Logger, "pkg", "server"),
+		location: location.String(),
+	}
+	var err error
+	server.dbchange, err = NewDBChangeSubscriber(config, location, server.onDBChange)
+	if err != nil {
+		return nil, err
 	}
 	server.event, err = NewEventSubscriber(
 		config,
@@ -568,6 +586,7 @@ func New(config Config) (*Server, error) {
 		&event.SubscriptionFilter{
 			ObjectExpr: fmt.Sprintf(`ref_type:"%s" AND integration.location:"%s"`, config.Integration.Descriptor.RefType, location.String()),
 		},
+		location,
 		server.onEvent)
 	if err != nil {
 		return nil, err
@@ -579,6 +598,7 @@ func New(config Config) (*Server, error) {
 			HeaderExpr: fmt.Sprintf(`self_managed:"%v"`, location == agent.ExportIntegrationLocationPrivate),
 			ObjectExpr: fmt.Sprintf(`system:"%s"`, config.Integration.Descriptor.RefType),
 		},
+		location,
 		server.onWebhook)
 	if err != nil {
 		return nil, fmt.Errorf("error starting webhook subscriber: %w", err)
@@ -589,6 +609,7 @@ func New(config Config) (*Server, error) {
 		&event.SubscriptionFilter{
 			HeaderExpr: fmt.Sprintf(`ref_type:"%s" AND location:"%s"`, config.Integration.Descriptor.RefType, location.String()),
 		},
+		location,
 		server.onMutation)
 	if err != nil {
 		return nil, fmt.Errorf("error starting mutation subscriber: %w", err)
