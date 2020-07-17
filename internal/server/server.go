@@ -238,7 +238,7 @@ func (s *Server) handleExport(logger log.Logger, req agent.Export) error {
 	return nil
 }
 
-func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integrationInstanceID, customerID string, refID string, webhook web.Hook) error {
+func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integrationInstanceID, customerID, webhookURL string, refID string, webhook web.Hook) error {
 	buf := []byte(webhook.Data)
 	jobID := fmt.Sprintf("webhook_%d", datetime.EpochNow())
 	dir := s.newTempDir(jobID)
@@ -265,6 +265,7 @@ func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integra
 		Pipe:                  p,
 		Headers:               webhook.Headers,
 		Buf:                   buf,
+		WebHookURL:            webhookURL,
 	})
 	log.Info(logger, "running webhook")
 	if err := s.config.Integration.Integration.WebHook(e); err != nil {
@@ -455,6 +456,11 @@ func (s *Server) onWebhook(evt event.SubscriptionEvent) error {
 			evt.Commit()
 			return errors.New("webhook missing integration id")
 		}
+		wehbookURL := evt.Headers["webhook_url"]
+		if wehbookURL == "" {
+			evt.Commit()
+			return errors.New("webhook missing webhook_url")
+		}
 		cl, err := graphql.NewClient(
 			customerID,
 			"",
@@ -469,7 +475,7 @@ func (s *Server) onWebhook(evt event.SubscriptionEvent) error {
 		}
 		var errmessage *string
 		// TODO(robin): maybe scrub some event-api related fields out of the headers
-		if err := s.handleWebhook(s.logger, cl, integrationInstanceID, customerID, evt.Headers["ref_id"], wh); err != nil {
+		if err := s.handleWebhook(s.logger, cl, integrationInstanceID, customerID, wehbookURL, evt.Headers["ref_id"], wh); err != nil {
 			log.Error(s.logger, "error running webhook", "err", err)
 			errmessage = sdk.StringPointer(err.Error())
 		}
