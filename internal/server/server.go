@@ -455,9 +455,14 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			vars[agent.IntegrationInstanceModelErroredColumn] = true
 			vars[agent.IntegrationInstanceModelErrorMessageColumn] = *errmessage
 		}
+		ts := time.Now()
 		var dt agent.IntegrationInstanceLastExportCompletedDate
-		sdk.ConvertTimeToDateModel(time.Now(), &dt)
+		sdk.ConvertTimeToDateModel(ts, &dt)
 		vars[agent.IntegrationInstanceModelLastExportCompletedDateColumn] = dt
+		if req.ReprocessHistorical {
+			var dt agent.IntegrationInstanceLastHistoricalCompletedDate
+			sdk.ConvertTimeToDateModel(ts, &dt)
+		}
 		if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, req.Integration.ID, vars, false); err != nil {
 			log.Error(s.logger, "error updating agent integration", "err", err, "id", req.Integration.ID)
 		}
