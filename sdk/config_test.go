@@ -102,6 +102,17 @@ func TestConfigFromString(t *testing.T) {
 	assert.Equal(CloudIntegration, cfg.IntegrationType)
 }
 
+func TestConfigExclusionsNegate(t *testing.T) {
+	assert := assert.New(t)
+	cfg := NewConfig(nil)
+	configstr := `{"exclusions":{"pinpt":"!*\npinpt/robin"}}`
+	assert.NoError(cfg.Parse([]byte(configstr)))
+	assert.False(cfg.Exclusions.Matches("pinpt", "pinpt/foo"))
+	assert.False(cfg.Exclusions.Matches("pinpt", "pinpt/soc2_foo"))
+	assert.False(cfg.Exclusions.Matches("pinpt", "pinpt/bar"))
+	assert.True(cfg.Exclusions.Matches("pinpt", "pinpt/robin"))
+}
+
 func TestConfigFrom(t *testing.T) {
 	assert := assert.New(t)
 	cfg := NewConfig(nil)
