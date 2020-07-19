@@ -259,6 +259,7 @@ func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integra
 	}
 	if sdkconfig == nil {
 		log.Info(logger, "received a webhook for an integration that no longer exists, ignoring", "id", integrationInstanceID)
+		return nil
 	}
 	state, err := s.newState(customerID, integrationInstanceID)
 	if err != nil {
@@ -318,6 +319,7 @@ func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integr
 	}
 	if sdkconfig == nil {
 		log.Info(logger, "received a mutation for an integration that no longer exists, ignoring", "id", integrationInstanceID)
+		return nil
 	}
 	state, err := s.newState(customerID, integrationInstanceID)
 	if err != nil {
