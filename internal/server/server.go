@@ -25,7 +25,9 @@ import (
 	"github.com/pinpt/go-common/v10/hash"
 	"github.com/pinpt/go-common/v10/log"
 	"github.com/pinpt/integration-sdk/agent"
+	"github.com/pinpt/integration-sdk/sourcecode"
 	"github.com/pinpt/integration-sdk/web"
+	"github.com/pinpt/integration-sdk/work"
 )
 
 // IntegrationContext is the details for each integration
@@ -83,11 +85,15 @@ func (s *Server) Close() error {
 	return nil
 }
 
+func (s *Server) customerSpecificStateKey(customerID string, integrationInstanceID string) string {
+	return customerID + ":" + s.config.Integration.Descriptor.RefType + ":" + integrationInstanceID
+}
+
 func (s *Server) newState(customerID string, integrationInstanceID string) (sdk.State, error) {
 	state := s.config.State
 	if state == nil {
 		// if no state provided, we use redis state in this case
-		st, err := redisState.New(s.config.Ctx, s.config.RedisClient, customerID+":"+s.config.Integration.Descriptor.RefType+":"+integrationInstanceID)
+		st, err := redisState.New(s.config.Ctx, s.config.RedisClient, s.customerSpecificStateKey(customerID, integrationInstanceID))
 		if err != nil {
 			return nil, err
 		}
@@ -123,27 +129,25 @@ func (s *Server) newTempDir(jobID string) string {
 	return dir
 }
 
-func (s *Server) newConfig(configstr *string, kv map[string]interface{}) (sdk.Config, error) {
+func (s *Server) newConfig(configstr *string, kv map[string]interface{}) (*sdk.Config, error) {
 	var sdkconfig sdk.Config
 	sdkconfig = sdk.NewConfig(kv)
 	if configstr != nil && *configstr != "" {
 		if err := sdkconfig.Parse([]byte(*configstr)); err != nil {
-			return sdkconfig, err
+			return nil, err
 		}
 	}
-	return sdkconfig, nil
+	return &sdkconfig, nil
 }
 
 // fetchConfig will get the config from pinpoint, should only be used for webhooks and mutations
-func (s *Server) fetchConfig(client graphql.Client, integrationInstanceID string) (sdkconfig sdk.Config, err error) {
+func (s *Server) fetchConfig(client graphql.Client, integrationInstanceID string) (*sdk.Config, error) {
 	integration, err := agent.FindIntegrationInstance(client, integrationInstanceID)
 	if err != nil {
-		err = fmt.Errorf("error finding integration instance: %w", err)
-		return
+		return nil, fmt.Errorf("error finding integration instance: %w", err)
 	}
 	if integration == nil {
-		err = fmt.Errorf("unable to find integration instance %s", integrationInstanceID)
-		return
+		return nil, nil
 	}
 	return s.newConfig(integration.Config, make(map[string]interface{}))
 }
@@ -165,7 +169,7 @@ func (s *Server) toInstance(integration *agent.IntegrationInstance) (*sdk.Instan
 	if err != nil {
 		return nil, nil, err
 	}
-	instance := sdk.NewInstance(config, state, pipe, integration.CustomerID, integration.ID)
+	instance := sdk.NewInstance(*config, state, pipe, integration.CustomerID, integration.ID)
 	return instance, cleanup, nil
 }
 
@@ -204,6 +208,10 @@ func (s *Server) handleExport(logger log.Logger, req agent.Export) error {
 	if err != nil {
 		return err
 	}
+	if sdkconfig == nil {
+		log.Info(logger, "received an export for an integration that no longer exists, ignoring", "id", req.IntegrationInstanceID)
+		return nil
+	}
 	state, err := s.newState(req.CustomerID, integration.ID)
 	if err != nil {
 		return err
@@ -213,7 +221,7 @@ func (s *Server) handleExport(logger log.Logger, req agent.Export) error {
 	e, err := eventAPIexport.New(eventAPIexport.Config{
 		Ctx:                   s.config.Ctx,
 		Logger:                logger,
-		Config:                sdkconfig,
+		Config:                *sdkconfig,
 		State:                 state,
 		CustomerID:            req.CustomerID,
 		JobID:                 req.JobID,
@@ -249,6 +257,9 @@ func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integra
 	if err != nil {
 		return err
 	}
+	if sdkconfig == nil {
+		log.Info(logger, "received a webhook for an integration that no longer exists, ignoring", "id", integrationInstanceID)
+	}
 	state, err := s.newState(customerID, integrationInstanceID)
 	if err != nil {
 		return err
@@ -258,7 +269,7 @@ func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integra
 	e := eventAPIwebhook.New(eventAPIwebhook.Config{
 		Ctx:                   s.config.Ctx,
 		Logger:                logger,
-		Config:                sdkconfig,
+		Config:                *sdkconfig,
 		State:                 state,
 		CustomerID:            customerID,
 		RefID:                 refID,
@@ -305,6 +316,9 @@ func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integr
 	if err != nil {
 		return err
 	}
+	if sdkconfig == nil {
+		log.Info(logger, "received a mutation for an integration that no longer exists, ignoring", "id", integrationInstanceID)
+	}
 	state, err := s.newState(customerID, integrationInstanceID)
 	if err != nil {
 		return err
@@ -314,7 +328,7 @@ func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integr
 	e := eventAPImutation.New(eventAPImutation.Config{
 		Ctx:                   s.config.Ctx,
 		Logger:                logger,
-		Config:                sdkconfig,
+		Config:                *sdkconfig,
 		State:                 state,
 		CustomerID:            customerID,
 		RefID:                 refID,
@@ -348,6 +362,10 @@ func (s *Server) calculateIntegrationHashCode(integration *agent.IntegrationInst
 	)
 }
 
+type deletableState interface {
+	DeleteAll() error
+}
+
 func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, location string) error {
 	if refType != s.config.Integration.Descriptor.RefType || location != s.location {
 		// skip db changes we're not targeting
@@ -359,7 +377,7 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 	if err != nil {
 		return err
 	}
-	log.Debug(s.logger, "received db change", "evt", ch)
+	log.Debug(s.logger, "received db change", "evt", ch, "model", ch.Model)
 	switch ch.Model {
 	case agent.IntegrationInstanceModelName.String():
 		// integration has changed so we need to either enroll or dismiss
@@ -369,28 +387,84 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 			if ch.Action == Delete || !integration.Active {
 				// check cache key or you will get into an infinite loop
 				val := s.config.RedisClient.Exists(s.config.Ctx, cachekey).Val()
+				log.Debug(s.logger, "need to delete the integration", "cachekey", cachekey, "val", val)
 				if val > 0 {
 					// delete the integration cache key and then signal a removal
-					s.config.RedisClient.Del(s.config.Ctx, cachekey)
+					defer s.config.RedisClient.Del(s.config.Ctx, cachekey)
 					log.Info(s.logger, "an integration instance has been deleted", "id", integration.ID, "customer_id", integration.CustomerID)
 					if err := s.handleRemoveIntegration(integration); err != nil {
 						log.Error(s.logger, "error removing integration", "err", err, "id", integration.ID)
 					}
-					// TODO: remove all the project/repo errors
+					log.Info(s.logger, "after removing the integration", "id", integration.ID, "customer_id", integration.CustomerID)
+					// check to see if this is redis based state (will be nil) and if so, try and cleanup
+					if s.config.State == nil {
+						state, err := s.newState(integration.CustomerID, integration.ID)
+						if err != nil {
+							return err
+						}
+						// check to see if this deletable state and if so, we delete all the keys
+						if ds, ok := state.(deletableState); ok {
+							log.Info(s.logger, "cleaning up state", "id", integration.ID, "customer_id", integration.CustomerID)
+							if err := ds.DeleteAll(); err != nil {
+								log.Error(s.logger, "error deleting the integration state", "err", err, "id", integration.ID)
+							}
+						}
+					}
+					// go through and cleanup some of our other tables
+					gql, err := s.newGraphqlClient(integration.CustomerID)
+					if err != nil {
+						log.Error(s.logger, "error creating graphql client", "err", err)
+					} else {
+						log.Info(s.logger, "cleaning up integration repo/project errors", "id", integration.ID, "customer_id", integration.CustomerID)
+						started := time.Now()
+						async := sdk.NewAsync(5)
+						var rq sourcecode.RepoErrorQuery
+						sourcecode.FindRepoErrorsPaginated(gql, &rq, 100, func(conn *sourcecode.RepoErrorConnection) (bool, error) {
+							for _, _edge := range conn.Edges {
+								var edge = _edge
+								async.Do(func() error {
+									if err := sourcecode.ExecRepoErrorDeleteMutation(gql, edge.Node.ID); err != nil {
+										log.Error(s.logger, "error deleting the integration repo error model", "err", err, "integration_instance_id", integration.ID, "id", edge.Node.ID)
+									}
+									return nil
+								})
+							}
+							return true, nil
+						})
+						var pq work.ProjectErrorQuery
+						work.FindProjectErrorsPaginated(gql, &pq, 100, func(conn *work.ProjectErrorConnection) (bool, error) {
+							for _, _edge := range conn.Edges {
+								var edge = _edge
+								async.Do(func() error {
+									if err := work.ExecProjectErrorDeleteMutation(gql, edge.Node.ID); err != nil {
+										log.Error(s.logger, "error deleting the integration project error model", "err", err, "integration_instance_id", integration.ID, "id", edge.Node.ID)
+									}
+									return nil
+								})
+							}
+							return true, nil
+						})
+						async.Wait()
+						log.Info(s.logger, "completed clean up of integration repo/project errors", "duration", time.Since(started), "id", integration.ID, "customer_id", integration.CustomerID)
+					}
 				}
 			} else {
 				var install bool
 				hashcode := s.calculateIntegrationHashCode(integration)
 				if ch.Action == Create {
 					install = true
+					log.Debug(s.logger, "need to install since action is create")
 				} else {
 					res, _ := s.config.RedisClient.Get(s.config.Ctx, cachekey).Result()
 					install = res != hashcode
+					log.Debug(s.logger, "comparing integration hashcode on integration change", "hashcode", hashcode, "res", res, "install", install, "id", integration.ID)
 				}
 				if install {
 					// update our hash key and then signal an addition
-					s.config.RedisClient.Set(s.config.Ctx, cachekey, hashcode, 0)
-					log.Info(s.logger, "an integration instance has been added", "id", integration.ID, "customer_id", integration.CustomerID)
+					if err := s.config.RedisClient.Set(s.config.Ctx, cachekey, hashcode, 0).Err(); err != nil {
+						log.Error(s.logger, "error setting the cache key on the install", "cachekey", cachekey, "err", err)
+					}
+					log.Info(s.logger, "an integration instance has been added", "id", integration.ID, "customer_id", integration.CustomerID, "cachekey", cachekey, "hashcode", hashcode)
 					if err := s.handleAddIntegration(integration); err != nil {
 						log.Error(s.logger, "error adding integration", "err", err, "id", integration.ID)
 					}
@@ -462,6 +536,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 		if req.ReprocessHistorical {
 			var dt agent.IntegrationInstanceLastHistoricalCompletedDate
 			sdk.ConvertTimeToDateModel(ts, &dt)
+			vars[agent.IntegrationInstanceModelLastHistoricalCompletedDateColumn] = dt
 		}
 		if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, req.Integration.ID, vars, false); err != nil {
 			log.Error(s.logger, "error updating agent integration", "err", err, "id", req.Integration.ID)
@@ -542,7 +617,7 @@ func (s *Server) onMutation(evt event.SubscriptionEvent, refType string, locatio
 		var errmessage *string
 		// TODO(robin): maybe scrub some event-api related fields out of the headers
 		if err := s.handleMutation(s.logger, cl, *m.IntegrationInstanceID, m.CustomerID, evt.Headers["ref_id"], m); err != nil {
-			log.Error(s.logger, "error running webhook", "err", err)
+			log.Error(s.logger, "error running mutation", "err", err)
 			errmessage = sdk.StringPointer(err.Error())
 		}
 		go func() {

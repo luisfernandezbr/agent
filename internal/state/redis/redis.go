@@ -63,6 +63,15 @@ func (f *State) Delete(key string) error {
 	return f.client.Del(f.ctx, f.getKey(key)).Err()
 }
 
+// DeleteAll will delete all keys by the state prefix
+func (f *State) DeleteAll() error {
+	keys, err := f.client.Keys(f.ctx, f.getKey("*")).Result()
+	if err != nil {
+		return err
+	}
+	return f.client.Del(f.ctx, keys...).Err()
+}
+
 // Flush any pending data to storage
 func (f *State) Flush() error {
 	return nil
