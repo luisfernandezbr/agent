@@ -36,10 +36,6 @@ type Mutation interface {
 	Config() Config
 	// State is a customer specific state object for this integration and customer
 	State() State
-	// CustomerID will return the customer id for the export
-	CustomerID() string
-	// IntegrationInstanceID will return the unique instance id for this integration for a customer
-	IntegrationInstanceID() string
 	// Pipe should be called to get the pipe for streaming data back to pinpoint
 	Pipe() Pipe
 	// ID is the primary key of the payload

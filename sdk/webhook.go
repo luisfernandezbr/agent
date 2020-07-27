@@ -21,10 +21,6 @@ type WebHook interface {
 	Config() Config
 	// State is a customer specific state object for this integration and customer
 	State() State
-	// CustomerID will return the customer id for the web hook
-	CustomerID() string
-	// IntegrationInstanceID will return the unique instance id for this integration for a customer
-	IntegrationInstanceID() string
 	// RefID will return the ref id from when the hook was created
 	RefID() string
 	// Pipe returns a pipe for sending data back to pinpoint from the web hook data
