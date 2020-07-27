@@ -4,6 +4,8 @@ package sdk
 type WebHookScope string
 
 const (
+	// WebHookScopeSystem is the system scope for a webhook
+	WebHookScopeSystem WebHookScope = "system"
 	// WebHookScopeOrg is the org scope for a webhook
 	WebHookScopeOrg WebHookScope = "org"
 	// WebHookScopeRepo is the repo scope for a webhook
