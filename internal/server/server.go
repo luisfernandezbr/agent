@@ -169,7 +169,7 @@ func (s *Server) toInstance(integration *agent.IntegrationInstance) (*sdk.Instan
 	if err != nil {
 		return nil, nil, err
 	}
-	instance := sdk.NewInstance(*config, state, pipe, integration.CustomerID, integration.ID)
+	instance := sdk.NewInstance(*config, state, pipe, integration.CustomerID, integration.RefType(), integration.ID)
 	return instance, cleanup, nil
 }
 
