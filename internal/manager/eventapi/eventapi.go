@@ -385,12 +385,20 @@ func (m *eventAPIManager) RefreshOAuth2Token(refType string, refreshToken string
 	return res.AccessToken, nil
 }
 
+type integrationUserResult struct {
+	Custom struct {
+		Agent struct {
+			Users []sdk.User `json:"integrationUsers"`
+		} `json:"agent"`
+	} `json:"custom"`
+}
+
 // Users will return the integration users for a given integration
 func (m *eventAPIManager) Users(instance sdk.Instance) ([]sdk.User, error) {
-	users := make([]sdk.User, 0)
 	key := instance.CustomerID() + ":integration_user:" + instance.RefType()
 	val, ok := m.cache.Get(key)
 	if ok && val != nil {
+		users := make([]sdk.User, 0)
 		err := json.Unmarshal([]byte(val.(string)), &users)
 		if err == nil {
 			return users, nil
@@ -418,11 +426,12 @@ query($refType: String!) {
 		}
 	}
 }`
-	err := client.Query(query, variables, &users)
-	if err == nil && len(users) > 0 {
-		m.cache.Set(key, sdk.Stringify(users), time.Minute*5) // cache for a short period
+	var res integrationUserResult
+	err := client.Query(query, variables, &res)
+	if err == nil && len(res.Custom.Agent.Users) > 0 {
+		m.cache.Set(key, sdk.Stringify(res.Custom.Agent.Users), time.Minute*5) // cache for a short period
 	}
-	return users, err
+	return res.Custom.Agent.Users, err
 }
 
 // Config is the required fields for a
