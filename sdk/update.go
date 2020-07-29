@@ -177,3 +177,47 @@ func NewWorkIssueUpdate(customerID string, integrationInstanceID string, refID s
 
 	return data
 }
+
+// WorkIssueCommentUpdate is an action for update a work.IssueComment
+type WorkIssueCommentUpdate struct {
+	Set struct {
+		Active *bool
+	}
+	Unset struct {
+	}
+	Push struct {
+	}
+	Pull struct {
+	}
+}
+
+// NewWorkIssueCommentUpdate will create a new update object for work.IssueComment which can be sent to an sdk.Pipe using Write
+func NewWorkIssueCommentUpdate(customerID string, integrationInstanceID string, refID string, refType string, projectRefID string, val WorkIssueCommentUpdate) Model {
+	projectID := NewWorkProjectID(customerID, projectRefID, refType)
+	data := &agent.UpdateData{
+		ID:                    NewWorkIssueCommentID(customerID, refID, refType, projectID),
+		CustomerID:            customerID,
+		RefID:                 refID,
+		RefType:               refType,
+		IntegrationInstanceID: StringPointer(integrationInstanceID),
+		Model:                 work.IssueCommentModelName.String(),
+		Set:                   make(map[string]string),
+		Unset:                 make([]string, 0),
+		Push:                  make(map[string]string),
+		Pull:                  make(map[string]string),
+	}
+	// setters
+	if val.Set.Active != nil {
+		data.Set["active"] = Stringify(val.Set.Active)
+	}
+	// unsetters
+
+	// pushers
+
+	// pullers
+
+	// always set the updated_date when updating
+	data.Set["updated_date"] = Stringify(datetime.NewDateNow())
+
+	return data
+}
