@@ -73,7 +73,7 @@ func NewWorkIssueUpdate(customerID string, integrationInstanceID string, refID s
 	}
 	// setters
 	if val.Set.Active != nil {
-		data.Set["active"] = Stringify(val.Set.Active)
+		data.Set[work.IssueModelActiveColumn] = Stringify(val.Set.Active)
 	}
 	if val.Set.Title != nil {
 		data.Set["title"] = Stringify(val.Set.Title)
@@ -208,7 +208,7 @@ func NewWorkIssueCommentUpdate(customerID string, integrationInstanceID string, 
 	}
 	// setters
 	if val.Set.Active != nil {
-		data.Set["active"] = Stringify(val.Set.Active)
+		data.Set[work.IssueCommentModelActiveColumn] = Stringify(val.Set.Active)
 	}
 	// unsetters
 
@@ -217,7 +217,58 @@ func NewWorkIssueCommentUpdate(customerID string, integrationInstanceID string, 
 	// pullers
 
 	// always set the updated_date when updating
-	data.Set["updated_date"] = Stringify(datetime.NewDateNow())
+	data.Set[work.IssueCommentModelUpdatedDateColumn] = Stringify(datetime.NewDateNow())
+
+	return data
+}
+
+// WorkProjectUpdate is an action for update a work.Project
+type WorkProjectUpdate struct {
+	Set struct {
+		Active      *bool
+		Name        *string
+		Description *string
+	}
+	Unset struct {
+	}
+	Push struct {
+	}
+	Pull struct {
+	}
+}
+
+// NewWorkProjectUpdate will create a new update object for work.Project which can be sent to an sdk.Pipe using Write
+func NewWorkProjectUpdate(customerID string, integrationInstanceID string, refID string, refType string, val WorkProjectUpdate) Model {
+	data := &agent.UpdateData{
+		ID:                    NewWorkProjectID(customerID, refID, refType),
+		CustomerID:            customerID,
+		RefID:                 refID,
+		RefType:               refType,
+		IntegrationInstanceID: StringPointer(integrationInstanceID),
+		Model:                 work.ProjectModelName.String(),
+		Set:                   make(map[string]string),
+		Unset:                 make([]string, 0),
+		Push:                  make(map[string]string),
+		Pull:                  make(map[string]string),
+	}
+	// setters
+	if val.Set.Active != nil {
+		data.Set[work.ProjectModelActiveColumn] = Stringify(val.Set.Active)
+	}
+	if val.Set.Name != nil {
+		data.Set[work.ProjectModelNameColumn] = Stringify(val.Set.Name)
+	}
+	if val.Set.Description != nil {
+		data.Set[work.ProjectModelDescriptionColumn] = Stringify(val.Set.Description)
+	}
+	// unsetters
+
+	// pushers
+
+	// pullers
+
+	// always set the updated_date when updating
+	data.Set[work.ProjectModelUpdatedDateColumn] = Stringify(datetime.NewDateNow())
 
 	return data
 }
