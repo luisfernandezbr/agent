@@ -17,5 +17,5 @@ type User struct {
 // UserManager is a control interface for getting users
 type UserManager interface {
 	// Users will return the integration users for a given integration instance
-	Users(instance Instance) ([]User, error)
+	Users(control Control) ([]User, error)
 }

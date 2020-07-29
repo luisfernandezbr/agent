@@ -88,7 +88,7 @@ func (m *devManager) Errored(customerID string, integrationInstanceID string, re
 }
 
 // Users will return the integration users for a given integration
-func (m *devManager) Users(instance sdk.Instance) ([]sdk.User, error) {
+func (m *devManager) Users(control sdk.Control) ([]sdk.User, error) {
 	return nil, nil
 }
 

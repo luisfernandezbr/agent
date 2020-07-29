@@ -14,6 +14,7 @@ type webhook struct {
 	customerID            string
 	integrationInstanceID string
 	refID                 string
+	refType               string
 	url                   string
 	pipe                  sdk.Pipe
 	headers               map[string]string
@@ -47,6 +48,11 @@ func (e *webhook) IntegrationInstanceID() string {
 // RefID will return the ref id from when the hook was created
 func (e *webhook) RefID() string {
 	return e.refID
+}
+
+// RefType for the integration
+func (e *webhook) RefType() string {
+	return e.refType
 }
 
 //  Pipe should be called to get the pipe for streaming data back to pinpoint
@@ -97,6 +103,7 @@ func New(
 	customerID string,
 	webhookURL string,
 	refID string,
+	refType string,
 	integrationInstanceID string,
 	pipe sdk.Pipe,
 	headers map[string]string,
@@ -110,6 +117,7 @@ func New(
 		state:                 state,
 		customerID:            customerID,
 		refID:                 refID,
+		refType:               refType,
 		integrationInstanceID: integrationInstanceID,
 		pipe:                  pipe,
 		headers:               headers,

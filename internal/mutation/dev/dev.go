@@ -14,6 +14,7 @@ type mutation struct {
 	customerID            string
 	integrationInstanceID string
 	refID                 string
+	refType               string
 	pipe                  sdk.Pipe
 	id                    string
 	model                 string
@@ -47,6 +48,11 @@ func (e *mutation) IntegrationInstanceID() string {
 // RefID will return the ref id from when the hook was created
 func (e *mutation) RefID() string {
 	return e.refID
+}
+
+// RefType for the integration
+func (e *mutation) RefType() string {
+	return e.refType
 }
 
 //  Pipe should be called to get the pipe for streaming data back to pinpoint
@@ -96,6 +102,7 @@ func New(
 	state sdk.State,
 	customerID string,
 	refID string,
+	refType string,
 	integrationInstanceID string,
 	pipe sdk.Pipe,
 	id string,
@@ -110,6 +117,7 @@ func New(
 		state:                 state,
 		customerID:            customerID,
 		refID:                 refID,
+		refType:               refType,
 		integrationInstanceID: integrationInstanceID,
 		pipe:                  pipe,
 		id:                    id,

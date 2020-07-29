@@ -264,7 +264,7 @@ func Main(integration sdk.Integration, args ...string) {
 			}
 			defer pipe.Close()
 			historical, _ := cmd.Flags().GetBool("historical")
-			exp, err := devexport.New(logger, intconfig, stateobj, "9999", "1234", "1", historical, pipe)
+			exp, err := devexport.New(logger, intconfig, stateobj, "9999", "1234", "1", descriptor.RefType, historical, pipe)
 			if err != nil {
 				log.Fatal(logger, "export failed", "err", err)
 			}
@@ -360,6 +360,7 @@ func Main(integration sdk.Integration, args ...string) {
 				"1234",
 				webhookURL,
 				refID,
+				descriptor.RefType,
 				"1",
 				pipe,
 				headers,
@@ -471,6 +472,7 @@ func Main(integration sdk.Integration, args ...string) {
 				"1234",
 				"999",
 				"1",
+				descriptor.RefType,
 				pipe,
 				id,
 				model,

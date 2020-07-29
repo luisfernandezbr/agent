@@ -394,8 +394,8 @@ type integrationUserResult struct {
 }
 
 // Users will return the integration users for a given integration
-func (m *eventAPIManager) Users(instance sdk.Instance) ([]sdk.User, error) {
-	key := instance.CustomerID() + ":integration_user:" + instance.RefType()
+func (m *eventAPIManager) Users(control sdk.Control) ([]sdk.User, error) {
+	key := control.CustomerID() + ":integration_user:" + control.RefType()
 	val, ok := m.cache.Get(key)
 	if ok && val != nil {
 		users := make([]sdk.User, 0)
@@ -404,9 +404,9 @@ func (m *eventAPIManager) Users(instance sdk.Instance) ([]sdk.User, error) {
 			return users, nil
 		}
 	}
-	client := m.createGraphql(instance.CustomerID())
+	client := m.createGraphql(control.CustomerID())
 	variables := make(gql.Variables)
-	variables["ref_type"] = instance.RefType()
+	variables["refType"] = control.RefType()
 	query := `
 query($refType: String!) {
 	custom {

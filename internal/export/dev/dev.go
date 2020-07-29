@@ -14,6 +14,7 @@ type export struct {
 	jobID                 string
 	customerID            string
 	integrationInstanceID string
+	refType               string
 	pipe                  sdk.Pipe
 	historical            bool
 }
@@ -45,6 +46,11 @@ func (e *export) IntegrationInstanceID() string {
 	return e.integrationInstanceID
 }
 
+// RefType for the integration
+func (e *export) RefType() string {
+	return e.refType
+}
+
 //  Pipe should be called to get the pipe for streaming data back to pinpoint
 func (e *export) Pipe() sdk.Pipe {
 	return e.pipe
@@ -68,13 +74,14 @@ func (e *export) Historical() bool {
 }
 
 // New will return an sdk.Export
-func New(logger log.Logger, config sdk.Config, state sdk.State, jobID string, customerID string, integrationInstanceID string, historical bool, pipe sdk.Pipe) (sdk.Export, error) {
+func New(logger log.Logger, config sdk.Config, state sdk.State, jobID string, customerID string, integrationInstanceID string, refType string, historical bool, pipe sdk.Pipe) (sdk.Export, error) {
 	return &export{
 		logger:                logger,
 		config:                config,
 		state:                 state,
 		jobID:                 jobID,
 		customerID:            customerID,
+		refType:               refType,
 		pipe:                  pipe,
 		integrationInstanceID: integrationInstanceID,
 		historical:            historical,
