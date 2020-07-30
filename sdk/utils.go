@@ -79,7 +79,7 @@ func NewNoOpTestLogger() Logger {
 type Date = datetime.Date
 
 // NewDateWithTime will return a Date from a time
-func NewDateWithTime(tv time.Time) (*Date, error) {
+func NewDateWithTime(tv time.Time) *Date {
 	return datetime.NewDateWithTime(tv)
 }
 
@@ -104,11 +104,7 @@ func ConvertTimeToDateModel(ts time.Time, dateModel interface{}) {
 		return
 	}
 
-	date, err := datetime.NewDateWithTime(ts)
-	if err != nil {
-		// this will never happen NewDateWithTime, always returns nil
-		panic(err)
-	}
+	date := datetime.NewDateWithTime(ts)
 
 	t := reflect.ValueOf(dateModel).Elem()
 	t.FieldByName("Rfc3339").Set(reflect.ValueOf(date.Rfc3339))
