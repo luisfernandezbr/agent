@@ -416,6 +416,12 @@ query($refType: String!) {
 				name
 				emails
 				ref_id
+				oauth1_authorization {
+					date_ts
+					consumer_key
+					oauth_token
+					oauth_token_secret
+				}
 				oauth_authorization {
 					date_ts
 					token
