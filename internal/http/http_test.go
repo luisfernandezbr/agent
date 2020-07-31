@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -343,6 +344,8 @@ var _ sdk.Manager = (*fakeOAuthManager)(nil)
 func (f *fakeOAuthManager) Close() error                             { return nil }
 func (f *fakeOAuthManager) GraphQLManager() sdk.GraphQLClientManager { return nil }
 func (f *fakeOAuthManager) HTTPManager() sdk.HTTPClientManager       { return nil }
+func (f *fakeOAuthManager) WebHookManager() sdk.WebHookManager       { return nil }
+func (f *fakeOAuthManager) AuthManager() sdk.AuthManager             { return f }
 func (f *fakeOAuthManager) CreateWebHook(customerID string, refType string, integrationInstanceID string, refID string) (string, error) {
 	return "", nil
 }
@@ -408,4 +411,25 @@ func TestHTTPOAuthTooMany(t *testing.T) {
 	resp, err := cl.Get(&out, sdk.WithOAuth2Refresh(&fakeOAuthManager{}, "foo", token, refreshToken))
 	assert.Error(err)
 	assert.Equal(http.StatusUnauthorized, resp.StatusCode)
+}
+
+func TestHTTPOAuth1(t *testing.T) {
+	assert := assert.New(t)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		val := r.Header.Get("Authorization")
+		if strings.Contains(val, "OAuth oauth_consumer_key=") {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer ts.Close()
+	mgr := New(httpdefaults.DefaultTransport())
+	cl := mgr.New(ts.URL, nil)
+	var out struct {
+		Auth string `json:"auth"`
+	}
+	resp, err := cl.Get(&out, sdk.WithOAuth1(&fakeOAuthManager{}, ts.URL, "consumerkey", "consumersecret", "token", "secret"))
+	assert.NoError(err)
+	assert.Equal(http.StatusOK, resp.StatusCode)
 }

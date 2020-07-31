@@ -10,12 +10,13 @@ require (
 	github.com/fatih/color v1.9.0
 	github.com/go-redis/redis/v8 v8.0.0-beta.7
 	github.com/jhaynie/go-vcr/v2 v2.0.2
+	github.com/jhaynie/oauth1 v1.0.0
 	github.com/mailru/easyjson v0.7.1
 	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pinpt/go-common/v10 v10.0.17
 	github.com/pinpt/httpclient v0.0.0-20200627153820-d374c2f15648 // indirect
-	github.com/pinpt/integration-sdk v0.0.1117
+	github.com/pinpt/integration-sdk v0.0.1118
 	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
 	github.com/russross/blackfriday/v2 v2.0.1
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
@@ -23,6 +24,7 @@ require (
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.6.1
+	go.mongodb.org/mongo-driver v1.4.0 // indirect
 	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de // indirect
 	golang.org/x/net v0.0.0-20200625001655-4c5254603344 // indirect
 	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae // indirect

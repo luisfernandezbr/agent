@@ -105,7 +105,6 @@ func ConvertTimeToDateModel(ts time.Time, dateModel interface{}) {
 	}
 
 	date := datetime.NewDateWithTime(ts)
-
 	t := reflect.ValueOf(dateModel).Elem()
 	t.FieldByName("Rfc3339").Set(reflect.ValueOf(date.Rfc3339))
 	t.FieldByName("Epoch").Set(reflect.ValueOf(date.Epoch))
