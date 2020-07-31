@@ -34,7 +34,7 @@ func TestConfigOAuth1Auth(t *testing.T) {
 	assert := assert.New(t)
 	cfg := NewConfig(nil)
 	assert.Nil(cfg.OAuth1Auth)
-	assert.NoError(cfg.Parse([]byte(pjson.Stringify(map[string]interface{}{"oauth1_auth": oauth1Auth{auth{"url", 0}, "consumer", "token", "secret", nil}}))))
+	assert.NoError(cfg.Parse([]byte(pjson.Stringify(map[string]interface{}{"oauth1_auth": oauth1Auth{auth{"url", 0}, "consumer", "token", "secret"}}))))
 	assert.NotNil(cfg.OAuth1Auth)
 	assert.Equal("url", cfg.OAuth1Auth.URL)
 	assert.Equal("consumer", cfg.OAuth1Auth.ConsumerKey)

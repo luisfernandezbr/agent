@@ -24,9 +24,9 @@ type basicAuth struct {
 
 type oauth1Auth struct {
 	auth
-	ConsumerKey string  `json:"consumer_key"`
-	Token       *string `json:"oauth_token"`
-	Secret      *string `json:"oauth_token_secret"`
+	ConsumerKey string `json:"consumer_key"`
+	Token       string `json:"oauth_token"`
+	Secret      string `json:"oauth_token_secret"`
 }
 
 type oauth2Auth struct {
@@ -101,6 +101,7 @@ const (
 // Config is the integration configuration
 type Config struct {
 	IntegrationType IntegrationType `json:"integrationType"`
+	OAuth1Auth      *oauth1Auth     `json:"oauth1_auth,omitempty"`
 	OAuth2Auth      *oauth2Auth     `json:"oauth2_auth,omitempty"`
 	BasicAuth       *basicAuth      `json:"basic_auth,omitempty"`
 	APIKeyAuth      *apikeyAuth     `json:"apikey_auth,omitempty"`
@@ -253,6 +254,9 @@ func (c *Config) Parse(buf []byte) error {
 	}
 	if cfg.BasicAuth != nil {
 		c.BasicAuth = cfg.BasicAuth
+	}
+	if cfg.OAuth1Auth != nil {
+		c.OAuth1Auth = cfg.OAuth1Auth
 	}
 	if cfg.OAuth2Auth != nil {
 		c.OAuth2Auth = cfg.OAuth2Auth
