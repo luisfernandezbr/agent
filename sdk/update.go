@@ -276,12 +276,13 @@ func NewWorkProjectUpdate(customerID string, integrationInstanceID string, refID
 // AgileSprintUpdate is an action for update a work.Sprint
 type AgileSprintUpdate struct {
 	Set struct {
-		Active      *bool
-		Name        *string
-		Goal        *string
-		StartedDate *time.Time
-		EndedDate   *time.Time
-		Status      *work.SprintStatus
+		Active        *bool
+		Name          *string
+		Goal          *string
+		StartedDate   *time.Time
+		CompletedDate *time.Time
+		EndedDate     *time.Time
+		Status        *work.SprintStatus
 	}
 	Unset struct {
 		Goal *string
@@ -325,6 +326,9 @@ func NewAgileSprintUpdate(customerID string, integrationInstanceID string, refID
 	}
 	if val.Set.EndedDate != nil {
 		data.Set[work.SprintModelEndedDateColumn] = Stringify(NewDateWithTime(*val.Set.EndedDate))
+	}
+	if val.Set.CompletedDate != nil {
+		data.Set[work.SprintModelCompletedDateColumn] = Stringify(NewDateWithTime(*val.Set.CompletedDate))
 	}
 	// unsetters
 	if val.Unset.Goal != nil {
