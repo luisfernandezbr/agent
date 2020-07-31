@@ -514,7 +514,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 		// update the integration state to acknowledge that we are exporting
 		vars := make(graphql.Variables)
 		vars[agent.IntegrationInstanceModelExportAcknowledgedColumn] = true
-		vars[agent.IntegrationInstanceModelStateColumn] = agent.IntegrationStateExporting
+		vars[agent.IntegrationInstanceModelStateColumn] = agent.IntegrationInstanceStateExporting
 		// TODO(robin): add last export acknowledged date
 		if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, req.Integration.ID, vars, false); err != nil {
 			log.Error(s.logger, "error updating agent integration", "err", err, "id", req.Integration.ID)
@@ -526,7 +526,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 		}
 		// update the db with our new integration state
 		vars = make(graphql.Variables)
-		vars[agent.IntegrationInstanceModelStateColumn] = agent.IntegrationStateIdle
+		vars[agent.IntegrationInstanceModelStateColumn] = agent.IntegrationInstanceStateIdle
 		if errmessage != nil {
 			vars[agent.IntegrationInstanceModelErroredColumn] = true
 			vars[agent.IntegrationInstanceModelErrorMessageColumn] = *errmessage
