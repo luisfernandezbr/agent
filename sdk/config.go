@@ -22,6 +22,13 @@ type basicAuth struct {
 	Password string `json:"password,omitempty"`
 }
 
+type oauth1Auth struct {
+	auth
+	ConsumerKey string  `json:"consumer_key"`
+	Token       *string `json:"oauth_token"`
+	Secret      *string `json:"oauth_token_secret"`
+}
+
 type oauth2Auth struct {
 	auth
 	AccessToken  string  `json:"access_token"`
@@ -60,6 +67,7 @@ type config struct {
 	IntegrationType IntegrationType `json:"integration_type"`
 	Exclusions      *matchListKV    `json:"exclusions,omitempty"`
 	Inclusions      *matchListKV    `json:"inclusions,omitempty"`
+	OAuth1Auth      *oauth1Auth     `json:"oauth1_auth,omitempty"`
 	OAuth2Auth      *oauth2Auth     `json:"oauth2_auth,omitempty"`
 	BasicAuth       *basicAuth      `json:"basic_auth,omitempty"`
 	APIKeyAuth      *apikeyAuth     `json:"apikey_auth,omitempty"`

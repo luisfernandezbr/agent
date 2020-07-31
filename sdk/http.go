@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/jhaynie/oauth1"
 )
 
 // ErrTimedOut returns a timeout event when our deadline is exceeded
@@ -20,6 +22,21 @@ type HTTPOptions struct {
 	Deadline    time.Time
 	ShouldRetry bool
 	RetryAfter  time.Duration
+	Transport   http.RoundTripper
+}
+
+// cloneRequest returns a clone of the provided *http.Request.
+// The clone is a shallow copy of the struct and its Header map.
+func cloneRequest(r *http.Request) *http.Request {
+	// shallow copy of the struct
+	r2 := new(http.Request)
+	*r2 = *r
+	// deep copy of the Header
+	r2.Header = make(http.Header)
+	for k, s := range r.Header {
+		r2.Header[k] = s
+	}
+	return r2
 }
 
 // WithHTTPOption is an option for setting details on the request
@@ -161,6 +178,31 @@ func WithOAuth2Refresh(manager Manager, refType string, accessToken string, refr
 				lastRetry = time.Now()
 			}
 		}
+		return nil
+	}
+}
+
+type wrappedRoundTripper struct {
+	config *oauth1.Config
+	token  *oauth1.Token
+	next   http.RoundTripper
+}
+
+func (w *wrappedRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	req = cloneRequest(req)
+	auth := oauth1.NewAuther(w.config)
+	if err := auth.SetRequestAuthHeader(req, w.token); err != nil {
+		return nil, err
+	}
+	return w.next.RoundTrip(req)
+}
+
+// WithOAuth1 will set the appropriate headers for making an OAuth1 signed request
+func WithOAuth1(manager Manager, url string, consumerKey string, consumerSecret string, token string, tokenSecret string) WithHTTPOption {
+	return func(opt *HTTPOptions) error {
+		config := oauth1.NewConfig(consumerKey, consumerSecret)
+		token := oauth1.NewToken(token, tokenSecret)
+		opt.Transport = &wrappedRoundTripper{config, token, opt.Transport}
 		return nil
 	}
 }

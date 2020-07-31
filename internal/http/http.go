@@ -32,15 +32,17 @@ func (r *rewindReader) Read(p []byte) (int, error) {
 }
 
 type client struct {
-	url     string
-	headers map[string]string
-	cl      *http.Client
+	url       string
+	headers   map[string]string
+	cl        *http.Client
+	transport http.RoundTripper
 }
 
 var _ sdk.HTTPClient = (*client)(nil)
 
 func (c *client) exec(opt *sdk.HTTPOptions, out interface{}, options ...sdk.WithHTTPOption) (*sdk.HTTPResponse, error) {
-	resp, err := http.DefaultClient.Do(opt.Request)
+	c.cl.Transport = opt.Transport // reset it each time in case it changed
+	resp, err := c.cl.Do(opt.Request)
 	if err != nil {
 		return nil, err
 	}
@@ -100,9 +102,14 @@ func (c *client) exec(opt *sdk.HTTPOptions, out interface{}, options ...sdk.With
 }
 
 func (c *client) makeRequest(req *http.Request, deadline time.Time, options ...sdk.WithHTTPOption) (*sdk.HTTPOptions, error) {
+	transport := c.transport
+	if transport == nil {
+		transport = http.DefaultTransport
+	}
 	opts := &sdk.HTTPOptions{
-		Request:  req,
-		Deadline: deadline,
+		Request:   req,
+		Deadline:  deadline,
+		Transport: transport,
 	}
 	opts.Request.Header.Set("Accept", "application/json")
 	opts.Request.Header.Set("Content-Type", "application/json")
@@ -229,9 +236,10 @@ var _ sdk.HTTPClientManager = (*manager)(nil)
 // New is for creating a new HTTP client instance that can be reused
 func (m *manager) New(url string, headers map[string]string) sdk.HTTPClient {
 	return &client{
-		url:     url,
-		headers: headers,
-		cl:      &http.Client{Transport: m.transport},
+		url:       url,
+		headers:   headers,
+		cl:        http.DefaultClient,
+		transport: m.transport,
 	}
 }
 
