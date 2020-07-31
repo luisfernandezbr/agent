@@ -314,6 +314,9 @@ func NewAgileSprintUpdate(customerID string, integrationInstanceID string, refID
 	if val.Set.Name != nil {
 		data.Set[work.SprintModelNameColumn] = Stringify(val.Set.Name)
 	}
+	if val.Set.Status != nil {
+		data.Set[work.SprintModelStatusColumn] = Stringify(val.Set.Status)
+	}
 	if val.Set.Goal != nil {
 		data.Set[work.SprintModelGoalColumn] = Stringify(val.Set.Goal)
 	}
