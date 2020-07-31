@@ -126,9 +126,9 @@ func (e *export) Resumed() error {
 	log.Info(e.logger, "pause resumed")
 	var dt agent.IntegrationInstanceThrottledUntil
 	return e.updateIntegration(gql.Variables{
-		agent.IntegrationModelThrottledColumn:      false,
-		agent.IntegrationModelThrottledUntilColumn: dt,
-		agent.IntegrationModelUpdatedAtColumn:      datetime.EpochNow(),
+		agent.IntegrationInstanceModelThrottledColumn:      false,
+		agent.IntegrationInstanceModelThrottledUntilColumn: dt,
+		agent.IntegrationInstanceModelUpdatedAtColumn:      datetime.EpochNow(),
 	})
 }
 
