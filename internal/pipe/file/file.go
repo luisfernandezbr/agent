@@ -88,6 +88,7 @@ func (p *filePipe) Close() error {
 
 // New will create a new console pipe
 func New(logger log.Logger, dir string) sdk.Pipe {
+	log.Debug(logger, "using file pipe", "dir", dir)
 	return &filePipe{
 		logger: logger,
 		dir:    dir,

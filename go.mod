@@ -4,11 +4,11 @@ go 1.14
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.0.7
-	github.com/JohannesKaufmann/html-to-markdown v0.0.0-20200615184431-e6649df6ed2e
+	github.com/JohannesKaufmann/html-to-markdown v1.0.0
 	github.com/andybalholm/cascadia v1.2.0 // indirect
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/fatih/color v1.9.0
-	github.com/go-redis/redis/v8 v8.0.0-beta.5
+	github.com/go-redis/redis/v8 v8.0.0-beta.7
 	github.com/jhaynie/go-vcr/v2 v2.0.2
 	github.com/jhaynie/oauth1 v1.0.0
 	github.com/mailru/easyjson v0.7.1

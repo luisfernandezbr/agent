@@ -36,5 +36,6 @@ func (p *consolePipe) Close() error {
 
 // New will create a new console pipe
 func New(logger log.Logger) sdk.Pipe {
+	log.Debug(logger, "using log pipe")
 	return &consolePipe{logger, false}
 }
