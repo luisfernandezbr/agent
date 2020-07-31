@@ -169,7 +169,7 @@ func (s *Server) toInstance(integration *agent.IntegrationInstance) (*sdk.Instan
 	if err != nil {
 		return nil, nil, err
 	}
-	instance := sdk.NewInstance(*config, state, pipe, integration.CustomerID, integration.ID)
+	instance := sdk.NewInstance(*config, state, pipe, integration.CustomerID, integration.RefType, integration.ID)
 	return instance, cleanup, nil
 }
 
@@ -226,6 +226,7 @@ func (s *Server) handleExport(logger log.Logger, req agent.Export) error {
 		CustomerID:            req.CustomerID,
 		JobID:                 req.JobID,
 		IntegrationInstanceID: integration.ID,
+		RefType:               s.config.Integration.Descriptor.RefType,
 		UUID:                  s.config.UUID,
 		Pipe:                  p,
 		Channel:               s.config.Channel,
@@ -274,6 +275,7 @@ func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integra
 		State:                 state,
 		CustomerID:            customerID,
 		RefID:                 refID,
+		RefType:               s.config.Integration.Descriptor.RefType,
 		IntegrationInstanceID: integrationInstanceID,
 		Pipe:                  p,
 		Headers:               webhook.Headers,
@@ -299,7 +301,7 @@ type mutationData struct {
 	User    sdk.MutationUser   `json:"user"`
 }
 
-func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integrationInstanceID, customerID string, refID string, mutation agent.Mutation) error {
+func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integrationInstanceID, customerID string, refID string, refType string, mutation agent.Mutation) error {
 	buf := []byte(mutation.Payload)
 	var data mutationData
 	if err := json.Unmarshal(buf, &data); err != nil {
@@ -334,6 +336,7 @@ func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integr
 		State:                 state,
 		CustomerID:            customerID,
 		RefID:                 refID,
+		RefType:               refType,
 		IntegrationInstanceID: integrationInstanceID,
 		Pipe:                  p,
 		ID:                    data.ID,
@@ -618,7 +621,7 @@ func (s *Server) onMutation(evt event.SubscriptionEvent, refType string, locatio
 		}
 		var errmessage *string
 		// TODO(robin): maybe scrub some event-api related fields out of the headers
-		if err := s.handleMutation(s.logger, cl, *m.IntegrationInstanceID, m.CustomerID, evt.Headers["ref_id"], m); err != nil {
+		if err := s.handleMutation(s.logger, cl, *m.IntegrationInstanceID, m.CustomerID, evt.Headers["ref_id"], refType, m); err != nil {
 			log.Error(s.logger, "error running mutation", "err", err)
 			errmessage = sdk.StringPointer(err.Error())
 		}

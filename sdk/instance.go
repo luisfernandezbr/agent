@@ -6,6 +6,7 @@ type Instance struct {
 	state                 State
 	customerID            string
 	integrationInstanceID string
+	refType               string
 	pipe                  Pipe
 }
 
@@ -34,13 +35,19 @@ func (i *Instance) Pipe() Pipe {
 	return i.pipe
 }
 
+// RefType returns the integration ref_type
+func (i *Instance) RefType() string {
+	return i.refType
+}
+
 // NewInstance returns a new instance of the integration
-func NewInstance(config Config, state State, pipe Pipe, customerID string, integrationInstanceID string) *Instance {
+func NewInstance(config Config, state State, pipe Pipe, customerID string, refType string, integrationInstanceID string) *Instance {
 	return &Instance{
 		config:                config,
 		state:                 state,
 		pipe:                  pipe,
 		customerID:            customerID,
+		refType:               refType,
 		integrationInstanceID: integrationInstanceID,
 	}
 }

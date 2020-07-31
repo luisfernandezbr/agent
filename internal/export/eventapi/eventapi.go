@@ -2,6 +2,7 @@ package eventapi
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -24,6 +25,7 @@ type export struct {
 	customerID            string
 	jobID                 string
 	integrationInstanceID string
+	refType               string
 	uuid                  string
 	channel               string
 	apikey                string
@@ -59,6 +61,11 @@ func (e *export) CustomerID() string {
 // IntegrationInstanceID will return the unique instance id for this integration for a customer
 func (e *export) IntegrationInstanceID() string {
 	return e.integrationInstanceID
+}
+
+// RefType for the integration
+func (e *export) RefType() string {
+	return e.refType
 }
 
 //  Pipe should be called to get the pipe for streaming data back to pinpoint
@@ -140,6 +147,7 @@ type Config struct {
 	CustomerID            string
 	JobID                 string
 	IntegrationInstanceID string
+	RefType               string
 	UUID                  string
 	Pipe                  sdk.Pipe
 	Channel               string
@@ -154,6 +162,9 @@ func New(config Config) (sdk.Export, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	if config.RefType == "" {
+		return nil, fmt.Errorf("missing RefType")
+	}
 	return &export{
 		ctx:                   ctx,
 		logger:                config.Logger,
@@ -162,6 +173,7 @@ func New(config Config) (sdk.Export, error) {
 		customerID:            config.CustomerID,
 		jobID:                 config.JobID,
 		integrationInstanceID: config.IntegrationInstanceID,
+		refType:               config.RefType,
 		uuid:                  config.UUID,
 		pipe:                  config.Pipe,
 		subscriptionChannel:   config.SubscriptionChannel,

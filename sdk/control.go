@@ -12,4 +12,6 @@ type Control interface {
 	CustomerID() string
 	// IntegrationInstanceID will return the unique instance id for this integration for a customer
 	IntegrationInstanceID() string
+	// RefType for the integration
+	RefType() string
 }

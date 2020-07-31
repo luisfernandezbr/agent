@@ -10,6 +10,8 @@ type Manager interface {
 	WebHookManager() WebHookManager
 	// AuthManager returns the Auth manager instance
 	AuthManager() AuthManager
+	// UserManager returns the User manager instance
+	UserManager() UserManager
 	// Close is called on shutdown to cleanup any resources
 	Close() error
 }

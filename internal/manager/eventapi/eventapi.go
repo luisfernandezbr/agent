@@ -1,6 +1,7 @@
 package eventapi
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	gohttp "net/http"
@@ -45,6 +46,7 @@ type eventAPIManager struct {
 var _ sdk.Manager = (*eventAPIManager)(nil)
 var _ sdk.WebHookManager = (*eventAPIManager)(nil)
 var _ sdk.AuthManager = (*eventAPIManager)(nil)
+var _ sdk.UserManager = (*eventAPIManager)(nil)
 
 // Close is called on shutdown to cleanup any resources
 func (m *eventAPIManager) Close() error {
@@ -69,6 +71,11 @@ func (m *eventAPIManager) HTTPManager() sdk.HTTPClientManager {
 
 // WebHookManager returns the WebHook manager instance
 func (m *eventAPIManager) WebHookManager() sdk.WebHookManager {
+	return m
+}
+
+// UserManager returns the User manager instance
+func (m *eventAPIManager) UserManager() sdk.UserManager {
 	return m
 }
 
@@ -376,6 +383,61 @@ func (m *eventAPIManager) RefreshOAuth2Token(refType string, refreshToken string
 		return "", errors.New("new token not returned, refresh_token might be bad")
 	}
 	return res.AccessToken, nil
+}
+
+type integrationUserResult struct {
+	Custom struct {
+		Agent struct {
+			Users []sdk.User `json:"integrationUsers"`
+		} `json:"agent"`
+	} `json:"custom"`
+}
+
+// Users will return the integration users for a given integration
+func (m *eventAPIManager) Users(control sdk.Control) ([]sdk.User, error) {
+	key := control.CustomerID() + ":integration_user:" + control.RefType()
+	val, ok := m.cache.Get(key)
+	if ok && val != nil {
+		users := make([]sdk.User, 0)
+		err := json.Unmarshal([]byte(val.(string)), &users)
+		if err == nil {
+			return users, nil
+		}
+	}
+	client := m.createGraphql(control.CustomerID())
+	variables := make(gql.Variables)
+	variables["refType"] = control.RefType()
+	query := `
+query($refType: String!) {
+	custom {
+		agent {
+			integrationUsers(ref_type: $refType) {
+				_id
+				name
+				emails
+				ref_id
+				oauth1_authorization {
+					date_ts
+					consumer_key
+					oauth_token
+					oauth_token_secret
+				}
+				oauth_authorization {
+					date_ts
+					token
+					refresh_token
+					scopes
+				}
+			}
+		}
+	}
+}`
+	var res integrationUserResult
+	err := client.Query(query, variables, &res)
+	if err == nil && len(res.Custom.Agent.Users) > 0 {
+		m.cache.Set(key, sdk.Stringify(res.Custom.Agent.Users), time.Minute*5) // cache for a short period
+	}
+	return res.Custom.Agent.Users, err
 }
 
 // Config is the required fields for a

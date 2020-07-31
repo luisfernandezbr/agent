@@ -27,6 +27,7 @@ type devManager struct {
 var _ sdk.Manager = (*devManager)(nil)
 var _ sdk.WebHookManager = (*devManager)(nil)
 var _ sdk.AuthManager = (*devManager)(nil)
+var _ sdk.UserManager = (*devManager)(nil)
 
 // Close is called on shutdown to cleanup any resources
 func (m *devManager) Close() error {
@@ -59,6 +60,11 @@ func (m *devManager) AuthManager() sdk.AuthManager {
 	return m
 }
 
+// UserManager returns the User manager instance
+func (m *devManager) UserManager() sdk.UserManager {
+	return m
+}
+
 // CreateWebHook is used by the integration to create a webhook on behalf of the integration for a given customer and refid
 func (m *devManager) Create(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope, params ...string) (string, error) {
 	return "", fmt.Errorf("cannot create a webhook in dev mode")
@@ -79,6 +85,11 @@ func (m *devManager) HookURL(customerID string, integrationInstanceID string, re
 
 func (m *devManager) Errored(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope, theerror error) {
 	log.Error(m.logger, "integration errored", "err", theerror)
+}
+
+// Users will return the integration users for a given integration
+func (m *devManager) Users(control sdk.Control) ([]sdk.User, error) {
+	return nil, nil
 }
 
 // RefreshOAuth2Token will refresh the OAuth2 access token using the provided refreshToken and return a new access token
