@@ -47,13 +47,15 @@ type WorkIssueUpdate struct {
 		PlannedEndDate   *bool
 	}
 	Push struct {
-		Tags       *[]string
-		SprintIDs  *[]string
-		ChangeLogs *[]WorkIssueChangeLog
+		Tags         *[]string
+		SprintIDs    *[]string
+		ChangeLogs   *[]WorkIssueChangeLog
+		LinkedIssues *[]WorkIssueLinkedIssues
 	}
 	Pull struct {
-		Tags      *[]string
-		SprintIDs *[]string
+		Tags         *[]string
+		SprintIDs    *[]string
+		LinkedIssues *[]WorkIssueLinkedIssues
 	}
 }
 
@@ -161,12 +163,18 @@ func NewWorkIssueUpdate(customerID string, integrationInstanceID string, refID s
 	if val.Push.ChangeLogs != nil {
 		data.Push["change_log"] = Stringify(*val.Push.ChangeLogs)
 	}
+	if val.Push.LinkedIssues != nil {
+		data.Push[work.IssueModelLinkedIssuesColumn] = Stringify(*val.Push.LinkedIssues)
+	}
 	// pullers
 	if val.Pull.Tags != nil {
 		data.Pull["tags"] = Stringify(*val.Pull.Tags)
 	}
 	if val.Pull.SprintIDs != nil {
 		data.Pull["sprint_ids"] = Stringify(*val.Pull.SprintIDs)
+	}
+	if val.Pull.LinkedIssues != nil {
+		data.Push[work.IssueModelLinkedIssuesColumn] = Stringify(*val.Pull.LinkedIssues)
 	}
 	// always set the updated_date when updating
 	data.Set["updated_date"] = Stringify(datetime.NewDateNow())
@@ -340,6 +348,54 @@ func NewAgileSprintUpdate(customerID string, integrationInstanceID string, refID
 
 	// always set the updated_date when updating
 	data.Set[work.SprintModelUpdatedDateColumn] = Stringify(datetime.NewDateNow())
+
+	return data
+}
+
+// AgileBoardUpdate is an action for update a work.Board
+type AgileBoardUpdate struct {
+	Set struct {
+		Active *bool
+		Name   *string
+	}
+	Unset struct {
+	}
+	Push struct {
+	}
+	Pull struct {
+	}
+}
+
+// NewAgileBoardUpdate will create a new update object for work.Board which can be sent to an sdk.Pipe using Write
+func NewAgileBoardUpdate(customerID string, integrationInstanceID string, refID string, refType string, val AgileBoardUpdate) Model {
+	data := &agent.UpdateData{
+		ID:                    NewAgileBoardID(customerID, refID, refType),
+		CustomerID:            customerID,
+		RefID:                 refID,
+		RefType:               refType,
+		IntegrationInstanceID: StringPointer(integrationInstanceID),
+		Model:                 work.BoardModelName.String(),
+		Set:                   make(map[string]string),
+		Unset:                 make([]string, 0),
+		Push:                  make(map[string]string),
+		Pull:                  make(map[string]string),
+	}
+
+	// setters
+	if val.Set.Active != nil {
+		data.Set[work.BoardModelActiveColumn] = Stringify(val.Set.Active)
+	}
+	if val.Set.Name != nil {
+		data.Set[work.BoardModelNameColumn] = Stringify(val.Set.Name)
+	}
+	// unsetters
+
+	// pushers
+
+	// pullers
+
+	// always set the updated_date when updating
+	data.Set[work.BoardModelUpdatedDateColumn] = Stringify(datetime.NewDateNow())
 
 	return data
 }
