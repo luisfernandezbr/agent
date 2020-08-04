@@ -99,13 +99,16 @@ func NewWorkIssueUpdate(customerID string, integrationInstanceID string, refID s
 		data.Set["due_date"] = Stringify(NewDateWithTime(*val.Set.DueDate))
 	}
 	if val.Set.Priority != nil {
-		data.Set["priority"] = Stringify(val.Set.Priority)
+		data.Set[work.IssueModelPriorityColumn] = Stringify(val.Set.Priority.Name)
+		data.Set[work.IssueModelPriorityIDColumn] = Stringify(val.Set.Priority.ID)
 	}
 	if val.Set.Type != nil {
-		data.Set["type"] = Stringify(val.Set.Type)
+		data.Set[work.IssueModelTypeColumn] = Stringify(val.Set.Type.Name)
+		data.Set[work.IssueModelTypeIDColumn] = Stringify(val.Set.Type.ID)
 	}
 	if val.Set.Status != nil {
-		data.Set["status"] = Stringify(val.Set.Status)
+		data.Set[work.IssueModelStatusColumn] = Stringify(val.Set.Status.Name)
+		data.Set[work.IssueModelStatusIDColumn] = Stringify(val.Set.Status.ID)
 	}
 	if val.Set.AssigneeRefID != nil {
 		data.Set["assignee_ref_id"] = Stringify(val.Set.AssigneeRefID)
@@ -174,7 +177,7 @@ func NewWorkIssueUpdate(customerID string, integrationInstanceID string, refID s
 		data.Pull["sprint_ids"] = Stringify(*val.Pull.SprintIDs)
 	}
 	if val.Pull.LinkedIssues != nil {
-		data.Push[work.IssueModelLinkedIssuesColumn] = Stringify(*val.Pull.LinkedIssues)
+		data.Pull[work.IssueModelLinkedIssuesColumn] = Stringify(*val.Pull.LinkedIssues)
 	}
 	// always set the updated_date when updating
 	data.Set["updated_date"] = Stringify(datetime.NewDateNow())
