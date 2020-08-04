@@ -82,7 +82,7 @@ func Main(integration sdk.Integration, args ...string) {
 			}
 			intconfig := getIntegrationConfig(cmd)
 			var state sdk.State
-			var uuid, apikey string
+			var uuid, apikey, enrollmentID string
 			var redisClient *redis.Client
 			var selfManaged bool
 
@@ -133,6 +133,7 @@ func Main(integration sdk.Integration, args ...string) {
 				}
 				uuid = config.SystemID
 				apikey = config.APIKey
+				enrollmentID = config.EnrollmentID
 				if uuid == "" {
 					config.SystemID = config.CustomerID
 				}
@@ -190,11 +191,13 @@ func Main(integration sdk.Integration, args ...string) {
 					Integration: integration,
 					Descriptor:  descriptor,
 				},
-				UUID:    uuid,
-				Channel: channel,
-				APIKey:  apikey,
-				Secret:  secret,
-				GroupID: groupid,
+				UUID:         uuid,
+				Channel:      channel,
+				APIKey:       apikey,
+				Secret:       secret,
+				GroupID:      groupid,
+				SelfManaged:  selfManaged,
+				EnrollmentID: enrollmentID,
 			}
 
 			server, err := server.New(serverConfig)

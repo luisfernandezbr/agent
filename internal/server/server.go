@@ -24,6 +24,7 @@ import (
 	"github.com/pinpt/go-common/v10/graphql"
 	"github.com/pinpt/go-common/v10/hash"
 	"github.com/pinpt/go-common/v10/log"
+	pstrings "github.com/pinpt/go-common/v10/strings"
 	"github.com/pinpt/integration-sdk/agent"
 	"github.com/pinpt/integration-sdk/sourcecode"
 	"github.com/pinpt/integration-sdk/web"
@@ -38,17 +39,19 @@ type IntegrationContext struct {
 
 // Config is the configuration for the server
 type Config struct {
-	Ctx         context.Context
-	Dir         string // temp dir for files
-	Logger      log.Logger
-	State       sdk.State     // can be nil
-	RedisClient *redis.Client // can be nil
-	Integration *IntegrationContext
-	UUID        string
-	Channel     string
-	APIKey      string
-	Secret      string
-	GroupID     string
+	Ctx          context.Context
+	Dir          string // temp dir for files
+	Logger       log.Logger
+	State        sdk.State     // can be nil
+	RedisClient  *redis.Client // can be nil
+	Integration  *IntegrationContext
+	UUID         string
+	Channel      string
+	Secret       string
+	GroupID      string
+	SelfManaged  bool
+	APIKey       string
+	EnrollmentID string
 }
 
 // Server is the event loop server portion of the agent
@@ -129,9 +132,8 @@ func (s *Server) newTempDir(jobID string) string {
 	return dir
 }
 
-func (s *Server) newConfig(configstr *string, kv map[string]interface{}) (*sdk.Config, error) {
-	var sdkconfig sdk.Config
-	sdkconfig = sdk.NewConfig(kv)
+func (s *Server) newConfig(configstr *string) (*sdk.Config, error) {
+	sdkconfig := sdk.NewConfig(nil)
 	if configstr != nil && *configstr != "" {
 		if err := sdkconfig.Parse([]byte(*configstr)); err != nil {
 			return nil, err
@@ -149,7 +151,7 @@ func (s *Server) fetchConfig(client graphql.Client, integrationInstanceID string
 	if integration == nil {
 		return nil, nil
 	}
-	return s.newConfig(integration.Config, make(map[string]interface{}))
+	return s.newConfig(integration.Config)
 }
 
 type cleanupFunc func()
@@ -165,7 +167,7 @@ func (s *Server) toInstance(integration *agent.IntegrationInstance) (*sdk.Instan
 		pipe.Close()
 		os.RemoveAll(dir)
 	}
-	config, err := s.newConfig(integration.Config, make(map[string]interface{}))
+	config, err := s.newConfig(integration.Config)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -204,7 +206,7 @@ func (s *Server) handleExport(logger log.Logger, req agent.Export) error {
 	defer os.RemoveAll(dir)
 	started := time.Now()
 	integration := req.Integration
-	sdkconfig, err := s.newConfig(integration.Config, make(map[string]interface{}))
+	sdkconfig, err := s.newConfig(integration.Config)
 	if err != nil {
 		return err
 	}
@@ -500,6 +502,55 @@ func (s *Server) newGraphqlClient(customerID string) (graphql.Client, error) {
 func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location string) error {
 	log.Debug(s.logger, "received event", "evt", evt)
 	switch evt.Model {
+	case agent.ValidateRequestModelName.String():
+		var req agent.ValidateRequest
+		if err := json.Unmarshal([]byte(evt.Data), &req); err != nil {
+			evt.Commit()
+			return fmt.Errorf("error parsing validation request: %w", err)
+		}
+		cfg, err := s.newConfig(&req.Config)
+		if err != nil {
+			evt.Commit()
+			return fmt.Errorf("error parsing config: %w", err)
+		}
+		if cfg == nil {
+			evt.Commit()
+			return fmt.Errorf("parse config was nil")
+		}
+		resp, err := s.config.Integration.Integration.Validate(*cfg)
+		var errstr, result *string
+		if err != nil {
+			errstr = pstrings.Pointer(err.Error())
+		}
+		if resp != nil {
+			buf, err := json.Marshal(resp)
+			if err != nil {
+				evt.Commit()
+				return fmt.Errorf("error encoding validation result to json: %w", err)
+			}
+			result = pstrings.Pointer(string(buf))
+		}
+
+		// publish on another thread because we're inside s.event's cosumer loop
+		go func() {
+			res := &agent.ValidateResponse{
+				CustomerID: req.CustomerID,
+				Error:      errstr,
+				RefType:    req.RefType,
+				Result:     result,
+				SessionID:  req.SessionID,
+				Success:    err != nil,
+			}
+			if err := s.event.ch.Publish(event.PublishEvent{
+				Object:  res,
+				Headers: map[string]string{"ref_type": req.RefType},
+				Logger:  s.logger,
+			}); err != nil {
+				log.Error(s.logger, "error sending validate response: %w", err)
+			}
+		}()
+
+		log.Info(s.logger, "sent validation response", "result", result, "error", errstr)
 	case agent.ExportModelName.String():
 		var req agent.Export
 		if err := json.Unmarshal([]byte(evt.Data), &req); err != nil {
@@ -652,7 +703,7 @@ func (s *Server) onMutation(evt event.SubscriptionEvent, refType string, locatio
 // New returns a new server instance
 func New(config Config) (*Server, error) {
 	location := agent.ExportIntegrationLocationPrivate
-	if config.Secret != "" {
+	if !config.SelfManaged {
 		location = agent.ExportIntegrationLocationCloud
 	}
 	server := &Server{
@@ -665,11 +716,21 @@ func New(config Config) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	exportObjectExpr := fmt.Sprintf(`ref_type:"%s" AND integration.location:"%s"`, config.Integration.Descriptor.RefType, location.String())
+	var validateObjectExpr string
+	if !config.SelfManaged {
+		validateObjectExpr = fmt.Sprintf(`ref_type:"%s" AND enrollment_id:null`, config.Integration.Descriptor.RefType)
+	} else {
+		validateObjectExpr = fmt.Sprintf(`ref_type:"%s" AND enrollment_id:"%s"`, config.Integration.Descriptor.RefType, config.EnrollmentID)
+	}
 	server.event, err = NewEventSubscriber(
 		config,
-		[]string{agent.ExportModelName.String()},
+		[]string{
+			agent.ExportModelName.String(),
+			agent.ValidateRequestModelName.String(),
+		},
 		&event.SubscriptionFilter{
-			ObjectExpr: fmt.Sprintf(`ref_type:"%s" AND integration.location:"%s"`, config.Integration.Descriptor.RefType, location.String()),
+			ObjectExpr: fmt.Sprintf(`(%s) OR (%s)`, exportObjectExpr, validateObjectExpr),
 		},
 		location,
 		server.onEvent)
