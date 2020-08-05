@@ -86,6 +86,16 @@ func configFilename(cmd *cobra.Command) (string, error) {
 	return filepath.Abs(fn)
 }
 
+// clientFromConfig will use the contents of ConfigFile to make a client
+func clientFromConfig(config *runner.ConfigFile) (graphql.Client, error) {
+	gclient, err := graphql.NewClient(config.CustomerID, "", "", api.BackendURL(api.GraphService, config.Channel))
+	if err != nil {
+		return nil, err
+	}
+	gclient.SetHeader("Authorization", config.APIKey)
+	return gclient, nil
+}
+
 func loadConfig(cmd *cobra.Command, logger log.Logger, channel string) (string, *runner.ConfigFile) {
 	cfg, err := configFilename(cmd)
 	if err != nil {
@@ -102,9 +112,21 @@ func loadConfig(cmd *cobra.Command, logger log.Logger, channel string) (string, 
 			log.Fatal(logger, "error parsing config file at "+cfg, "err", err)
 		}
 		of.Close()
-		return cfg, &config
+		client, err := clientFromConfig(&config)
+		if err != nil {
+			log.Fatal(logger, "error creating client", "err", err)
+		}
+		exists, err := enrollmentExists(client, config.EnrollmentID)
+		if err != nil {
+			log.Fatal(logger, "error checking enrollment", "err", err)
+		}
+		if exists {
+			return cfg, &config
+		}
+		log.Info(logger, "agent configuration found, but not known to Pinpoint, re-enrolling now", "path", cfg)
+	} else {
+		log.Info(logger, "no agent configuration found, enrolling now", "path", cfg)
 	}
-	log.Info(logger, "no agent configuration found, enrolling now", "path", cfg)
 	config, err := enrollAgent(logger, channel, cfg)
 	if err != nil {
 		log.Fatal(logger, "error enrolling new agent", "err", err)
@@ -347,6 +369,11 @@ completed:
 		log.Error(logger, "unable to update enrollment", "enrollment_id", config.EnrollmentID, "err", err)
 	}
 	finished <- true
+}
+
+func enrollmentExists(client graphql.Client, enrollmentID string) (bool, error) {
+	enrollment, err := agent.FindEnrollment(client, enrollmentID)
+	return enrollment != nil, err
 }
 
 func enrollAgent(logger log.Logger, channel string, configFileName string) (*runner.ConfigFile, error) {
