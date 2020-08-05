@@ -4,6 +4,11 @@ package sdk
 type Integration interface {
 	// Start is called when the integration is starting up
 	Start(logger Logger, config Config, manager Manager) error
+	// Validate is called before a new integration instance is added to determine
+	// if the config is valid and the integration can properly communicate with the
+	// source system. The result and the error will both be delivered to the App.
+	// Returning a nil error is considered a successful validation.
+	Validate(config Config) (result map[string]interface{}, err error)
 	// Enroll is called when a new integration instance is added
 	Enroll(instance Instance) error
 	// Dismiss is called when an existing integration instance is removed
