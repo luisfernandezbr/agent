@@ -17,6 +17,7 @@ import (
 	eventAPImutation "github.com/pinpt/agent.next/internal/mutation/eventapi"
 	pipe "github.com/pinpt/agent.next/internal/pipe/eventapi"
 	redisState "github.com/pinpt/agent.next/internal/state/redis"
+	"github.com/pinpt/agent.next/internal/util"
 	eventAPIwebhook "github.com/pinpt/agent.next/internal/webhook/eventapi"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/api"
@@ -548,6 +549,23 @@ func (s *Server) onValidate(req agent.ValidateRequest) (*string, error) {
 	return result, nil
 }
 
+// onOauth1 fetchings the token and returns a requestToken and requestSecret
+func (s *Server) onOauth1(req agent.Oauth1Request) (*string, *string, error) {
+	key, err := util.ParsePrivateKey(req.PrivateKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	config := oauth1.Config{
+		ConsumerKey:    req.ConsumerKey,
+		ConsumerSecret: req.ConsumerSecret,
+		Endpoint:       oauth1.Endpoint{RequestTokenURL: req.URL},
+		Signer:         &oauth1.RSASigner{PrivateKey: key},
+		CallbackURL:    req.CallbackURL,
+	}
+	requestToken, requestSecret, err := config.RequestToken()
+	return &requestToken, &requestSecret, err
+}
+
 func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location string) error {
 	log.Debug(s.logger, "received event", "evt", evt)
 	switch evt.Model {
@@ -575,7 +593,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			"customer_id": req.CustomerID,
 		})
 		if err != nil {
-			log.Info(s.logger, "sent validation response with error", "result", result, "err", err.Error())
+			log.Error(s.logger, "sent validation response with error", "result", result, "err", err.Error())
 		} else {
 			log.Info(s.logger, "sent validation response", "result", result)
 		}
@@ -588,20 +606,15 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			evt.Commit()
 			return fmt.Errorf("critical error parsing oauth1 request: %w", err)
 		}
-		config := oauth1.Config{
-			ConsumerKey:    req.ConsumerKey,
-			ConsumerSecret: req.ConsumerSecret,
-			Endpoint:       oauth1.Endpoint{AccessTokenURL: req.URL},
-		}
-		requestToken, requestSecret, err := config.RequestToken()
+		requestToken, requestSecret, err := s.onOauth1(req)
 		res := &agent.Oauth1Response{
 			CustomerID: req.CustomerID,
 			Error:      toResponseErr(err),
 			RefType:    req.RefType,
 			SessionID:  req.SessionID,
 			Success:    err != nil,
-			Token:      &requestToken,
-			Secret:     &requestSecret,
+			Token:      requestToken,
+			Secret:     requestSecret,
 		}
 		headers := map[string]string{
 			"ref_type":    req.RefType,

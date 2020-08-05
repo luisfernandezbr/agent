@@ -1,10 +1,7 @@
 package dev
 
 import (
-	"crypto/rsa"
-	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"net/http"
 	"os"
@@ -82,18 +79,6 @@ func loadDevConfig() (*devConfig, error) {
 		return &c, nil
 	}
 	return &c, nil
-}
-
-func parsePrivateKey(pemData string) (*rsa.PrivateKey, error) {
-	block, _ := pem.Decode([]byte(pemData))
-	if block == nil {
-		return nil, fmt.Errorf("no pem data in private key")
-	}
-	key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing key: %w", err)
-	}
-	return key, nil
 }
 
 // LoginCmd represents the login command
