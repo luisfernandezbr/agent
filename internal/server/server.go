@@ -12,13 +12,16 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/jhaynie/oauth1"
 	eventAPIexport "github.com/pinpt/agent.next/internal/export/eventapi"
 	eventAPImutation "github.com/pinpt/agent.next/internal/mutation/eventapi"
 	pipe "github.com/pinpt/agent.next/internal/pipe/eventapi"
 	redisState "github.com/pinpt/agent.next/internal/state/redis"
+	"github.com/pinpt/agent.next/internal/util"
 	eventAPIwebhook "github.com/pinpt/agent.next/internal/webhook/eventapi"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/api"
+	"github.com/pinpt/go-common/v10/datamodel"
 	"github.com/pinpt/go-common/v10/datetime"
 	"github.com/pinpt/go-common/v10/event"
 	"github.com/pinpt/go-common/v10/graphql"
@@ -499,58 +502,134 @@ func (s *Server) newGraphqlClient(customerID string) (graphql.Client, error) {
 	return cl, nil
 }
 
+// toResponseErr will return a pointer to the error's string value, or nil if the error is nil
+func toResponseErr(err error) *string {
+	if err == nil {
+		return nil
+	}
+	var str string
+	str = err.Error()
+	return &str
+}
+
+// eventPublish will publish a model on s.event's subscription
+func (s *Server) eventPublish(model datamodel.Model, headers map[string]string) {
+	// publish on another thread because we're inside s.event's cosumer loop
+	go func() {
+		if err := s.event.ch.Publish(event.PublishEvent{
+			Object:  model,
+			Headers: headers,
+			Logger:  s.logger,
+		}); err != nil {
+			log.Error(s.logger, "error publishing %s: %w", model.GetModelName(), err)
+		}
+	}()
+}
+
+func (s *Server) onValidate(req agent.ValidateRequest) (*string, error) {
+	cfg, err := s.newConfig(&req.Config)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing config: %w", err)
+	}
+	if cfg == nil {
+		return nil, fmt.Errorf("parse config was nil")
+	}
+	resp, err := s.config.Integration.Integration.Validate(*cfg)
+	var result *string
+	if err != nil {
+		return nil, err
+	}
+	if resp != nil {
+		buf, err := json.Marshal(resp)
+		if err != nil {
+			return nil, fmt.Errorf("error encoding validation result to json: %w", err)
+		}
+		result = pstrings.Pointer(string(buf))
+	}
+	return result, nil
+}
+
+// onOauth1 fetchings the token and returns a requestToken and requestSecret
+func (s *Server) onOauth1(req agent.Oauth1Request) (*string, *string, error) {
+	key, err := util.ParsePrivateKey(req.PrivateKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	config := oauth1.Config{
+		ConsumerKey:    req.ConsumerKey,
+		ConsumerSecret: req.ConsumerSecret,
+		Endpoint:       oauth1.Endpoint{RequestTokenURL: req.URL},
+		Signer:         &oauth1.RSASigner{PrivateKey: key},
+		CallbackURL:    req.CallbackURL,
+	}
+	requestToken, requestSecret, err := config.RequestToken()
+	return &requestToken, &requestSecret, err
+}
+
 func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location string) error {
 	log.Debug(s.logger, "received event", "evt", evt)
 	switch evt.Model {
 	case agent.ValidateRequestModelName.String():
 		var req agent.ValidateRequest
 		if err := json.Unmarshal([]byte(evt.Data), &req); err != nil {
+			// NOTE: This is a serious error because if we can't decode the body then
+			// we can't set the sessionID on the resp so the ui won't recieve the message,
+			// so it will hang forever.
 			evt.Commit()
-			return fmt.Errorf("error parsing validation request: %w", err)
+			return fmt.Errorf("critical error parsing validation request: %w", err)
 		}
-		cfg, err := s.newConfig(&req.Config)
+		result, err := s.onValidate(req)
+		res := &agent.ValidateResponse{
+			CustomerID: req.CustomerID,
+			Error:      toResponseErr(err),
+			RefType:    req.RefType,
+			SessionID:  req.SessionID,
+			Result:     result,
+			Success:    err != nil,
+		}
+		s.eventPublish(res, map[string]string{
+			"ref_type":    req.RefType,
+			"session_id":  req.SessionID,
+			"customer_id": req.CustomerID,
+		})
 		if err != nil {
-			evt.Commit()
-			return fmt.Errorf("error parsing config: %w", err)
+			log.Error(s.logger, "sent validation response with error", "result", result, "err", err.Error())
+		} else {
+			log.Info(s.logger, "sent validation response", "result", result)
 		}
-		if cfg == nil {
+	case agent.Oauth1RequestModelName.String():
+		var req agent.Oauth1Request
+		if err := json.Unmarshal([]byte(evt.Data), &req); err != nil {
+			// NOTE: This is a serious error because if we can't decode the body then
+			// we can't set the sessionID on the resp so the ui won't recieve the message,
+			// so it will hang forever.
 			evt.Commit()
-			return fmt.Errorf("parse config was nil")
+			return fmt.Errorf("critical error parsing oauth1 request: %w", err)
 		}
-		resp, err := s.config.Integration.Integration.Validate(*cfg)
-		var errstr, result *string
+		requestToken, requestSecret, err := s.onOauth1(req)
+		res := &agent.Oauth1Response{
+			CustomerID: req.CustomerID,
+			Error:      toResponseErr(err),
+			RefType:    req.RefType,
+			SessionID:  req.SessionID,
+			Success:    err != nil,
+			Token:      requestToken,
+			Secret:     requestSecret,
+		}
+		headers := map[string]string{
+			"ref_type":    req.RefType,
+			"session_id":  req.SessionID,
+			"customer_id": req.CustomerID,
+		}
+		if req.EnrollmentID != nil {
+			headers["enrollment_id"] = *req.EnrollmentID
+		}
+		s.eventPublish(res, headers)
 		if err != nil {
-			errstr = pstrings.Pointer(err.Error())
+			log.Error(s.logger, "sent oath1 response with error", "err", err.Error())
+		} else {
+			log.Info(s.logger, "sent oath1 response")
 		}
-		if resp != nil {
-			buf, err := json.Marshal(resp)
-			if err != nil {
-				evt.Commit()
-				return fmt.Errorf("error encoding validation result to json: %w", err)
-			}
-			result = pstrings.Pointer(string(buf))
-		}
-
-		// publish on another thread because we're inside s.event's cosumer loop
-		go func() {
-			res := &agent.ValidateResponse{
-				CustomerID: req.CustomerID,
-				Error:      errstr,
-				RefType:    req.RefType,
-				Result:     result,
-				SessionID:  req.SessionID,
-				Success:    err != nil,
-			}
-			if err := s.event.ch.Publish(event.PublishEvent{
-				Object:  res,
-				Headers: map[string]string{"ref_type": req.RefType},
-				Logger:  s.logger,
-			}); err != nil {
-				log.Error(s.logger, "error sending validate response: %w", err)
-			}
-		}()
-
-		log.Info(s.logger, "sent validation response", "result", result, "error", errstr)
 	case agent.ExportModelName.String():
 		var req agent.Export
 		if err := json.Unmarshal([]byte(evt.Data), &req); err != nil {
@@ -717,6 +796,7 @@ func New(config Config) (*Server, error) {
 		return nil, err
 	}
 	exportObjectExpr := fmt.Sprintf(`ref_type:"%s" AND integration.location:"%s"`, config.Integration.Descriptor.RefType, location.String())
+	// validateObjectExpr also works for oauth1 request
 	var validateObjectExpr string
 	if !config.SelfManaged {
 		validateObjectExpr = fmt.Sprintf(`ref_type:"%s" AND enrollment_id:null`, config.Integration.Descriptor.RefType)
@@ -727,6 +807,7 @@ func New(config Config) (*Server, error) {
 		config,
 		[]string{
 			agent.ExportModelName.String(),
+			agent.Oauth1RequestModelName.String(),
 			agent.ValidateRequestModelName.String(),
 		},
 		&event.SubscriptionFilter{

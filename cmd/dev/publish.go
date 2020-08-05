@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/pinpt/agent.next/internal/util"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/api"
 	"github.com/pinpt/go-common/v10/fileutil"
@@ -69,7 +70,7 @@ var PublishCmd = &cobra.Command{
 		if c.Channel != channel {
 			log.Fatal(logger, "your login session was for a different channel. please login again")
 		}
-		privateKey, err := parsePrivateKey(c.PrivateKey)
+		privateKey, err := util.ParsePrivateKey(c.PrivateKey)
 		if err != nil {
 			log.Fatal(logger, "unable to parse private key in config")
 		}
