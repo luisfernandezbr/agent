@@ -603,11 +603,15 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			Token:      &requestToken,
 			Secret:     &requestSecret,
 		}
-		s.eventPublish(res, map[string]string{
+		headers := map[string]string{
 			"ref_type":    req.RefType,
 			"session_id":  req.SessionID,
 			"customer_id": req.CustomerID,
-		})
+		}
+		if req.EnrollmentID != nil {
+			headers["enrollment_id"] = *req.EnrollmentID
+		}
+		s.eventPublish(res, headers)
 		if err != nil {
 			log.Error(s.logger, "sent oath1 response with error", "err", err.Error())
 		} else {
