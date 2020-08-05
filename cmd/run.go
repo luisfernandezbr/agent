@@ -134,6 +134,35 @@ func loadConfig(cmd *cobra.Command, logger log.Logger, channel string) (string, 
 	return cfg, config
 }
 
+type integrationInstruction int
+
+const (
+	doNothing integrationInstruction = iota
+	shouldStart
+	shouldStop
+)
+
+func vetDBChange(evt event.SubscriptionEvent, enrollmentID string) (integrationInstruction, *agent.IntegrationInstance, error) {
+	var dbchange DBChange
+	if err := json.Unmarshal([]byte(evt.Data), &dbchange); err != nil {
+		return 0, nil, fmt.Errorf("error decoding dbchange: %w", err)
+	}
+	var instance agent.IntegrationInstance
+	if err := json.Unmarshal([]byte(dbchange.Data), &instance); err != nil {
+		return 0, nil, fmt.Errorf("error decoding integration instance: %w", err)
+	}
+	if instance.EnrollmentID == nil || *instance.EnrollmentID == "" || *instance.EnrollmentID != "enrollmentID" {
+		return doNothing, nil, nil
+	}
+	if instance.Active == true && instance.Setup == agent.IntegrationInstanceSetupReady {
+		return shouldStart, &instance, nil
+	}
+	if instance.Active == false && instance.Deleted == true {
+		return shouldStop, &instance, nil
+	}
+	return doNothing, nil, nil
+}
+
 type integrationResult struct {
 	Data *struct {
 		Integration struct {
@@ -166,6 +195,17 @@ func pingEnrollment(logger log.Logger, client graphql.Client, enrollmentID strin
 	}
 	vars[agent.EnrollmentModelLastPingDateColumn] = now
 	return agent.ExecEnrollmentSilentUpdateMutation(client, enrollmentID, vars, false)
+}
+
+func setIntegrationRunning(client graphql.Client, integrationInstanceID string) error {
+	vars := graphql.Variables{
+		agent.IntegrationInstanceModelSetupColumn: agent.IntegrationInstanceSetupRunning,
+	}
+	fmt.Println(pjson.Stringify(vars))
+	if err := agent.ExecIntegrationInstanceSilentUpdateMutation(client, integrationInstanceID, vars, false); err != nil {
+		return fmt.Errorf("error updating integration instance to running: %w", err)
+	}
+	return nil
 }
 
 func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Command) {
@@ -219,15 +259,16 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 		}
 	}()
 	ch, err := event.NewSubscription(ctx, event.Subscription{
-		GroupID:     "agent-run-monitor",
-		Topics:      []string{"ops.db.Change"},
-		Channel:     channel,
-		APIKey:      config.APIKey,
-		DisablePing: true,
-		Logger:      logger,
-		Errors:      errors,
+		GroupID:           "agent-run-monitor",
+		Topics:            []string{"ops.db.Change"},
+		Channel:           channel,
+		APIKey:            config.APIKey,
+		DisablePing:       true,
+		Logger:            logger,
+		Errors:            errors,
+		DisableAutoCommit: true,
 		Filter: &event.SubscriptionFilter{
-			ObjectExpr: `model:"agent.IntegrationInstance" AND (action:"create" OR action:"delete")`,
+			ObjectExpr: `model:"agent.IntegrationInstance" AND action:"update"`,
 		},
 	})
 	if err != nil {
@@ -259,8 +300,16 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 
 	// find all the integrations we have setup
 	query := &agent.IntegrationInstanceQuery{
-		Filters: []string{agent.IntegrationInstanceModelEnrollmentIDColumn + " = ?"},
-		Params:  []interface{}{config.EnrollmentID},
+		Filters: []string{
+			agent.IntegrationInstanceModelActiveColumn + " = ?",
+			agent.IntegrationInstanceModelEnrollmentIDColumn + " = ?",
+			agent.IntegrationInstanceModelSetupColumn + " in ?",
+		},
+		Params: []interface{}{
+			true,
+			config.EnrollmentID,
+			[]string{agent.IntegrationInstanceSetupRunning.String(), agent.IntegrationInstanceSetupReady.String()},
+		},
 	}
 	q := &agent.IntegrationInstanceQueryInput{Query: query}
 	instances, err := agent.FindIntegrationInstances(gclient, q)
@@ -269,13 +318,16 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 	}
 	if instances != nil {
 		for _, edge := range instances.Edges {
-			if edge.Node.Active {
-				name, err := getIntegration(edge.Node.IntegrationID)
-				if err != nil {
-					log.Fatal(logger, "error fetching integration name for integration", "err", err, "integration_id", edge.Node.IntegrationID, "id", edge.Node.ID)
+			if edge.Node.Setup == agent.IntegrationInstanceSetupReady {
+				if err := setIntegrationRunning(gclient, edge.Node.ID); err != nil {
+					log.Fatal(logger, "error updating integration instance", "err", err, "integration_id", edge.Node.IntegrationID, "id", edge.Node.ID)
 				}
-				runIntegration(name)
 			}
+			name, err := getIntegration(edge.Node.IntegrationID)
+			if err != nil {
+				log.Fatal(logger, "error fetching integration name for integration", "err", err, "integration_id", edge.Node.IntegrationID, "id", edge.Node.ID)
+			}
+			runIntegration(name)
 		}
 	}
 
@@ -327,13 +379,16 @@ completed:
 			processLock.Unlock()
 			break completed
 		case evt := <-ch.Channel():
-			var dbchange DBChange
-			json.Unmarshal([]byte(evt.Data), &dbchange)
-			var instance agent.IntegrationInstance
-			json.Unmarshal([]byte(dbchange.Data), &instance)
-			switch dbchange.Action {
-			case "create":
-				log.Info(logger, "db change create received, need to create a new process", "id", instance.ID)
+			instruction, instance, err := vetDBChange(evt, config.EnrollmentID)
+			if err != nil {
+				log.Fatal(logger, "error decoding db change", "err", err)
+			}
+			switch instruction {
+			case shouldStart:
+				log.Info(logger, "db change received, need to create a new process", "id", instance.ID)
+				if err := setIntegrationRunning(gclient, instance.ID); err != nil {
+					log.Fatal(logger, "error updating integration", "err", err)
+				}
 				name, err := getIntegration(instance.ID)
 				if err != nil {
 					log.Fatal(logger, "error fetching integration detail", "err", err)
@@ -346,7 +401,7 @@ completed:
 				} else {
 					processLock.Unlock()
 				}
-			case "delete":
+			case shouldStop:
 				log.Info(logger, "db change delete received, need to delete process", "id", instance.ID)
 				name, err := getIntegration(instance.ID)
 				if err != nil {
