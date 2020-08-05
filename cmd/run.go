@@ -188,6 +188,14 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 	}
 	gclient.SetHeader("Authorization", config.APIKey)
 
+	errors := make(chan error)
+	go func() {
+		for err := range errors {
+			if err != nil {
+				log.Fatal(logger, err.Error())
+			}
+		}
+	}()
 	ch, err := event.NewSubscription(ctx, event.Subscription{
 		GroupID:     "agent-run-monitor",
 		Topics:      []string{"ops.db.Change"},
@@ -195,6 +203,7 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 		APIKey:      config.APIKey,
 		DisablePing: true,
 		Logger:      logger,
+		Errors:      errors,
 		Filter: &event.SubscriptionFilter{
 			ObjectExpr: `model:"agent.IntegrationInstance" AND (action:"create" OR action:"delete")`,
 		},
@@ -227,7 +236,12 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 	}
 
 	// find all the integrations we have setup
-	instances, err := agent.FindIntegrationInstances(gclient, nil)
+	query := &agent.IntegrationInstanceQuery{
+		Filters: []string{agent.IntegrationInstanceModelEnrollmentIDColumn + " = ?"},
+		Params:  []interface{}{config.EnrollmentID},
+	}
+	q := &agent.IntegrationInstanceQueryInput{Query: query}
+	instances, err := agent.FindIntegrationInstances(gclient, q)
 	if err != nil {
 		log.Fatal(logger, "error finding integration instances", "err", err)
 	}
