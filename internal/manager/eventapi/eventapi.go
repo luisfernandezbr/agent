@@ -419,8 +419,8 @@ query($refType: String!) {
 				oauth1_authorization {
 					date_ts
 					consumer_key
-					oauth_token
-					oauth_token_secret
+					token
+					token_secret
 				}
 				oauth_authorization {
 					date_ts

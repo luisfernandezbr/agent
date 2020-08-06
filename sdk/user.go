@@ -9,15 +9,15 @@ type User struct {
 	OAuth1Authorization *struct {
 		Date        int64  `json:"date_ts"`
 		ConsumerKey string `json:"consumer_key"`
-		Token       string `json:"oauth_token"`
-		TokenSecret string `json:"oauth_token_secret"`
+		Token       string `json:"token"`
+		TokenSecret string `json:"token_secret"`
 	} `json:"oauth1_authorization"`
 	OAuth2Authorization *struct {
 		Date         int64   `json:"date_ts"`
 		AccessToken  string  `json:"token"`
 		RefreshToken *string `json:"refresh_token"`
 		Scopes       string  `json:"scopes"`
-	} `json:"oauth2_authorization"`
+	} `json:"oauth_authorization"`
 }
 
 // UserManager is a control interface for getting users
