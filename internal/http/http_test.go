@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	"crypto/rsa"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -346,11 +347,15 @@ func (f *fakeOAuthManager) GraphQLManager() sdk.GraphQLClientManager { return ni
 func (f *fakeOAuthManager) HTTPManager() sdk.HTTPClientManager       { return nil }
 func (f *fakeOAuthManager) WebHookManager() sdk.WebHookManager       { return nil }
 func (f *fakeOAuthManager) AuthManager() sdk.AuthManager             { return f }
+func (f *fakeOAuthManager) UserManager() sdk.UserManager             { return nil }
 func (f *fakeOAuthManager) CreateWebHook(customerID string, refType string, integrationInstanceID string, refID string) (string, error) {
 	return "", nil
 }
 func (f *fakeOAuthManager) RefreshOAuth2Token(refType string, refreshToken string) (string, error) {
 	return "NEW_TOKEN " + refreshToken, nil
+}
+func (f *fakeOAuthManager) PrivateKey(customerID string, integrationInstanceID string) (*rsa.PrivateKey, error) {
+	return nil, nil
 }
 
 func TestHTTPOAuth(t *testing.T) {
@@ -429,7 +434,7 @@ func TestHTTPOAuth1(t *testing.T) {
 	var out struct {
 		Auth string `json:"auth"`
 	}
-	resp, err := cl.Get(&out, sdk.WithOAuth1(&fakeOAuthManager{}, ts.URL, "consumerkey", "consumersecret", "token", "secret"))
+	resp, err := cl.Get(&out, sdk.WithOAuth1(&fakeOAuthManager{}, "1234", "1", "consumerkey", "consumersecret", "token", "secret"))
 	assert.NoError(err)
 	assert.Equal(http.StatusOK, resp.StatusCode)
 }
