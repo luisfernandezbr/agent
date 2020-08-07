@@ -585,7 +585,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			RefType:    req.RefType,
 			SessionID:  req.SessionID,
 			Result:     result,
-			Success:    err != nil,
+			Success:    err == nil,
 		}
 		s.eventPublish(res, map[string]string{
 			"ref_type":    req.RefType,
@@ -612,7 +612,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			Error:      toResponseErr(err),
 			RefType:    req.RefType,
 			SessionID:  req.SessionID,
-			Success:    err != nil,
+			Success:    err == nil,
 			Token:      requestToken,
 			Secret:     requestSecret,
 		}
