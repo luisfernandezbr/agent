@@ -8,7 +8,7 @@ type Integration interface {
 	// if the config is valid and the integration can properly communicate with the
 	// source system. The result and the error will both be delivered to the App.
 	// Returning a nil error is considered a successful validation.
-	Validate(config Config) (result map[string]interface{}, err error)
+	Validate(validate Validate) (result map[string]interface{}, err error)
 	// Enroll is called when a new integration instance is added
 	Enroll(instance Instance) error
 	// Dismiss is called when an existing integration instance is removed

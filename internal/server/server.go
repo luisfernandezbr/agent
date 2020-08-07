@@ -18,6 +18,7 @@ import (
 	pipe "github.com/pinpt/agent.next/internal/pipe/eventapi"
 	redisState "github.com/pinpt/agent.next/internal/state/redis"
 	"github.com/pinpt/agent.next/internal/util"
+	"github.com/pinpt/agent.next/internal/validate"
 	eventAPIwebhook "github.com/pinpt/agent.next/internal/webhook/eventapi"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/api"
@@ -534,7 +535,12 @@ func (s *Server) onValidate(req agent.ValidateRequest) (*string, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("parse config was nil")
 	}
-	resp, err := s.config.Integration.Integration.Validate(*cfg)
+	resp, err := s.config.Integration.Integration.Validate(validate.NewValidate(
+		*cfg,
+		req.RefType,
+		req.CustomerID,
+		*req.IntegrationInstanceID,
+	))
 	var result *string
 	if err != nil {
 		return nil, err

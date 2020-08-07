@@ -198,9 +198,9 @@ func (w *wrappedRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 }
 
 // WithOAuth1 will set the appropriate headers for making an OAuth1 signed request
-func WithOAuth1(manager Manager, customerID string, integrationInstanceID string, consumerKey string, consumerSecret string, token string, tokenSecret string) WithHTTPOption {
+func WithOAuth1(manager Manager, identifier Identifier, consumerKey string, consumerSecret string, token string, tokenSecret string) WithHTTPOption {
 	return func(opt *HTTPOptions) error {
-		privateKey, err := manager.AuthManager().PrivateKey(customerID, integrationInstanceID)
+		privateKey, err := manager.AuthManager().PrivateKey(identifier.CustomerID(), identifier.IntegrationInstanceID())
 		if err != nil {
 			return fmt.Errorf("error aquiring private key to sign oauth request: %w", err)
 		}
