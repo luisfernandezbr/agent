@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -144,7 +145,7 @@ func Main(integration sdk.Integration, args ...string) {
 				statefn := filepath.Join(outdir, descriptor.RefType+".state.json")
 				stateobj, err := devstate.New(statefn)
 				if err != nil {
-					log.Fatal(logger, "error opening state file", "err", err)
+					log.Fatal(logger, "error opening state file", "err", err, "fn", statefn)
 				}
 				state = stateobj
 				defer stateobj.Close()
@@ -205,6 +206,11 @@ func Main(integration sdk.Integration, args ...string) {
 				log.Fatal(logger, "error starting server", "err", err)
 			}
 
+			startFile, _ := cmd.Flags().GetString("start-file")
+			if startFile != "" {
+				ioutil.WriteFile(startFile, []byte("OK"), 0644)
+			}
+
 			<-done
 			log.Info(logger, "stopping")
 			server.Close()
@@ -255,7 +261,7 @@ func Main(integration sdk.Integration, args ...string) {
 
 			stateobj, err := devstate.New(statefn)
 			if err != nil {
-				log.Fatal(logger, "error opening state file", "err", err)
+				log.Fatal(logger, "error opening state file", "err", err, "fn", statefn)
 			}
 			defer stateobj.Close()
 			var pipe sdk.Pipe
@@ -324,7 +330,7 @@ func Main(integration sdk.Integration, args ...string) {
 
 			stateobj, err := devstate.New(statefn)
 			if err != nil {
-				log.Fatal(logger, "error opening state file", "err", err)
+				log.Fatal(logger, "error opening state file", "err", err, "fn", statefn)
 			}
 			defer stateobj.Close()
 			var pipe sdk.Pipe
@@ -423,7 +429,7 @@ func Main(integration sdk.Integration, args ...string) {
 
 			stateobj, err := devstate.New(statefn)
 			if err != nil {
-				log.Fatal(logger, "error opening state file", "err", err)
+				log.Fatal(logger, "error opening state file", "err", err, "fn", statefn)
 			}
 			defer stateobj.Close()
 			var pipe sdk.Pipe
@@ -509,7 +515,9 @@ func Main(integration sdk.Integration, args ...string) {
 	serverCmd.PersistentFlags().String("redis", pos.Getenv("PP_REDIS_URL", "0.0.0.0:6379"), "the redis endpoint url")
 	serverCmd.PersistentFlags().Int("redisDB", 15, "the redis db")
 	serverCmd.PersistentFlags().String("groupid", "", "override the group id")
+	serverCmd.PersistentFlags().String("start-file", "", "file to touch when the server is started")
 	serverCmd.Flags().MarkHidden("groupid")
+	serverCmd.Flags().MarkHidden("start-file")
 	serverCmd.AddCommand(devExportCmd)
 	serverCmd.AddCommand(devWebhookCmd)
 	serverCmd.AddCommand(devMutationCmd)

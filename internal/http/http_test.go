@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	"crypto/rand"
 	"crypto/rsa"
 	"encoding/base64"
 	"fmt"
@@ -354,8 +355,8 @@ func (f *fakeOAuthManager) CreateWebHook(customerID string, refType string, inte
 func (f *fakeOAuthManager) RefreshOAuth2Token(refType string, refreshToken string) (string, error) {
 	return "NEW_TOKEN " + refreshToken, nil
 }
-func (f *fakeOAuthManager) PrivateKey(customerID string, integrationInstanceID string) (*rsa.PrivateKey, error) {
-	return nil, nil
+func (f *fakeOAuthManager) PrivateKey(identifier sdk.Identifier) (*rsa.PrivateKey, error) {
+	return rsa.GenerateKey(rand.Reader, 1024)
 }
 
 func TestHTTPOAuth(t *testing.T) {
@@ -434,7 +435,7 @@ func TestHTTPOAuth1(t *testing.T) {
 	var out struct {
 		Auth string `json:"auth"`
 	}
-	resp, err := cl.Get(&out, sdk.WithOAuth1(&fakeOAuthManager{}, "1234", "1", "consumerkey", "consumersecret", "token", "secret"))
+	resp, err := cl.Get(&out, sdk.WithOAuth1(&fakeOAuthManager{}, sdk.NewSimpleIdentifier("1234", "1", "reftype"), "consumerkey", "consumersecret", "token", "secret"))
 	assert.NoError(err)
 	assert.Equal(http.StatusOK, resp.StatusCode)
 }

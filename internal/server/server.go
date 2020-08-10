@@ -517,6 +517,7 @@ func toResponseErr(err error) *string {
 func (s *Server) eventPublish(model datamodel.Model, headers map[string]string) {
 	// publish on another thread because we're inside s.event's cosumer loop
 	go func() {
+		log.Debug(s.logger, "publishing an event", "model", model, "headers", headers)
 		if err := s.event.ch.Publish(event.PublishEvent{
 			Object:  model,
 			Headers: headers,
@@ -556,24 +557,37 @@ func (s *Server) onValidate(req agent.ValidateRequest) (*string, error) {
 }
 
 // onOauth1 fetchings the token and returns a requestToken and requestSecret
-func (s *Server) onOauth1(req agent.Oauth1Request) (*string, *string, error) {
+func (s *Server) onOauth1(req agent.Oauth1Request) (string, string, error) {
+	log.Debug(s.logger, "on OAuth1 request", "req", sdk.Stringify(req))
 	key, err := util.ParsePrivateKey(req.PrivateKey)
 	if err != nil {
-		return nil, nil, err
+		return "", "", err
+	}
+	var endpoint oauth1.Endpoint
+	switch req.Stage {
+	case agent.Oauth1RequestStageRequestToken:
+		endpoint.RequestTokenURL = req.URL
+	case agent.Oauth1RequestStageAccessToken:
+		endpoint.AccessTokenURL = req.URL
 	}
 	config := oauth1.Config{
 		ConsumerKey:    req.ConsumerKey,
 		ConsumerSecret: req.ConsumerSecret,
-		Endpoint:       oauth1.Endpoint{RequestTokenURL: req.URL},
+		Endpoint:       endpoint,
 		Signer:         &oauth1.RSASigner{PrivateKey: key},
 		CallbackURL:    req.CallbackURL,
 	}
-	requestToken, requestSecret, err := config.RequestToken()
-	return &requestToken, &requestSecret, err
+	switch req.Stage {
+	case agent.Oauth1RequestStageRequestToken:
+		return config.RequestToken()
+	case agent.Oauth1RequestStageAccessToken:
+		return config.AccessToken(*req.Token, *req.TokenSecret, *req.Code)
+	}
+	return "", "", fmt.Errorf("invalid stage requested")
 }
 
 func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location string) error {
-	log.Debug(s.logger, "received event", "evt", evt)
+	log.Debug(s.logger, "received event", "evt", evt, "refType", refType, "location", location)
 	switch evt.Model {
 	case agent.ValidateRequestModelName.String():
 		var req agent.ValidateRequest
@@ -593,15 +607,19 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			Result:     result,
 			Success:    err == nil,
 		}
-		s.eventPublish(res, map[string]string{
+		headers := map[string]string{
 			"ref_type":    req.RefType,
 			"session_id":  req.SessionID,
 			"customer_id": req.CustomerID,
-		})
+		}
+		if req.EnrollmentID != nil {
+			headers["enrollment_id"] = *req.EnrollmentID
+		}
+		s.eventPublish(res, headers)
 		if err != nil {
-			log.Error(s.logger, "sent validation response with error", "result", result, "err", err.Error())
+			log.Error(s.logger, "sent validation response with error", "result", result, "err", err.Error(), "headers", headers)
 		} else {
-			log.Info(s.logger, "sent validation response", "result", result)
+			log.Info(s.logger, "sent validation response", "result", result, "headers", headers)
 		}
 	case agent.Oauth1RequestModelName.String():
 		var req agent.Oauth1Request
@@ -612,15 +630,15 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			evt.Commit()
 			return fmt.Errorf("critical error parsing oauth1 request: %w", err)
 		}
-		requestToken, requestSecret, err := s.onOauth1(req)
+		token, secret, err := s.onOauth1(req)
 		res := &agent.Oauth1Response{
 			CustomerID: req.CustomerID,
 			Error:      toResponseErr(err),
 			RefType:    req.RefType,
 			SessionID:  req.SessionID,
 			Success:    err == nil,
-			Token:      requestToken,
-			Secret:     requestSecret,
+			Token:      sdk.StringPointer(token),
+			Secret:     sdk.StringPointer(secret),
 		}
 		headers := map[string]string{
 			"ref_type":    req.RefType,
@@ -632,9 +650,9 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 		}
 		s.eventPublish(res, headers)
 		if err != nil {
-			log.Error(s.logger, "sent oath1 response with error", "err", err.Error())
+			log.Error(s.logger, "sent oauth1 response with error", "err", err.Error(), "headers", headers)
 		} else {
-			log.Info(s.logger, "sent oath1 response")
+			log.Info(s.logger, "sent oauth1 response", "headers", headers)
 		}
 	case agent.ExportModelName.String():
 		var req agent.Export
@@ -809,6 +827,7 @@ func New(config Config) (*Server, error) {
 	} else {
 		validateObjectExpr = fmt.Sprintf(`ref_type:"%s" AND enrollment_id:"%s"`, config.Integration.Descriptor.RefType, config.EnrollmentID)
 	}
+	// FIXME: break these out since one will block the other
 	server.event, err = NewEventSubscriber(
 		config,
 		[]string{

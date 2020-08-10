@@ -179,6 +179,13 @@ func NewConfig(kv map[string]interface{}) Config {
 		}
 		c.APIKeyAuth = &auth
 	}
+	if strval, ok := kv["oauth1_auth"].(string); ok {
+		var auth oauth1Auth
+		if err := json.Unmarshal([]byte(strval), &auth); err != nil {
+			panic(fmt.Errorf("error parsing oauth1_auth: %w", err))
+		}
+		c.OAuth1Auth = &auth
+	}
 	if strval, ok := kv["oauth2_auth"].(string); ok {
 		var auth oauth2Auth
 		if err := json.Unmarshal([]byte(strval), &auth); err != nil {

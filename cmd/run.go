@@ -186,7 +186,7 @@ var integrationQuery = `query findIntegration($id: ID!) {
 }`
 
 func pingEnrollment(logger log.Logger, client graphql.Client, enrollmentID string, datefield string, active bool) error {
-	log.Debug(logger, "updating enrollment", "setting", datefield)
+	log.Info(logger, "updating enrollment", "setting", datefield, "enrollment_id", enrollmentID, "active", active)
 	now := datetime.NewDateNow()
 	vars := make(graphql.Variables)
 	if datefield != "" {
@@ -201,7 +201,6 @@ func setIntegrationRunning(client graphql.Client, integrationInstanceID string) 
 	vars := graphql.Variables{
 		agent.IntegrationInstanceModelSetupColumn: agent.IntegrationInstanceSetupRunning,
 	}
-	fmt.Println(pjson.Stringify(vars))
 	if err := agent.ExecIntegrationInstanceSilentUpdateMutation(client, integrationInstanceID, vars, false); err != nil {
 		return fmt.Errorf("error updating integration instance to running: %w", err)
 	}
@@ -285,7 +284,12 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 	runIntegration := func(name string) {
 		log.Info(logger, "running integration", "name", name)
 		processLock.Lock()
+		startFile, _ := ioutil.TempFile("", "")
+		defer os.Remove(startFile.Name())
+		args = append(args, "--start-file", startFile.Name())
 		c := exec.CommandContext(ctx, os.Args[0], append([]string{"run", name}, args...)...)
+		var wg sync.WaitGroup
+		wg.Add(1)
 		c.Stdin = os.Stdin
 		c.Stdout = os.Stdout
 		c.Stderr = os.Stderr
@@ -294,21 +298,36 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 			processLock.Unlock()
 			log.Fatal(logger, "error starting "+name, "err", err)
 		}
+		go func() {
+			for {
+				select {
+				case <-time.After(time.Second):
+					if fileutil.FileExists(startFile.Name()) {
+						wg.Done()
+						os.Remove(startFile.Name())
+						return
+					}
+				case <-time.After(5 * time.Minute):
+					log.Fatal(logger, "failed to start integration "+name+" after 5 minutes")
+				}
+			}
+		}()
 		processes[name] = c
 		processLock.Unlock()
+		log.Debug(logger, "waiting for integration to start")
+		wg.Wait()
+		log.Debug(logger, "integration is running")
 	}
 
 	// find all the integrations we have setup
 	query := &agent.IntegrationInstanceQuery{
 		Filters: []string{
-			agent.IntegrationInstanceModelActiveColumn + " = ?",
+			agent.IntegrationInstanceModelDeletedColumn + " = ?",
 			agent.IntegrationInstanceModelEnrollmentIDColumn + " = ?",
-			agent.IntegrationInstanceModelSetupColumn + " in ?",
 		},
 		Params: []interface{}{
-			true,
+			false,
 			config.EnrollmentID,
-			[]string{agent.IntegrationInstanceSetupRunning.String(), agent.IntegrationInstanceSetupReady.String()},
 		},
 	}
 	q := &agent.IntegrationInstanceQueryInput{Query: query}
@@ -318,16 +337,16 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 	}
 	if instances != nil {
 		for _, edge := range instances.Edges {
-			if edge.Node.Setup == agent.IntegrationInstanceSetupReady {
-				if err := setIntegrationRunning(gclient, edge.Node.ID); err != nil {
-					log.Fatal(logger, "error updating integration instance", "err", err, "integration_id", edge.Node.IntegrationID, "id", edge.Node.ID)
-				}
-			}
 			name, err := getIntegration(edge.Node.IntegrationID)
 			if err != nil {
 				log.Fatal(logger, "error fetching integration name for integration", "err", err, "integration_id", edge.Node.IntegrationID, "id", edge.Node.ID)
 			}
 			runIntegration(name)
+			if edge.Node.Setup == agent.IntegrationInstanceSetupReady {
+				if err := setIntegrationRunning(gclient, edge.Node.ID); err != nil {
+					log.Fatal(logger, "error updating integration instance", "err", err, "integration_id", edge.Node.IntegrationID, "id", edge.Node.ID)
+				}
+			}
 		}
 	}
 
@@ -606,6 +625,14 @@ var runCmd = &cobra.Command{
 			log.Fatal(logger, "error creating subscription", "err", err)
 		}
 
+		// start file is used to signal to the monitor when we're running
+		startfile, _ := cmd.Flags().GetString("start-file")
+		if startfile != "" {
+			os.Remove(startfile)
+			cmdargs = append(cmdargs, "--start-file", startfile)
+			defer os.Remove(startfile)
+		}
+
 		log.Info(logger, "waiting for subscription to be ready", "channel", channel)
 		ch.WaitForReady()
 		log.Info(logger, "subscription is ready")
@@ -757,7 +784,9 @@ func init() {
 	runCmd.Flags().String("config", "", "the location of the config file")
 	runCmd.Flags().StringP("dir", "d", "", "directory inside of which to run the integration")
 	runCmd.Flags().String("secret", pos.Getenv("PP_AUTH_SHARED_SECRET", ""), "internal shared secret")
+	runCmd.Flags().String("start-file", "", "the start file to write once running")
 	runCmd.Flags().MarkHidden("secret")
+	runCmd.Flags().MarkHidden("start-file")
 
 	rootCmd.AddCommand(enrollAgentCmd)
 	enrollAgentCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", ""), "the channel which can be set")

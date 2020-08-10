@@ -2,9 +2,7 @@ package eventapi
 
 import (
 	"crypto/rsa"
-	"crypto/x509"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	gohttp "net/http"
@@ -18,6 +16,7 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/pinpt/agent.next/internal/graphql"
 	"github.com/pinpt/agent.next/internal/http"
+	"github.com/pinpt/agent.next/internal/util"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/api"
 	"github.com/pinpt/go-common/v10/datetime"
@@ -365,7 +364,8 @@ func (m *eventAPIManager) Errored(customerID string, integrationInstanceID strin
 var ErrNoPrivateKey = errors.New("no private key found")
 
 // PrivateKey will return a private key for signing requests
-func (m *eventAPIManager) PrivateKey(customerID string, integrationInstanceID string) (*rsa.PrivateKey, error) {
+func (m *eventAPIManager) PrivateKey(identifier sdk.Identifier) (*rsa.PrivateKey, error) {
+	customerID, integrationInstanceID := identifier.CustomerID(), identifier.IntegrationInstanceID()
 	client := m.createGraphql(customerID)
 	instance, err := agent.FindIntegrationInstance(client, integrationInstanceID)
 	if err != nil {
@@ -374,19 +374,7 @@ func (m *eventAPIManager) PrivateKey(customerID string, integrationInstanceID st
 	if instance.PrivateKey == nil {
 		return nil, ErrNoPrivateKey
 	}
-	block, _ := pem.Decode([]byte(*instance.PrivateKey))
-	if block == nil {
-		return nil, fmt.Errorf("no pem data in integration instance private key")
-	}
-	maybekey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing integration instance private key: %w", err)
-	}
-	key, ok := maybekey.(*rsa.PrivateKey)
-	if !ok {
-		return nil, fmt.Errorf("pem data was not rsa key")
-	}
-	return key, nil
+	return util.ParsePrivateKey(string(*instance.PrivateKey))
 }
 
 // RefreshOAuth2Token will refresh the OAuth2 access token using the provided refreshToken and return a new access token

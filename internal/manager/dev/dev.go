@@ -109,7 +109,7 @@ func (m *devManager) RefreshOAuth2Token(refType string, refreshToken string) (st
 }
 
 // PrivateKey will return a private key for signing requests
-func (m *devManager) PrivateKey(customerID, integrationInstanceID string) (*rsa.PrivateKey, error) {
+func (m *devManager) PrivateKey(identifier sdk.Identifier) (*rsa.PrivateKey, error) {
 	return nil, fmt.Errorf("PrivateKey not implemented yet! sorry! 🙇‍♀️")
 }
 

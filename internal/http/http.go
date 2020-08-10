@@ -77,10 +77,12 @@ func (c *client) exec(opt *sdk.HTTPOptions, out interface{}, options ...sdk.With
 		opt.RetryAfter = tv
 		return nil, nil
 	}
+	// read the body
+	var buf bytes.Buffer
+	io.Copy(&buf, resp.Body)
+	resp.Body.Close()
+	res.Body = buf.Bytes()
 	if resp.StatusCode > 299 {
-		var buf bytes.Buffer
-		io.Copy(&buf, resp.Body)
-		resp.Body.Close()
 		return res, &sdk.HTTPError{
 			StatusCode: resp.StatusCode,
 			Body:       &buf,
@@ -88,13 +90,10 @@ func (c *client) exec(opt *sdk.HTTPOptions, out interface{}, options ...sdk.With
 	}
 	if strings.Contains(resp.Header.Get("Content-Type"), "json") {
 		if i, ok := out.(easyjson.Unmarshaler); ok {
-			var buf bytes.Buffer
-			io.Copy(&buf, resp.Body)
-			resp.Body.Close()
 			err := easyjson.Unmarshal(buf.Bytes(), i)
 			return res, err
 		}
-		if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+		if err := json.NewDecoder(&buf).Decode(out); err != nil {
 			return res, err
 		}
 	}
