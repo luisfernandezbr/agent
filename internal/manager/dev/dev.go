@@ -1,6 +1,7 @@
 package dev
 
 import (
+	"crypto/rsa"
 	"fmt"
 	gohttp "net/http"
 	"net/url"
@@ -105,6 +106,11 @@ func (m *devManager) RefreshOAuth2Token(refType string, refreshToken string) (st
 		return "", err
 	}
 	return res.AccessToken, nil
+}
+
+// PrivateKey will return a private key for signing requests
+func (m *devManager) PrivateKey(identifier sdk.Identifier) (*rsa.PrivateKey, error) {
+	return nil, fmt.Errorf("PrivateKey not implemented yet! sorry! 🙇‍♀️")
 }
 
 // New will create a new dev sdk.Manager

@@ -1,6 +1,7 @@
 package eventapi
 
 import (
+	"crypto/rsa"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/pinpt/agent.next/internal/graphql"
 	"github.com/pinpt/agent.next/internal/http"
+	"github.com/pinpt/agent.next/internal/util"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/api"
 	"github.com/pinpt/go-common/v10/datetime"
@@ -356,6 +358,23 @@ func (m *eventAPIManager) Errored(customerID string, integrationInstanceID strin
 			log.Error(m.logger, "error setting the integration instance errored", "err", err, "integration_instance_id", integrationInstanceID, "customer_id", customerID)
 		}
 	}
+}
+
+// ErrNoPrivateKey is thrown from PrivateKey if the integration instance has no private key
+var ErrNoPrivateKey = errors.New("no private key found")
+
+// PrivateKey will return a private key for signing requests
+func (m *eventAPIManager) PrivateKey(identifier sdk.Identifier) (*rsa.PrivateKey, error) {
+	customerID, integrationInstanceID := identifier.CustomerID(), identifier.IntegrationInstanceID()
+	client := m.createGraphql(customerID)
+	instance, err := agent.FindIntegrationInstance(client, integrationInstanceID)
+	if err != nil {
+		return nil, fmt.Errorf("error getting integration instance: %w", err)
+	}
+	if instance.PrivateKey == nil {
+		return nil, ErrNoPrivateKey
+	}
+	return util.ParsePrivateKey(string(*instance.PrivateKey))
 }
 
 // RefreshOAuth2Token will refresh the OAuth2 access token using the provided refreshToken and return a new access token

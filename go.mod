@@ -14,7 +14,7 @@ require (
 	github.com/mailru/easyjson v0.7.1
 	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible
-	github.com/pinpt/go-common/v10 v10.0.18
+	github.com/pinpt/go-common/v10 v10.0.20
 	github.com/pinpt/httpclient v0.0.0-20200627153820-d374c2f15648 // indirect
 	github.com/pinpt/integration-sdk v0.0.1144
 	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
@@ -27,6 +27,6 @@ require (
 	go.mongodb.org/mongo-driver v1.4.0 // indirect
 	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de // indirect
 	golang.org/x/net v0.0.0-20200625001655-4c5254603344 // indirect
-	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae // indirect
+	golang.org/x/sys v0.0.0-20200808120158-1030fc2bf1d9 // indirect
 	gopkg.in/yaml.v2 v2.3.0
 )

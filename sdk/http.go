@@ -70,6 +70,7 @@ func IsHTTPError(err error) (bool, int, io.Reader) {
 type HTTPResponse struct {
 	StatusCode int
 	Headers    http.Header
+	Body       []byte
 }
 
 // HTTPClient is an interface to a HTTP client
@@ -198,9 +199,17 @@ func (w *wrappedRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 }
 
 // WithOAuth1 will set the appropriate headers for making an OAuth1 signed request
-func WithOAuth1(manager Manager, url string, consumerKey string, consumerSecret string, token string, tokenSecret string) WithHTTPOption {
+func WithOAuth1(manager Manager, identifier Identifier, consumerKey string, consumerSecret string, token string, tokenSecret string) WithHTTPOption {
 	return func(opt *HTTPOptions) error {
-		config := oauth1.NewConfig(consumerKey, consumerSecret)
+		privateKey, err := manager.AuthManager().PrivateKey(identifier)
+		if err != nil {
+			return fmt.Errorf("error acquiring private key to sign oauth request: %w", err)
+		}
+		config := &oauth1.Config{
+			ConsumerKey:    consumerKey,
+			ConsumerSecret: consumerSecret,
+			Signer:         &oauth1.RSASigner{PrivateKey: privateKey},
+		}
 		token := oauth1.NewToken(token, tokenSecret)
 		opt.Transport = &wrappedRoundTripper{config, token, opt.Transport}
 		return nil
