@@ -532,7 +532,7 @@ func Main(integration sdk.Integration, args ...string) {
 	// dev webhook command
 	devWebhookCmd.Flags().String("dir", "", "directory to place files when in dev mode")
 	devWebhookCmd.Flags().String("input", "", "the json payload of the webhook")
-	devWebhookCmd.Flags().String("header", "", "the headers of the webhook")
+	devWebhookCmd.Flags().StringArray("header", []string{""}, "the headers of the webhook")
 	devWebhookCmd.Flags().String("ref-id", "", "the refid on the webhook")
 	devWebhookCmd.Flags().String("webhook-url", "", "the url on the webhook")
 
