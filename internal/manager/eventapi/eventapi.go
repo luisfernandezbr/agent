@@ -188,6 +188,9 @@ func (m *eventAPIManager) Create(customerID string, integrationInstanceID string
 			if err != nil {
 				return "", fmt.Errorf("error finding the integration instance: %w", err)
 			}
+			if instance == nil {
+				return "", fmt.Errorf("integration instance doesn't exist %s", integrationInstanceID)
+			}
 			var found bool
 			for _, webhook := range instance.Webhooks {
 				if (webhook.RefID == nil && refID == "") || (webhook.RefID != nil && *webhook.RefID == refID) {
@@ -232,6 +235,9 @@ func (m *eventAPIManager) Delete(customerID string, integrationInstanceID string
 		instance, err := agent.FindIntegrationInstance(client, integrationInstanceID)
 		if err != nil {
 			return err
+		}
+		if instance == nil {
+			return fmt.Errorf("integration instance doesn't exist %s", integrationInstanceID)
 		}
 		hooks := make([]agent.IntegrationInstanceWebhooks, 0)
 		for _, webhook := range instance.Webhooks {
