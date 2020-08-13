@@ -46,7 +46,11 @@ func downloadIntegration(logger log.Logger, channel string, toDir string, publis
 	if err != nil {
 		return "", fmt.Errorf("error creating client: %w", err)
 	}
-	url := pstr.JoinURL(api.BackendURL(api.RegistryService, channel), fmt.Sprintf("/fetch/%s/%s/%s", publisher, integration, version))
+	p := fmt.Sprintf("/fetch/%s/%s", publisher, integration)
+	if version != "" {
+		p += "/" + version
+	}
+	url := pstr.JoinURL(api.BackendURL(api.RegistryService, channel), p)
 	log.Debug(logger, "downloading", "url", url)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {

@@ -51,7 +51,16 @@ type Integration struct {
 }
 
 func getIntegration(ctx context.Context, logger log.Logger, channel string, dir string, publisher string, integration string, version string, cmdargs []string, force bool) (*exec.Cmd, error) {
-	longName := fmt.Sprintf("%s/%s/%s", publisher, integration, version)
+	if publisher == "" {
+		return nil, fmt.Errorf("missing publisher")
+	}
+	if integration == "" {
+		return nil, fmt.Errorf("missing integration")
+	}
+	longName := fmt.Sprintf("%s/%s", publisher, integration)
+	if version != "" {
+		longName += "/" + version
+	}
 	integrationExecutable, _ := filepath.Abs(filepath.Join(dir, integration))
 	if force || !fileutil.FileExists(integrationExecutable) {
 		log.Info(logger, "need to download integration", "integration", longName, "force", force)
@@ -151,7 +160,7 @@ func vetDBChange(evt event.SubscriptionEvent, enrollmentID string) (integrationI
 	if err := json.Unmarshal([]byte(dbchange.Data), &instance); err != nil {
 		return 0, nil, fmt.Errorf("error decoding integration instance: %w", err)
 	}
-	if instance.EnrollmentID == nil || *instance.EnrollmentID == "" || *instance.EnrollmentID != "enrollmentID" {
+	if instance.EnrollmentID == nil || *instance.EnrollmentID == "" || *instance.EnrollmentID != enrollmentID {
 		return doNothing, nil, nil
 	}
 	if instance.Active == true && instance.Setup == agent.IntegrationInstanceSetupReady {
@@ -257,8 +266,13 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 			}
 		}
 	}()
+	groupID := "agent-run-monitor"
+	if config.EnrollmentID != "" {
+		// if self managed, we need to use a different group id than the cloud
+		groupID += "-" + config.EnrollmentID
+	}
 	ch, err := event.NewSubscription(ctx, event.Subscription{
-		GroupID:           "agent-run-monitor",
+		GroupID:           "agent-run-monitor-" + config.EnrollmentID,
 		Topics:            []string{"ops.db.Change"},
 		Channel:           channel,
 		APIKey:            config.APIKey,
@@ -298,9 +312,17 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 			processLock.Unlock()
 			log.Fatal(logger, "error starting "+name, "err", err)
 		}
+		exited := make(chan bool)
+		pos.OnExit(func(_ int) {
+			log.Debug(logger, "exit")
+			close(exited)
+		})
 		go func() {
 			for {
 				select {
+				case <-exited:
+					wg.Done()
+					return
 				case <-time.After(time.Second):
 					if fileutil.FileExists(startFile.Name()) {
 						wg.Done()
@@ -316,7 +338,11 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 		processLock.Unlock()
 		log.Debug(logger, "waiting for integration to start")
 		wg.Wait()
-		log.Debug(logger, "integration is running")
+		if c != nil && c.ProcessState != nil && c.ProcessState.Exited() {
+			log.Info(logger, "integration is not running")
+		} else {
+			log.Info(logger, "integration is running")
+		}
 	}
 
 	// find all the integrations we have setup
@@ -581,6 +607,7 @@ var runCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(logger, "error getting dir absolute path", "err", err)
 		}
+
 		var apikey string
 		var ch *event.SubscriptionChannel
 		var cmdargs []string
@@ -609,7 +636,7 @@ var runCmd = &cobra.Command{
 				channel = config.Channel
 			}
 			ch, err = event.NewSubscription(ctx, event.Subscription{
-				GroupID:     "agent-run-" + publisher + "-" + integration,
+				GroupID:     "agent-run-" + publisher + "-" + integration + "-" + config.EnrollmentID,
 				Topics:      []string{"ops.db.Change"},
 				Channel:     channel,
 				APIKey:      apikey,
