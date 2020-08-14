@@ -122,7 +122,7 @@ func (p *eventAPIPipe) Close() error {
 // if any of these limits are exceeded, we will transmit the data to the server
 const (
 	maxRecords  = 500              // max number of total records in the file before we want to transmit
-	maxBytes    = 1024 * 1024 * 5  // max size (~5mb) in bytes in the file before we want to transmit
+	maxBytes    = 1024 * 1024 * 1  // max size (~1mb) in bytes in the file before we want to transmit
 	maxDuration = 30 * time.Second // amount of time we have an idle file before we transmit
 )
 

@@ -347,19 +347,26 @@ func (m *eventAPIManager) Errored(customerID string, integrationInstanceID strin
 			log.Error(m.logger, "error finding the integration instance", "err", err, "integration_instance_id", integrationInstanceID, "customer_id", customerID)
 			return
 		}
+		var found bool
+		hooks := make([]*agent.IntegrationInstanceWebhooks, 0)
 		for _, webhook := range instance.Webhooks {
 			if (webhook.RefID == nil && refID == "") || (webhook.RefID != nil && *webhook.RefID == refID) {
-				variables[agent.IntegrationInstanceModelWebhooksErroredColumn] = true
-				variables[agent.IntegrationInstanceModelWebhooksErrorMessageColumn] = theerror.Error()
-				if err := agent.ExecIntegrationInstanceSilentUpdateMutation(client, integrationInstanceID, variables, false); err != nil {
-					log.Error(m.logger, "error setting the integration instance errored", "err", err, "integration_instance_id", integrationInstanceID, "customer_id", customerID)
-				}
-				return
+				webhook.ErrorMessage = sdk.StringPointer(theerror.Error())
+				webhook.Errored = true
+				webhook.Enabled = false
+				found = true
 			}
+			hooks = append(hooks, &webhook)
 		}
-		// if we don't have a webhook, we need to just update on the instance itself
-		variables[agent.IntegrationInstanceModelErrorMessageColumn] = theerror.Error()
-		variables[agent.IntegrationInstanceModelErroredColumn] = true
+		if !found {
+			hooks = append(hooks, &agent.IntegrationInstanceWebhooks{
+				Enabled:      false,
+				RefID:        sdk.StringPointer(refID),
+				ErrorMessage: sdk.StringPointer(theerror.Error()),
+				Errored:      true,
+			})
+		}
+		variables[agent.IntegrationInstanceModelWebhooksColumn] = instance.Webhooks
 		if err := agent.ExecIntegrationInstanceSilentUpdateMutation(client, integrationInstanceID, variables, false); err != nil {
 			log.Error(m.logger, "error setting the integration instance errored", "err", err, "integration_instance_id", integrationInstanceID, "customer_id", customerID)
 		}

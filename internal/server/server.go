@@ -536,6 +536,9 @@ func (s *Server) onValidate(req agent.ValidateRequest) (*string, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("parse config was nil")
 	}
+	if req.IntegrationInstanceID == nil {
+		return nil, fmt.Errorf("missing required integration_instance_id")
+	}
 	resp, err := s.config.Integration.Integration.Validate(validate.NewValidate(
 		*cfg,
 		req.RefType,
