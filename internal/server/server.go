@@ -215,7 +215,7 @@ func (s *Server) handleExport(logger log.Logger, req agent.Export) error {
 		return err
 	}
 	if sdkconfig == nil {
-		log.Info(logger, "received an export for an integration that no longer exists, ignoring", "id", req.IntegrationInstanceID)
+		log.Info(logger, "received an export for an integration that no longer exists, ignoring", "id", *req.IntegrationInstanceID)
 		return nil
 	}
 	state, err := s.newState(req.CustomerID, integration.ID)
@@ -231,7 +231,7 @@ func (s *Server) handleExport(logger log.Logger, req agent.Export) error {
 		State:                 state,
 		CustomerID:            req.CustomerID,
 		JobID:                 req.JobID,
-		IntegrationInstanceID: integration.ID,
+		IntegrationInstanceID: *req.IntegrationInstanceID,
 		RefType:               s.config.Integration.Descriptor.RefType,
 		UUID:                  s.config.UUID,
 		Pipe:                  p,
@@ -244,13 +244,35 @@ func (s *Server) handleExport(logger log.Logger, req agent.Export) error {
 		return err
 	}
 	log.Info(logger, "running export")
-	if err := s.config.Integration.Integration.Export(e); err != nil {
-		return fmt.Errorf("error running integration export: %w", err)
-	}
+
+	eerr := s.config.Integration.Integration.Export(e)
 	if err := state.Flush(); err != nil {
 		log.Error(logger, "error flushing state", "err", err)
 	}
-	log.Info(logger, "export completed", "duration", time.Since(started), "jobid", req.JobID, "customer_id", req.CustomerID)
+	var errmsg *string
+	if eerr != nil {
+		errmsg = pstrings.Pointer(eerr.Error())
+	}
+	completeEvent := &agent.ExportComplete{
+		CustomerID:            req.CustomerID,
+		JobID:                 req.JobID,
+		IntegrationID:         integration.ID,
+		IntegrationInstanceID: *integration.IntegrationInstanceID,
+		CreatedAt:             datetime.TimeToEpoch(started),
+		EndedAt:               datetime.EpochNow(),
+		Historical:            req.ReprocessHistorical,
+		Success:               eerr == nil,
+		Error:                 errmsg,
+	}
+	s.eventPublish(completeEvent, map[string]string{
+		"customer_id": req.CustomerID,
+		"job_id":      req.JobID,
+		"historical":  fmt.Sprintf("%v", req.ReprocessHistorical),
+	})
+	log.Info(logger, "export completed", "duration", time.Since(started), "jobid", req.JobID, "customer_id", req.CustomerID, "err", eerr)
+	if eerr != nil {
+		return fmt.Errorf("error running integration export: %w", err)
+	}
 	return nil
 }
 

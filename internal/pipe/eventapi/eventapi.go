@@ -16,6 +16,7 @@ import (
 	"github.com/pinpt/go-common/v10/event"
 	pjson "github.com/pinpt/go-common/v10/json"
 	"github.com/pinpt/go-common/v10/log"
+	pnum "github.com/pinpt/go-common/v10/number"
 	"github.com/pinpt/integration-sdk/agent"
 )
 
@@ -132,7 +133,7 @@ type sendRecord struct {
 }
 
 func (p *eventAPIPipe) send(model string, f *wrapperFile) error {
-	log.Debug(p.logger, "sending to event-api", "model", model, "size", f.bytes, "count", f.count, "last_event", time.Since(f.ts))
+	log.Debug(p.logger, "sending to event-api", "model", model, "size", pnum.ToBytesSize(f.bytes), "count", f.count, "last_event", time.Since(f.ts))
 	f.Close()
 	buf, err := ioutil.ReadFile(f.of.Name())
 	if err != nil {
