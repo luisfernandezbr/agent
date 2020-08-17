@@ -205,7 +205,11 @@ func (s *Server) handleRemoveIntegration(integration *agent.IntegrationInstance)
 	return nil
 }
 
-func (s *Server) handleExport(logger log.Logger, req agent.Export) error {
+func (s *Server) handleExport(logger log.Logger, client graphql.Client, req agent.Export) error {
+	if req.IntegrationInstanceID == nil {
+		log.Error(logger, "received an export for an integration instance id that was nil, ignoring", "req", sdk.Stringify(req))
+		return nil
+	}
 	dir := s.newTempDir(req.JobID)
 	defer os.RemoveAll(dir)
 	started := time.Now()
@@ -256,19 +260,25 @@ func (s *Server) handleExport(logger log.Logger, req agent.Export) error {
 	completeEvent := &agent.ExportComplete{
 		CustomerID:            req.CustomerID,
 		JobID:                 req.JobID,
-		IntegrationID:         integration.ID,
-		IntegrationInstanceID: *integration.IntegrationInstanceID,
+		IntegrationID:         req.Integration.IntegrationID,
+		IntegrationInstanceID: *req.IntegrationInstanceID,
 		CreatedAt:             datetime.TimeToEpoch(started),
+		StartedAt:             datetime.TimeToEpoch(started),
 		EndedAt:               datetime.EpochNow(),
 		Historical:            req.ReprocessHistorical,
 		Success:               eerr == nil,
 		Error:                 errmsg,
+		Stats:                 pstrings.Pointer(sdk.Stringify(e.Stats())),
+		RefType:               req.RefType,
 	}
-	s.eventPublish(completeEvent, map[string]string{
-		"customer_id": req.CustomerID,
-		"job_id":      req.JobID,
-		"historical":  fmt.Sprintf("%v", req.ReprocessHistorical),
-	})
+	id := agent.NewExportCompleteID(req.CustomerID, req.JobID, integration.ID)
+	vars := completeEvent.ToMap()
+	delete(vars, "id")
+	delete(vars, "customer_id")
+	delete(vars, "hashcode")
+	if err := agent.ExecExportCompleteSilentUpdateMutation(client, id, vars, true); err != nil {
+		return fmt.Errorf("error updated agent complete. %w", err)
+	}
 	log.Info(logger, "export completed", "duration", time.Since(started), "jobid", req.JobID, "customer_id", req.CustomerID, "err", eerr)
 	if eerr != nil {
 		return fmt.Errorf("error running integration export: %w", err)
@@ -702,7 +712,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			log.Error(s.logger, "error updating agent integration", "err", err, "id", req.Integration.ID)
 		}
 		var errmessage *string
-		if err := s.handleExport(s.logger, req); err != nil {
+		if err := s.handleExport(s.logger, cl, req); err != nil {
 			log.Error(s.logger, "error running export request", "err", err)
 			errmessage = sdk.StringPointer(err.Error())
 		}

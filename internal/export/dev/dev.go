@@ -17,6 +17,7 @@ type export struct {
 	refType               string
 	pipe                  sdk.Pipe
 	historical            bool
+	stats                 map[string]interface{}
 }
 
 var _ sdk.Export = (*export)(nil)
@@ -49,6 +50,11 @@ func (e *export) IntegrationInstanceID() string {
 // RefType for the integration
 func (e *export) RefType() string {
 	return e.refType
+}
+
+// Stats is the stats object that an integration can use to track integration specific stats for the export
+func (e *export) Stats() map[string]interface{} {
+	return e.stats
 }
 
 //  Pipe should be called to get the pipe for streaming data back to pinpoint
@@ -85,5 +91,6 @@ func New(logger log.Logger, config sdk.Config, state sdk.State, jobID string, cu
 		pipe:                  pipe,
 		integrationInstanceID: integrationInstanceID,
 		historical:            historical,
+		stats:                 make(map[string]interface{}),
 	}, nil
 }

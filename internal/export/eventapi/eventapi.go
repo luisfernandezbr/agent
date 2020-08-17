@@ -33,6 +33,7 @@ type export struct {
 	pipe                  sdk.Pipe
 	paused                bool
 	historical            bool
+	stats                 map[string]interface{}
 	mu                    sync.Mutex
 }
 
@@ -71,6 +72,11 @@ func (e *export) RefType() string {
 //  Pipe should be called to get the pipe for streaming data back to pinpoint
 func (e *export) Pipe() sdk.Pipe {
 	return e.pipe
+}
+
+// Stats is the stats object that an integration can use to track integration specific stats for the export
+func (e *export) Stats() map[string]interface{} {
+	return e.stats
 }
 
 func (e *export) createGraphql() gql.Client {
@@ -178,5 +184,6 @@ func New(config Config) (sdk.Export, error) {
 		pipe:                  config.Pipe,
 		subscriptionChannel:   config.SubscriptionChannel,
 		historical:            config.Historical,
+		stats:                 make(map[string]interface{}),
 	}, nil
 }
