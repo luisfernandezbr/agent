@@ -501,8 +501,10 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 					if err != nil && err != redis.Nil {
 						log.Error(s.logger, "error getting cachekey for state", "err", err)
 					}
-					log.Debug(s.logger, "comparing integration hashcode on integration change", "hashcode", hashcode, "res", res, "install", res != hashcode, "id", integration.ID)
-					if res != hashcode {
+					// if its changed configuration or if it never existed
+					install := res != hashcode || err == redis.Nil
+					log.Debug(s.logger, "comparing integration hashcode on integration change", "hashcode", hashcode, "res", res, "install", install, "id", integration.ID)
+					if install {
 						// update our hash key and then signal an addition
 						if err := s.config.RedisClient.Set(s.config.Ctx, cachekey, hashcode, 0).Err(); err != nil {
 							log.Error(s.logger, "error setting the cache key on the install", "cachekey", cachekey, "err", err)
