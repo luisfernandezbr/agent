@@ -136,7 +136,7 @@ func (s *Server) newTempDir(jobID string) string {
 	return dir
 }
 
-func (s *Server) newConfig(configstr *string) (*sdk.Config, error) {
+func newConfig(configstr *string) (*sdk.Config, error) {
 	sdkconfig := sdk.NewConfig(nil)
 	if configstr != nil && *configstr != "" {
 		if err := sdkconfig.Parse([]byte(*configstr)); err != nil {
@@ -155,7 +155,7 @@ func (s *Server) fetchConfig(client graphql.Client, integrationInstanceID string
 	if integration == nil {
 		return nil, nil
 	}
-	return s.newConfig(integration.Config)
+	return newConfig(integration.Config)
 }
 
 type cleanupFunc func()
@@ -171,7 +171,7 @@ func (s *Server) toInstance(integration *agent.IntegrationInstance) (*sdk.Instan
 		pipe.Close()
 		os.RemoveAll(dir)
 	}
-	config, err := s.newConfig(integration.Config)
+	config, err := newConfig(integration.Config)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -210,11 +210,14 @@ func (s *Server) handleExport(logger log.Logger, client graphql.Client, req agen
 		log.Error(logger, "received an export for an integration instance id that was nil, ignoring", "req", sdk.Stringify(req))
 		return nil
 	}
+	if err := s.handleEnroll(convertExportIntegrationInstance(req.Integration)); err != nil {
+		return nil
+	}
 	dir := s.newTempDir(req.JobID)
 	defer os.RemoveAll(dir)
 	started := time.Now()
 	integration := req.Integration
-	sdkconfig, err := s.newConfig(integration.Config)
+	sdkconfig, err := newConfig(integration.Config)
 	if err != nil {
 		return err
 	}
@@ -394,7 +397,7 @@ func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integr
 	return nil
 }
 
-func (s *Server) calculateIntegrationHashCode(integration *agent.IntegrationInstance) string {
+func calculateIntegrationHashCode(integration *agent.IntegrationInstance) string {
 	// since we get db change events each time we update the agent.integration table, we don't
 	// want to thrash the integration with enrolls so we are going to check specific fields for changes
 	// if any of these change, we don't need to send a enroll since the config is the same as before
@@ -407,6 +410,10 @@ func (s *Server) calculateIntegrationHashCode(integration *agent.IntegrationInst
 
 type deletableState interface {
 	DeleteAll() error
+}
+
+func makeEnrollCachekey(customerID string, integrationInstanceID string) string {
+	return "agent:" + customerID + ":" + integrationInstanceID
 }
 
 func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, location string) error {
@@ -426,12 +433,12 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 	case agent.IntegrationInstanceModelName.String():
 		// integration has changed so we need to either enroll or dismiss
 		if integration, ok := ch.Object.(*agent.IntegrationInstance); ok {
-			cachekey := "agent:" + integration.CustomerID + ":" + integration.ID
+			cachekey := makeEnrollCachekey(integration.CustomerID, integration.ID)
 			// check to see if this is a delete OR we've deleted the integration
 			if ch.Action == Delete || integration.Deleted {
 				// check cache key or you will get into an infinite loop
 				val := s.config.RedisClient.Exists(s.config.Ctx, cachekey).Val()
-				log.Debug(s.logger, "need to delete the integration", "cachekey", cachekey, "val", val)
+				log.Debug(s.logger, "recieved db change for deleted integration", "id", integration.ID, "cachekey", cachekey, "val", val, "will_dismiss", val > 0)
 				if val > 0 {
 					// delete the integration cache key and then signal a removal
 					defer s.config.RedisClient.Del(s.config.Ctx, cachekey)
@@ -493,32 +500,48 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 						log.Info(s.logger, "completed clean up of integration repo/project errors", "duration", time.Since(started), "id", integration.ID, "customer_id", integration.CustomerID)
 					}
 				}
-			} else {
-				hashcode := s.calculateIntegrationHashCode(integration)
-				if integration.Active {
-					// if it's active then check to see if we're updated
-					res, err := s.config.RedisClient.Get(s.config.Ctx, cachekey).Result()
-					if err != nil && err != redis.Nil {
-						log.Error(s.logger, "error getting cachekey for state", "err", err)
-					}
-					// if its changed configuration or if it never existed
-					install := res != hashcode || err == redis.Nil
-					log.Debug(s.logger, "comparing integration hashcode on integration change", "hashcode", hashcode, "res", res, "install", install, "id", integration.ID)
-					if install {
-						// update our hash key and then signal an addition
-						if err := s.config.RedisClient.Set(s.config.Ctx, cachekey, hashcode, 0).Err(); err != nil {
-							log.Error(s.logger, "error setting the cache key on the install", "cachekey", cachekey, "err", err)
-						}
-						log.Info(s.logger, "an integration instance has been added", "id", integration.ID, "customer_id", integration.CustomerID, "cachekey", cachekey, "hashcode", hashcode)
-						if err := s.handleAddIntegration(integration); err != nil {
-							log.Error(s.logger, "error adding integration", "err", err, "id", integration.ID)
-						}
-					}
-				}
 			}
 		}
 	}
 	evt.Commit()
+	return nil
+}
+
+func convertExportIntegrationInstance(submodel agent.ExportIntegration) *agent.IntegrationInstance {
+	var integration agent.IntegrationInstance
+	integration.FromMap(submodel.ToMap())
+	return &integration
+}
+
+// handleEnroll will call enroll if the integration is new or has been reconfigured
+func (s *Server) handleEnroll(integrationInstance *agent.IntegrationInstance) error {
+	cachekey := makeEnrollCachekey(integrationInstance.CustomerID, integrationInstance.ID)
+	hashcode := calculateIntegrationHashCode(integrationInstance)
+	var install bool
+	// if it's active then check to see if we're updated
+	res, err := s.config.RedisClient.Get(s.config.Ctx, cachekey).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return fmt.Errorf("error getting cachekey for state: %w", err)
+		}
+		// not in cache so it must be new
+		install = true
+	}
+	if !install {
+		// check if its changed configuration
+		install = res != hashcode
+		log.Debug(s.logger, "comparing integration hashcode on integration change", "hashcode", hashcode, "res", res, "install", install, "id", integrationInstance.ID)
+	}
+	if install {
+		// update our hash key and then signal an addition
+		if err := s.config.RedisClient.Set(s.config.Ctx, cachekey, hashcode, 0).Err(); err != nil {
+			return fmt.Errorf("error setting the cache key (%s) on the install: %w", cachekey, err)
+		}
+		log.Info(s.logger, "an integration instance has been added", "id", integrationInstance.ID, "customer_id", integrationInstance.CustomerID, "cachekey", cachekey, "hashcode", hashcode)
+		if err := s.handleAddIntegration(integrationInstance); err != nil {
+			return fmt.Errorf("error adding integration instance (%s): %w", integrationInstance.ID, err)
+		}
+	}
 	return nil
 }
 
@@ -564,7 +587,7 @@ func (s *Server) eventPublish(model datamodel.Model, headers map[string]string) 
 }
 
 func (s *Server) onValidate(req agent.ValidateRequest) (*string, error) {
-	cfg, err := s.newConfig(&req.Config)
+	cfg, err := newConfig(&req.Config)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing config: %w", err)
 	}
@@ -773,7 +796,8 @@ func (s *Server) onWebhook(evt event.SubscriptionEvent, refType string, location
 			api.BackendURL(api.GraphService, s.config.Channel),
 		)
 		if err != nil {
-			log.Error(s.logger, "error creating graphql client", "err',err")
+			evt.Commit()
+			return fmt.Errorf("error creating graphql client: %w", err)
 		}
 		var errmessage *string
 		// TODO(robin): maybe scrub some event-api related fields out of the headers
