@@ -418,6 +418,7 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 	}
 	ch, err := createDBChangeEvent(evt.Data)
 	if err != nil {
+		evt.Commit()
 		return err
 	}
 	log.Debug(s.logger, "received db change", "evt", ch, "model", ch.Model)
@@ -443,6 +444,7 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 					if s.config.State == nil {
 						state, err := s.newState(integration.CustomerID, integration.ID)
 						if err != nil {
+							evt.Commit()
 							return err
 						}
 						// check to see if this deletable state and if so, we delete all the keys
@@ -492,24 +494,23 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 					}
 				}
 			} else {
-				var install bool
 				hashcode := s.calculateIntegrationHashCode(integration)
-				if ch.Action == Create {
-					install = true
-					log.Debug(s.logger, "need to install since action is create")
-				} else {
-					res, _ := s.config.RedisClient.Get(s.config.Ctx, cachekey).Result()
-					install = res != hashcode
-					log.Debug(s.logger, "comparing integration hashcode on integration change", "hashcode", hashcode, "res", res, "install", install, "id", integration.ID)
-				}
-				if install {
-					// update our hash key and then signal an addition
-					if err := s.config.RedisClient.Set(s.config.Ctx, cachekey, hashcode, 0).Err(); err != nil {
-						log.Error(s.logger, "error setting the cache key on the install", "cachekey", cachekey, "err", err)
+				if integration.Active {
+					// if it's active then check to see if we're updated
+					res, err := s.config.RedisClient.Get(s.config.Ctx, cachekey).Result()
+					if err != nil && err != redis.Nil {
+						log.Error(s.logger, "error getting cachekey for state", "err", err)
 					}
-					log.Info(s.logger, "an integration instance has been added", "id", integration.ID, "customer_id", integration.CustomerID, "cachekey", cachekey, "hashcode", hashcode)
-					if err := s.handleAddIntegration(integration); err != nil {
-						log.Error(s.logger, "error adding integration", "err", err, "id", integration.ID)
+					log.Debug(s.logger, "comparing integration hashcode on integration change", "hashcode", hashcode, "res", res, "install", res != hashcode, "id", integration.ID)
+					if res != hashcode {
+						// update our hash key and then signal an addition
+						if err := s.config.RedisClient.Set(s.config.Ctx, cachekey, hashcode, 0).Err(); err != nil {
+							log.Error(s.logger, "error setting the cache key on the install", "cachekey", cachekey, "err", err)
+						}
+						log.Info(s.logger, "an integration instance has been added", "id", integration.ID, "customer_id", integration.CustomerID, "cachekey", cachekey, "hashcode", hashcode)
+						if err := s.handleAddIntegration(integration); err != nil {
+							log.Error(s.logger, "error adding integration", "err", err, "id", integration.ID)
+						}
 					}
 				}
 			}
