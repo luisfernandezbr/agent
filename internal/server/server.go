@@ -426,8 +426,8 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 		// integration has changed so we need to either enroll or dismiss
 		if integration, ok := ch.Object.(*agent.IntegrationInstance); ok {
 			cachekey := "agent:" + integration.CustomerID + ":" + integration.ID
-			// check to see if this is a delete OR we've deactivated the integration
-			if ch.Action == Delete || !integration.Active {
+			// check to see if this is a delete OR we've deleted the integration
+			if ch.Action == Delete || integration.Deleted {
 				// check cache key or you will get into an infinite loop
 				val := s.config.RedisClient.Exists(s.config.Ctx, cachekey).Val()
 				log.Debug(s.logger, "need to delete the integration", "cachekey", cachekey, "val", val)
