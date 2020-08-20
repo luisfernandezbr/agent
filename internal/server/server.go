@@ -327,6 +327,7 @@ func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integra
 	if err := s.config.Integration.Integration.WebHook(e); err != nil {
 		return fmt.Errorf("error running integration webhook: %w", err)
 	}
+	log.Debug(logger, "flushing state")
 	if err := state.Flush(); err != nil {
 		log.Error(logger, "error flushing state", "err", err)
 	}
