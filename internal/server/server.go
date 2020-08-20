@@ -428,7 +428,7 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 		evt.Commit()
 		return err
 	}
-	log.Debug(s.logger, "received db change", "evt", ch, "model", ch.Model)
+	// log.Debug(s.logger, "received db change", "evt", ch, "model", ch.Model)
 	switch ch.Model {
 	case agent.IntegrationInstanceModelName.String():
 		// integration has changed so we need to either enroll or dismiss
@@ -810,7 +810,7 @@ func (s *Server) onWebhook(evt event.SubscriptionEvent, refType string, location
 			vars := make(graphql.Variables)
 			vars[agent.IntegrationInstanceModelErroredColumn] = true
 			vars[agent.IntegrationInstanceModelErrorMessageColumn] = *errmessage
-			if _, err := agent.ExecIntegrationInstanceUpdateMutation(cl, integrationInstanceID, vars, false); err != nil {
+			if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, integrationInstanceID, vars, false); err != nil {
 				log.Error(s.logger, "error updating agent integration", "err", err, "id", integrationInstanceID)
 			}
 		}
