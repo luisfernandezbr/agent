@@ -38,13 +38,13 @@ var models = []string{
 }
 
 // createDBChangeSubscriptionFilter will create the subscription filter for a specific refType
-func createDBChangeSubscriptionFilter(refType string) *event.SubscriptionFilter {
+func createDBChangeSubscriptionFilter() *event.SubscriptionFilter {
 	modelexpr := []string{}
 	for _, model := range models {
 		modelexpr = append(modelexpr, fmt.Sprintf(`model:"%s"`, model))
 	}
 	return &event.SubscriptionFilter{
-		HeaderExpr: "(" + strings.Join(modelexpr, " OR ") + `) AND origin:"graph-api"`,
+		HeaderExpr: "(" + strings.Join(modelexpr, " OR ") + `) AND origin:"graph"`,
 	}
 }
 
@@ -89,7 +89,7 @@ type SubscriberCallback func(event event.SubscriptionEvent, refType string, loca
 
 // NewDBChangeSubscriber will return a db change subscriber
 func NewDBChangeSubscriber(config Config, location agent.ExportIntegrationLocation, callback SubscriberCallback) (*Subscriber, error) {
-	return NewEventSubscriber(config, []string{"ops.db.Change"}, createDBChangeSubscriptionFilter(config.Integration.Descriptor.RefType), location, callback)
+	return NewEventSubscriber(config, []string{"ops.db.Change"}, createDBChangeSubscriptionFilter(), location, callback)
 }
 
 // NewEventSubscriber will return an event subscriber
