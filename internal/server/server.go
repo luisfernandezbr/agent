@@ -281,7 +281,7 @@ func (s *Server) handleExport(logger log.Logger, client graphql.Client, req agen
 	}
 	log.Info(logger, "export completed", "duration", time.Since(started), "jobid", req.JobID, "customer_id", req.CustomerID, "err", eerr)
 	if eerr != nil {
-		return fmt.Errorf("error running integration export: %w", err)
+		return fmt.Errorf("error running integration export: %w", eerr)
 	}
 	return nil
 }
