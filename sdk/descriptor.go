@@ -30,6 +30,20 @@ const (
 	InstallationModeSelfManaged InstallationMode = "selfmanaged"
 )
 
+// AuthorizationType is the type of authorization supported for a given location
+type AuthorizationType string
+
+const (
+	// OAuth1AuthorizationType is the OAuth1 protocol
+	OAuth1AuthorizationType AuthorizationType = "oauth1"
+	// OAuth2AuthorizationType is the OAuth2 protocol
+	OAuth2AuthorizationType AuthorizationType = "oauth2"
+	// BasicAuthorizationType is the basic authentication protocol
+	BasicAuthorizationType AuthorizationType = "basic"
+	// APIKeyAuthorizationType is an apikey
+	APIKeyAuthorizationType AuthorizationType = "apikey"
+)
+
 // Installation is metadata about the installation
 type Installation struct {
 	Modes       []InstallationMode  `json:"modes" yaml:"modes"`
@@ -39,13 +53,8 @@ type Installation struct {
 
 // InstallationConfig is metadata about a specific installation mode
 type InstallationConfig struct {
-	Network      Network  `json:"network,omitempty" yaml:"network"`
-	Capabilities []string `json:"capabilities,omitempty" yaml:"capabilities"`
-}
-
-// Network specific environment details
-type Network struct {
-	Hostnames []string `json:"hostnames,omitempty" yaml:"hostnames"`
+	Capabilities  []string            `json:"capabilities,omitempty" yaml:"capabilities"`
+	Authorization []AuthorizationType `json:"authorizations" yaml:"authorizations"`
 }
 
 // LoadDescriptor will load a descriptor from an integration
