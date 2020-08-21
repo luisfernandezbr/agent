@@ -750,16 +750,20 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			vars[agent.IntegrationInstanceModelErroredColumn] = true
 			vars[agent.IntegrationInstanceModelErrorMessageColumn] = *errmessage
 		}
-		ts := time.Now()
-		var dt agent.IntegrationInstanceLastExportCompletedDate
-		sdk.ConvertTimeToDateModel(ts, &dt)
-		vars[agent.IntegrationInstanceModelLastExportCompletedDateColumn] = dt
-		if req.ReprocessHistorical {
-			var dt agent.IntegrationInstanceLastHistoricalCompletedDate
-			sdk.ConvertTimeToDateModel(ts, &dt)
-			vars[agent.IntegrationInstanceModelLastHistoricalCompletedDateColumn] = dt
-		}
 		if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, req.Integration.ID, vars, false); err != nil {
+			log.Error(s.logger, "error updating agent integration", "err", err, "id", req.Integration.ID)
+		}
+		vars = make(graphql.Variables)
+		ts := time.Now()
+		var dt agent.IntegrationInstanceStatLastExportCompletedDate
+		sdk.ConvertTimeToDateModel(ts, &dt)
+		vars[agent.IntegrationInstanceStatModelLastExportCompletedDateColumn] = dt
+		if req.ReprocessHistorical {
+			var dt agent.IntegrationInstanceStatLastHistoricalCompletedDate
+			sdk.ConvertTimeToDateModel(ts, &dt)
+			vars[agent.IntegrationInstanceStatModelLastHistoricalCompletedDateColumn] = dt
+		}
+		if err := agent.ExecIntegrationInstanceStatSilentUpdateMutation(cl, agent.NewIntegrationInstanceStatID(req.Integration.ID), vars, false); err != nil {
 			log.Error(s.logger, "error updating agent integration", "err", err, "id", req.Integration.ID)
 		}
 	}

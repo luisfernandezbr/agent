@@ -346,6 +346,8 @@ github.com/pinpt/integration-sdk v0.0.1157 h1:JNANVazAtPuCuMNPUnyarb3k3EWdmhVRbJ
 github.com/pinpt/integration-sdk v0.0.1157/go.mod h1:M3xXTd460Cr+ulMNcEI1/npfKIHTOvO98jySA9rGo88=
 github.com/pinpt/integration-sdk v0.0.1164 h1:2/qpAkaUMBFn07Em3G22NOhv35e7tctkGkIn2kIemfU=
 github.com/pinpt/integration-sdk v0.0.1164/go.mod h1:M3xXTd460Cr+ulMNcEI1/npfKIHTOvO98jySA9rGo88=
+github.com/pinpt/integration-sdk v0.0.1168 h1:UqsVyi4/EvkrebAmXqSKgnK/WLi7zs9pVAg0axTA6Lw=
+github.com/pinpt/integration-sdk v0.0.1168/go.mod h1:M3xXTd460Cr+ulMNcEI1/npfKIHTOvO98jySA9rGo88=
 github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4 h1:49lOXmGaUpV9Fz3gd7TFZY106KVlPVa5jcYD1gaQf98=
 github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4/go.mod h1:4OwLy04Bl9Ef3GJJCoec+30X3LQs/0/m4HFRt/2LUSA=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
