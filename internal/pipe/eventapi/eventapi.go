@@ -66,6 +66,9 @@ func (p *eventAPIPipe) Write(object datamodel.Model) error {
 	if p.closed {
 		return fmt.Errorf("pipe closed")
 	}
+	if object == nil {
+		return fmt.Errorf("wrote nil model to pipe: %s", object.GetModelName().String())
+	}
 	model := object.GetModelName().String()
 	p.mu.Lock()
 	f := p.files[model]

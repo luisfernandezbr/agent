@@ -369,6 +369,7 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 			}
 			runIntegration(name)
 			if edge.Node.Setup == agent.IntegrationInstanceSetupReady {
+				log.Info(logger, "setting integration to running 🏃‍♀️", "integration_instance_id", edge.Node.ID)
 				if err := setIntegrationRunning(gclient, edge.Node.ID); err != nil {
 					log.Fatal(logger, "error updating integration instance", "err", err, "integration_id", edge.Node.IntegrationID, "id", edge.Node.ID)
 				}

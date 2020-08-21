@@ -93,11 +93,7 @@ func (e *export) createGraphql() gql.Client {
 
 func (e *export) updateIntegration(vars gql.Variables) error {
 	// update the db with our new integration state
-	cl := e.createGraphql()
-	if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, e.integrationInstanceID, vars, false); err != nil {
-		return err
-	}
-	return nil
+	return agent.ExecIntegrationInstanceSilentUpdateMutation(e.createGraphql(), e.integrationInstanceID, vars, false)
 }
 
 // Paused must be called when the integration is paused for any reason such as rate limiting
