@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/jhaynie/oauth1"
+	eventAPIautoconfig "github.com/pinpt/agent.next/internal/autoconfig/eventapi"
 	eventAPIexport "github.com/pinpt/agent.next/internal/export/eventapi"
 	eventAPImutation "github.com/pinpt/agent.next/internal/mutation/eventapi"
 	pipe "github.com/pinpt/agent.next/internal/pipe/eventapi"
@@ -211,7 +212,7 @@ func (s *Server) handleExport(logger log.Logger, client graphql.Client, req agen
 		return nil
 	}
 	if err := s.handleEnroll(convertExportIntegrationInstance(req.Integration)); err != nil {
-		return nil
+		return err
 	}
 	dir := s.newTempDir(req.JobID)
 	defer os.RemoveAll(dir)
@@ -429,7 +430,7 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 		evt.Commit()
 		return err
 	}
-	// log.Debug(s.logger, "received db change", "evt", ch, "model", ch.Model)
+	log.Debug(s.logger, "received db change", "evt", ch, "model", ch.Model)
 	switch ch.Model {
 	case agent.IntegrationInstanceModelName.String():
 		// integration has changed so we need to either enroll or dismiss
@@ -501,6 +502,67 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 						log.Info(s.logger, "completed clean up of integration repo/project errors", "duration", time.Since(started), "id", integration.ID, "customer_id", integration.CustomerID)
 					}
 				}
+			} else if (ch.Action == Create || ch.Action == Update) &&
+				integration.AutoConfigure && !integration.Deleted && !integration.Active && integration.Setup == agent.IntegrationInstanceSetupConfig {
+				// this is an auto config for a cloud integration
+				var config sdk.Config
+				if integration.Config != nil {
+					config.Parse([]byte(*integration.Config))
+				}
+				jobID := fmt.Sprintf("autoconfig_%d", datetime.EpochNow())
+				dir := s.newTempDir(jobID)
+				defer os.RemoveAll(dir)
+				started := time.Now()
+				customerID := integration.CustomerID
+				integrationInstanceID := integration.ID
+				state, err := s.newState(customerID, integrationInstanceID)
+				if err != nil {
+					evt.Commit()
+					return err
+				}
+				p := s.newPipe(s.logger, dir, customerID, jobID, integrationInstanceID)
+				defer p.Close()
+				e, err := eventAPIautoconfig.New(eventAPIautoconfig.Config{
+					Ctx:                   s.config.Ctx,
+					Logger:                s.logger,
+					Config:                config,
+					State:                 state,
+					CustomerID:            customerID,
+					RefType:               s.config.Integration.Descriptor.RefType,
+					IntegrationInstanceID: integrationInstanceID,
+					Pipe:                  p,
+					Channel:               s.config.Channel,
+					Secret:                s.config.Secret,
+					APIKey:                s.config.APIKey,
+				})
+				log.Info(s.logger, "running auto configure")
+				newconfig, err := s.config.Integration.Integration.AutoConfigure(e)
+				if err != nil {
+					evt.Commit()
+					return fmt.Errorf("error running integration auto configure: %w", err)
+				}
+				log.Debug(s.logger, "flushing state")
+				if err := state.Flush(); err != nil {
+					log.Error(s.logger, "error flushing state", "err", err)
+				}
+				gql, err := s.newGraphqlClient(integration.CustomerID)
+				if err != nil {
+					evt.Commit()
+					return fmt.Errorf("error creating graphql client: %w", err)
+				}
+				input := make(graphql.Variables)
+				input[agent.IntegrationInstanceModelActiveColumn] = true
+				input[agent.IntegrationInstanceModelAutoConfigureColumn] = false
+				input[agent.IntegrationInstanceModelSetupColumn] = agent.IntegrationInstanceSetupReady
+				input[agent.IntegrationInstanceModelUpdatedAtColumn] = sdk.EpochNow()
+				if newconfig != nil {
+					input[agent.IntegrationInstanceModelConfigColumn] = sdk.Stringify(newconfig)
+				}
+				if err := agent.ExecIntegrationInstanceSilentUpdateMutation(gql, integration.ID, input, false); err != nil {
+					evt.Commit()
+					return fmt.Errorf("error updating agent instance: %w", err)
+				}
+				log.Info(s.logger, "auto configure completed", "duration", time.Since(started), "customer_id", customerID)
 			}
 		}
 	}
@@ -522,7 +584,7 @@ func (s *Server) handleEnroll(integrationInstance *agent.IntegrationInstance) er
 	// if it's active then check to see if we're updated
 	res, err := s.config.RedisClient.Get(s.config.Ctx, cachekey).Result()
 	if err != nil {
-		if err == redis.Nil {
+		if err != redis.Nil {
 			return fmt.Errorf("error getting cachekey for state: %w", err)
 		}
 		// not in cache so it must be new
@@ -894,6 +956,7 @@ func New(config Config) (*Server, error) {
 	} else {
 		validateObjectExpr = fmt.Sprintf(`ref_type:"%s" AND enrollment_id:"%s"`, config.Integration.Descriptor.RefType, config.EnrollmentID)
 	}
+	_ = validateObjectExpr
 	// FIXME: break these out since one will block the other
 	server.event, err = NewEventSubscriber(
 		config,

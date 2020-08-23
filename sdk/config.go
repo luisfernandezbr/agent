@@ -13,7 +13,7 @@ import (
 
 type auth struct {
 	URL     string `json:"url,omitempty"`
-	Created int64  `json:"created"`
+	Created int64  `json:"date_ts,omitempty"`
 }
 
 type basicAuth struct {
@@ -100,14 +100,14 @@ const (
 
 // Config is the integration configuration
 type Config struct {
-	IntegrationType IntegrationType `json:"integrationType"`
+	IntegrationType IntegrationType `json:"integration_type,omitempty"`
 	OAuth1Auth      *oauth1Auth     `json:"oauth1_auth,omitempty"`
 	OAuth2Auth      *oauth2Auth     `json:"oauth2_auth,omitempty"`
 	BasicAuth       *basicAuth      `json:"basic_auth,omitempty"`
 	APIKeyAuth      *apikeyAuth     `json:"apikey_auth,omitempty"`
-	Inclusions      *matchList      `json:"-"`
-	Exclusions      *matchList      `json:"-"`
-	Accounts        *ConfigAccounts `json:"-"`
+	Inclusions      *matchList      `json:"inclusions,omitempty"`
+	Exclusions      *matchList      `json:"exclusions,omitempty"`
+	Accounts        *ConfigAccounts `json:"accounts,omitempty"`
 	kv              map[string]interface{}
 }
 

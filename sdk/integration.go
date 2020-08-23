@@ -19,6 +19,8 @@ type Integration interface {
 	WebHook(webhook WebHook) error
 	// Mutation is called when a mutation request is received on behalf of the integration
 	Mutation(mutation Mutation) error
+	// AutoConfigure is called when a cloud integration has requested to be auto configured
+	AutoConfigure(autoconfig AutoConfigure) (*Config, error)
 	// Stop is called when the integration is shutting down for cleanup
 	Stop() error
 }
