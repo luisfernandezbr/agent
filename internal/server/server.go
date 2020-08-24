@@ -955,7 +955,6 @@ func New(config Config) (*Server, error) {
 	} else {
 		validateObjectExpr = fmt.Sprintf(`ref_type:"%s" AND enrollment_id:"%s"`, config.Integration.Descriptor.RefType, config.EnrollmentID)
 	}
-	_ = validateObjectExpr
 	// FIXME: break these out since one will block the other
 	server.event, err = NewEventSubscriber(
 		config,
