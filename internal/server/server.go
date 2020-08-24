@@ -552,7 +552,6 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 				}
 				input := make(graphql.Variables)
 				input[agent.IntegrationInstanceModelActiveColumn] = true
-				input[agent.IntegrationInstanceModelAutoConfigureColumn] = false
 				input[agent.IntegrationInstanceModelSetupColumn] = agent.IntegrationInstanceSetupReady
 				input[agent.IntegrationInstanceModelUpdatedAtColumn] = sdk.EpochNow()
 				if newconfig != nil {
