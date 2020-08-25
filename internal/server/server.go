@@ -791,13 +791,29 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			evt.Commit()
 			return fmt.Errorf("error creating graphql client: %w", err)
 		}
+		instanceID := *req.IntegrationInstanceID
+		instance, err := agent.FindIntegrationInstance(cl, instanceID)
+		if err != nil {
+			evt.Commit()
+			return fmt.Errorf("error finding integration instance (%v): %w", instanceID, err)
+		}
+		if instance == nil {
+			evt.Commit()
+			log.Info(s.logger, "skipping export request because the integration instance no longer exists in the db", "id", instanceID)
+			return nil
+		}
+		if !instance.Active {
+			evt.Commit()
+			log.Info(s.logger, "skipping export request because the integration instance is no longer active", "id", instanceID)
+			return nil
+		}
 		// update the integration state to acknowledge that we are exporting
 		vars := make(graphql.Variables)
 		vars[agent.IntegrationInstanceModelExportAcknowledgedColumn] = true
 		vars[agent.IntegrationInstanceModelStateColumn] = agent.IntegrationInstanceStateExporting
 		// TODO(robin): add last export acknowledged date
-		if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, req.Integration.ID, vars, false); err != nil {
-			log.Error(s.logger, "error updating agent integration", "err", err, "id", req.Integration.ID)
+		if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, instanceID, vars, false); err != nil {
+			log.Error(s.logger, "error updating agent integration", "err", err, "id", instanceID)
 		}
 		var errmessage *string
 		if err := s.handleExport(s.logger, cl, req); err != nil {
@@ -811,8 +827,8 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			vars[agent.IntegrationInstanceModelErroredColumn] = true
 			vars[agent.IntegrationInstanceModelErrorMessageColumn] = *errmessage
 		}
-		if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, req.Integration.ID, vars, false); err != nil {
-			log.Error(s.logger, "error updating agent integration", "err", err, "id", req.Integration.ID)
+		if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, instanceID, vars, false); err != nil {
+			log.Error(s.logger, "error updating agent integration", "err", err, "id", instanceID)
 		}
 		vars = make(graphql.Variables)
 		ts := time.Now()
@@ -824,8 +840,8 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			sdk.ConvertTimeToDateModel(ts, &dt)
 			vars[agent.IntegrationInstanceStatModelLastHistoricalCompletedDateColumn] = dt
 		}
-		if err := agent.ExecIntegrationInstanceStatSilentUpdateMutation(cl, agent.NewIntegrationInstanceStatID(req.Integration.ID), vars, false); err != nil {
-			log.Error(s.logger, "error updating agent integration", "err", err, "id", req.Integration.ID)
+		if err := agent.ExecIntegrationInstanceStatSilentUpdateMutation(cl, agent.NewIntegrationInstanceStatID(instanceID), vars, false); err != nil {
+			log.Error(s.logger, "error updating agent integration", "err", err, "id", instanceID)
 		}
 	}
 	evt.Commit()
