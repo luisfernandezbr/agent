@@ -153,3 +153,12 @@ func TestConfigAccounts(t *testing.T) {
 	assert.Equal(ConfigAccountTypeUser, accounts["john_smith"].Type)
 	assert.Equal(false, accounts["john_smith"].Public)
 }
+
+func TestConfigScopes(t *testing.T) {
+	assert := assert.New(t)
+	cfg := NewConfig(nil)
+	configstr := `{"scope":"ORG"}`
+	assert.NoError(cfg.Parse([]byte(configstr)))
+	assert.NotNil(cfg.Scope)
+	assert.Equal(OrgScope, *cfg.Scope)
+}

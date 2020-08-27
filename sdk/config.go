@@ -64,14 +64,15 @@ type ConfigAccount struct {
 type ConfigAccounts map[string]*ConfigAccount
 
 type config struct {
-	IntegrationType IntegrationType `json:"integration_type"`
-	Exclusions      *matchListKV    `json:"exclusions,omitempty"`
-	Inclusions      *matchListKV    `json:"inclusions,omitempty"`
-	OAuth1Auth      *oauth1Auth     `json:"oauth1_auth,omitempty"`
-	OAuth2Auth      *oauth2Auth     `json:"oauth2_auth,omitempty"`
-	BasicAuth       *basicAuth      `json:"basic_auth,omitempty"`
-	APIKeyAuth      *apikeyAuth     `json:"apikey_auth,omitempty"`
-	Accounts        *ConfigAccounts `json:"accounts,omitempty"`
+	IntegrationType IntegrationType   `json:"integration_type"`
+	Exclusions      *matchListKV      `json:"exclusions,omitempty"`
+	Inclusions      *matchListKV      `json:"inclusions,omitempty"`
+	OAuth1Auth      *oauth1Auth       `json:"oauth1_auth,omitempty"`
+	OAuth2Auth      *oauth2Auth       `json:"oauth2_auth,omitempty"`
+	BasicAuth       *basicAuth        `json:"basic_auth,omitempty"`
+	APIKeyAuth      *apikeyAuth       `json:"apikey_auth,omitempty"`
+	Accounts        *ConfigAccounts   `json:"accounts,omitempty"`
+	Scope           *IntegrationScope `json:"scope,omitempty"`
 }
 
 type matchList struct {
@@ -88,6 +89,16 @@ func (l *matchList) Matches(entity, name string) bool {
 	return parser.MatchesPath(name)
 }
 
+// IntegrationScope is the integration autoconfig scope type
+type IntegrationScope string
+
+const (
+	// OrgScope is a org scope
+	OrgScope IntegrationScope = "ORG"
+	// UserScope is a user scope
+	UserScope IntegrationScope = "USER"
+)
+
 // IntegrationType is the integration type
 type IntegrationType string
 
@@ -100,14 +111,15 @@ const (
 
 // Config is the integration configuration
 type Config struct {
-	IntegrationType IntegrationType `json:"integration_type,omitempty"`
-	OAuth1Auth      *oauth1Auth     `json:"oauth1_auth,omitempty"`
-	OAuth2Auth      *oauth2Auth     `json:"oauth2_auth,omitempty"`
-	BasicAuth       *basicAuth      `json:"basic_auth,omitempty"`
-	APIKeyAuth      *apikeyAuth     `json:"apikey_auth,omitempty"`
-	Inclusions      *matchList      `json:"inclusions,omitempty"`
-	Exclusions      *matchList      `json:"exclusions,omitempty"`
-	Accounts        *ConfigAccounts `json:"accounts,omitempty"`
+	IntegrationType IntegrationType   `json:"integration_type,omitempty"`
+	OAuth1Auth      *oauth1Auth       `json:"oauth1_auth,omitempty"`
+	OAuth2Auth      *oauth2Auth       `json:"oauth2_auth,omitempty"`
+	BasicAuth       *basicAuth        `json:"basic_auth,omitempty"`
+	APIKeyAuth      *apikeyAuth       `json:"apikey_auth,omitempty"`
+	Inclusions      *matchList        `json:"inclusions,omitempty"`
+	Exclusions      *matchList        `json:"exclusions,omitempty"`
+	Accounts        *ConfigAccounts   `json:"accounts,omitempty"`
+	Scope           *IntegrationScope `json:"scope,omitempty"`
 	kv              map[string]interface{}
 }
 
@@ -207,6 +219,10 @@ func NewConfig(kv map[string]interface{}) Config {
 		}
 		c.Accounts = &accounts
 	}
+	if strval, ok := kv["scope"].(string); ok {
+		v := IntegrationScope(strval)
+		c.Scope = &v
+	}
 	return c
 }
 
@@ -273,6 +289,9 @@ func (c *Config) Parse(buf []byte) error {
 	}
 	if cfg.Accounts != nil {
 		c.Accounts = cfg.Accounts
+	}
+	if cfg.Scope != nil {
+		c.Scope = cfg.Scope
 	}
 	return nil
 }
