@@ -42,6 +42,12 @@ type SourceCodePullRequestReview = sourcecode.PullRequestReview
 // SourceCodePullRequestReviewCreatedDate is a pull request review created date
 type SourceCodePullRequestReviewCreatedDate = sourcecode.PullRequestReviewCreatedDate
 
+// SourceCodePullRequestReviewRequest is a pull request review request
+type SourceCodePullRequestReviewRequest = sourcecode.PullRequestReviewRequest
+
+// SourceCodePullRequestReviewRequestCreatedDate is a pull request review request created date
+type SourceCodePullRequestReviewRequestCreatedDate = sourcecode.PullRequestReviewRequestCreatedDate
+
 // SourceCodeRepo is a code repository in the source code system
 type SourceCodeRepo = sourcecode.Repo
 
@@ -153,6 +159,11 @@ func NewSourceCodePullRequestCommentID(customerID string, refID string, refType 
 // NewSourceCodePullRequestReviewID returns a new sourcecode pull request review id
 func NewSourceCodePullRequestReviewID(customerID string, refID string, refType string, repoID string) string {
 	return sourcecode.NewPullRequestReviewID(customerID, refID, refType, repoID)
+}
+
+// NewSourceCodePullRequestReviewRequestID returns a new sourcecode pull request review request id
+func NewSourceCodePullRequestReviewRequestID(customerID string, refType string, pullRequestID string, requestedReviewerRefID string) string {
+	return sourcecode.NewPullRequestReviewRequestID(customerID, refType, pullRequestID, requestedReviewerRefID)
 }
 
 // NewSourceCodeBranchID returns a new sourcecode branch id
