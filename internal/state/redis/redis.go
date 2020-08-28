@@ -69,6 +69,9 @@ func (f *State) DeleteAll() error {
 	if err != nil {
 		return err
 	}
+	if len(keys) == 0 {
+		return nil
+	}
 	return f.client.Del(f.ctx, keys...).Err()
 }
 

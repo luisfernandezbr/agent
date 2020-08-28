@@ -841,7 +841,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			vars[agent.IntegrationInstanceStatModelLastHistoricalCompletedDateColumn] = dt
 		}
 		if err := agent.ExecIntegrationInstanceStatSilentUpdateMutation(cl, agent.NewIntegrationInstanceStatID(instanceID), vars, false); err != nil {
-			log.Error(s.logger, "error updating agent integration", "err", err, "id", instanceID)
+			log.Error(s.logger, "error updating agent integration stat", "err", err, "id", instanceID)
 		}
 	}
 	evt.Commit()

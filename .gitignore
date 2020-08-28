@@ -5,3 +5,4 @@ vendor
 *.state.json
 jira*
 github*
+.vscode/*

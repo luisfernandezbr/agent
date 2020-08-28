@@ -1,8 +1,0 @@
-{
-	"files.associations": {
-		"*.go.tmpl": "go",
-		"*.mod.tmpl": "go.mod",
-		"*.yml.tmpl": "yaml",
-		"*.md.tmpl": "markdown"
-	}
-}
