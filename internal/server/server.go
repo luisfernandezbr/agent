@@ -19,7 +19,7 @@ import (
 	pipe "github.com/pinpt/agent.next/internal/pipe/eventapi"
 	redisState "github.com/pinpt/agent.next/internal/state/redis"
 	"github.com/pinpt/agent.next/internal/util"
-	"github.com/pinpt/agent.next/internal/validate"
+	eventAPIvalidate "github.com/pinpt/agent.next/internal/validate/eventapi"
 	eventAPIwebhook "github.com/pinpt/agent.next/internal/webhook/eventapi"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/api"
@@ -659,11 +659,17 @@ func (s *Server) onValidate(req agent.ValidateRequest) (*string, error) {
 	if req.IntegrationInstanceID == nil {
 		return nil, fmt.Errorf("missing required integration_instance_id")
 	}
-	resp, err := s.config.Integration.Integration.Validate(validate.NewValidate(
+	client, err := s.newGraphqlClient(req.CustomerID)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := s.config.Integration.Integration.Validate(eventAPIvalidate.NewValidate(
 		*cfg,
+		s.logger,
 		req.RefType,
 		req.CustomerID,
 		*req.IntegrationInstanceID,
+		client,
 	))
 	var result *string
 	if err != nil {
