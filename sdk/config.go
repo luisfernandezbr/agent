@@ -58,6 +58,10 @@ type ConfigAccount struct {
 	ID     string            `json:"id"`
 	Type   ConfigAccountType `json:"type"`
 	Public bool              `json:"public"`
+
+	Name        *string `json:"name,omitempty"`
+	Description *string `json:"description,omitempty"`
+	AvatarURL   *string `json:"avatarUrl,omitempty"`
 }
 
 // ConfigAccounts contains accounts with projects or repos to be exported
