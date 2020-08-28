@@ -62,6 +62,7 @@ type ConfigAccount struct {
 	Name        *string `json:"name,omitempty"`
 	Description *string `json:"description,omitempty"`
 	AvatarURL   *string `json:"avatarUrl,omitempty"`
+	TotalCount  *int64  `json:"totalCount,omitempty"`
 }
 
 // ConfigAccounts contains accounts with projects or repos to be exported
