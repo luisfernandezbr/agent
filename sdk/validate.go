@@ -13,6 +13,6 @@ type ValidatedAccount struct {
 
 // Validate is a control interface for validating a configuration before enroll
 type Validate interface {
-	Identifier
+	Control
 	Config() Config
 }
