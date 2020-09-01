@@ -6,11 +6,13 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/pinpt/agent.next/internal/util"
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/api"
+	"github.com/pinpt/go-common/v10/datetime"
 	"github.com/pinpt/go-common/v10/fileutil"
 	"github.com/pinpt/go-common/v10/httpmessage"
 	"github.com/pinpt/go-common/v10/log"
@@ -108,9 +110,15 @@ var LoginCmd = &cobra.Command{
 			} else {
 				config = &devConfig{}
 			}
+			expires := q.Get("expires")
+			if expires != "" {
+				e, _ := strconv.ParseInt(expires, 10, 64)
+				config.Expires = datetime.DateFromEpoch(e)
+			} else {
+				config.Expires = time.Now().Add(time.Hour * 23)
+			}
 			config.APIKey = q.Get("apikey")
 			config.CustomerID = customerID
-			config.Expires = time.Now().Add(time.Hour * 23)
 			config.Channel = channel
 			if err := config.save(); err != nil {
 				log.Error(logger, "error saving config", "err", err)
