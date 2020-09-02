@@ -55,6 +55,7 @@ type eventAPIPipe struct {
 	integrationInstanceID string
 	wg                    sync.WaitGroup
 	started               time.Time
+	stats                 sdk.Stats
 }
 
 var _ sdk.Pipe = (*eventAPIPipe)(nil)
@@ -66,10 +67,13 @@ func (p *eventAPIPipe) Write(object datamodel.Model) error {
 	if p.closed {
 		return fmt.Errorf("pipe closed")
 	}
-	if object == nil {
-		return fmt.Errorf("wrote nil model to pipe: %s", object.GetModelName().String())
-	}
 	model := object.GetModelName().String()
+	if object == nil {
+		return fmt.Errorf("wrote nil model to pipe: %s", model)
+	}
+	if p.stats != nil {
+		p.stats.Increment(model, 1)
+	}
 	p.mu.Lock()
 	f := p.files[model]
 	if f == nil {
@@ -234,6 +238,7 @@ type Config struct {
 	Channel               string
 	APIKey                string
 	Secret                string
+	Stats                 sdk.Stats
 }
 
 // New will create a new eventapi pipe
@@ -258,6 +263,7 @@ func New(config Config) sdk.Pipe {
 		ctx:                   ctx,
 		cancel:                cancel,
 		started:               time.Now(),
+		stats:                 config.Stats,
 	}
 	go p.run()
 	return p

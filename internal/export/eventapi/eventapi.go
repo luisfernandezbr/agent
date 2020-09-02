@@ -33,7 +33,7 @@ type export struct {
 	pipe                  sdk.Pipe
 	paused                bool
 	historical            bool
-	stats                 map[string]interface{}
+	stats                 sdk.Stats
 	mu                    sync.Mutex
 }
 
@@ -75,7 +75,7 @@ func (e *export) Pipe() sdk.Pipe {
 }
 
 // Stats is the stats object that an integration can use to track integration specific stats for the export
-func (e *export) Stats() map[string]interface{} {
+func (e *export) Stats() sdk.Stats {
 	return e.stats
 }
 
@@ -156,6 +156,7 @@ type Config struct {
 	APIKey                string
 	Secret                string
 	Historical            bool
+	Stats                 sdk.Stats
 }
 
 // New will return an sdk.Export
@@ -180,6 +181,6 @@ func New(config Config) (sdk.Export, error) {
 		pipe:                  config.Pipe,
 		subscriptionChannel:   config.SubscriptionChannel,
 		historical:            config.Historical,
-		stats:                 make(map[string]interface{}),
+		stats:                 config.Stats,
 	}, nil
 }
