@@ -3,6 +3,7 @@ package dev
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -133,7 +134,53 @@ var LoginCmd = &cobra.Command{
 	},
 }
 
+// testKey represents the test key command
+var testKeyCmd = &cobra.Command{
+	Use:    "testkey",
+	Short:  "testkey will verify that your api key is good",
+	Hidden: true,
+	Run: func(cmd *cobra.Command, args []string) {
+		logger := log.NewCommandLogger(cmd)
+		defer logger.Close()
+		channel, _ := cmd.Flags().GetString("channel")
+		altApikey, _ := cmd.Flags().GetString("apikey")
+
+		var apikey string
+		if altApikey == "" {
+			config, err := loadDevConfig()
+			if err != nil {
+				log.Fatal(logger, "error loading dev config", "err", err)
+			}
+			if config == nil {
+				log.Fatal(logger, "no dev config found")
+			}
+			apikey = config.APIKey
+			fn, _ := config.filename()
+			log.Info(logger, "using key from developer config", "config_file", fn, "customer_id", config.CustomerID, "expires", config.Expires)
+		} else {
+			apikey = altApikey
+			log.Info(logger, "using passed in key")
+		}
+		resp, err := api.Get(cmd.Context(), channel, api.RegistryService, "/validate/1", apikey)
+		if err != nil {
+			var buf []byte
+			if resp != nil {
+				buf, _ = ioutil.ReadAll(resp.Body)
+			}
+			log.Fatal(logger, "error from api", "err", err, "body", string(buf))
+		}
+		if resp.StatusCode == http.StatusOK {
+			log.Info(logger, "key is good! ✅")
+		} else {
+			log.Warn(logger, "key is bad! 🛑", "status", resp.StatusCode)
+		}
+	},
+}
+
 func init() {
 	// add command to root in ../dev.go
 	LoginCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "stable"), "the channel which can be set")
+	testKeyCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "stable"), "the channel which can be set")
+	testKeyCmd.Flags().String("apikey", "", "specify a different key")
+	LoginCmd.AddCommand(testKeyCmd)
 }
