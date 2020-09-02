@@ -3,6 +3,7 @@ package dev
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -125,7 +126,42 @@ var LoginCmd = &cobra.Command{
 	},
 }
 
+// testKey represents the test key command
+var testKeyCmd = &cobra.Command{
+	Use:    "testkey",
+	Short:  "testkey will verify that your api key is good",
+	Hidden: true,
+	Run: func(cmd *cobra.Command, args []string) {
+		logger := log.NewCommandLogger(cmd)
+		defer logger.Close()
+		channel, _ := cmd.Flags().GetString("channel")
+
+		config, err := loadDevConfig()
+		if err != nil {
+			log.Fatal(logger, "error loading dev config", "err", err)
+		}
+		if config == nil {
+			log.Fatal(logger, "no dev config found")
+		}
+		resp, err := api.Get(cmd.Context(), channel, api.RegistryService, "/validate/1", config.APIKey)
+		if err != nil {
+			var buf []byte
+			if resp != nil {
+				buf, _ = ioutil.ReadAll(resp.Body)
+			}
+			log.Fatal(logger, "error from api", "err", err, "body", string(buf))
+		}
+		if resp.StatusCode == http.StatusOK {
+			log.Info(logger, "key is good! ✅", "customer_id", config.CustomerID, "expires", config.Expires)
+		} else {
+			log.Warn(logger, "key is bad! 🛑", "status", resp.StatusCode, "customer_id", config.CustomerID)
+		}
+	},
+}
+
 func init() {
 	// add command to root in ../dev.go
 	LoginCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "stable"), "the channel which can be set")
+	testKeyCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "stable"), "the channel which can be set")
+	LoginCmd.AddCommand(testKeyCmd)
 }
