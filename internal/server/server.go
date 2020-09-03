@@ -222,6 +222,7 @@ func (s *Server) handleExport(logger log.Logger, client graphql.Client, req agen
 	if err != nil {
 		return err
 	}
+	stats := sdk.NewStats()
 	if sdkconfig == nil {
 		log.Info(logger, "received an export for an integration that no longer exists, ignoring", "id", *req.IntegrationInstanceID)
 		return nil
@@ -247,6 +248,7 @@ func (s *Server) handleExport(logger log.Logger, client graphql.Client, req agen
 		APIKey:                s.config.APIKey,
 		Secret:                s.config.Secret,
 		Historical:            req.ReprocessHistorical,
+		Stats:                 sdk.PrefixStats(stats, "export"),
 	})
 	if err != nil {
 		return err
@@ -272,7 +274,7 @@ func (s *Server) handleExport(logger log.Logger, client graphql.Client, req agen
 		Historical:            req.ReprocessHistorical,
 		Success:               eerr == nil,
 		Error:                 errmsg,
-		Stats:                 pstrings.Pointer(sdk.Stringify(e.Stats())),
+		Stats:                 pstrings.Pointer(sdk.Stringify(stats)),
 		RefType:               req.RefType,
 	}
 	id := agent.NewExportCompleteID(req.CustomerID, req.JobID, integration.ID)
