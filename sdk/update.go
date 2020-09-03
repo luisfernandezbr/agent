@@ -5,6 +5,7 @@ import (
 
 	"github.com/pinpt/go-common/v10/datetime"
 	"github.com/pinpt/integration-sdk/agent"
+	"github.com/pinpt/integration-sdk/sourcecode"
 	"github.com/pinpt/integration-sdk/work"
 )
 
@@ -12,6 +13,50 @@ import (
 type NameRefID struct {
 	RefID *string `json:"ref_id,omitempty"`
 	Name  *string `json:"name,omitempty"`
+}
+
+// SourceCodePullRequestReviewRequestUpdate is an action for update a sourcecode.PullRequestReviewRequest
+type SourceCodePullRequestReviewRequestUpdate struct {
+	Set struct {
+		Active *bool
+	}
+	Unset struct {
+	}
+	Push struct {
+	}
+	Pull struct {
+	}
+}
+
+// NewSourceCodePullRequestReviewRequestUpdate will create a new update object for sourcecode.PullRequestReviewRequest which can be sent to an sdk.Pipe using Write
+func NewSourceCodePullRequestReviewRequestUpdate(customerID string, integrationInstanceID string, pullRequestReviewRequestID string, refType string, val SourceCodePullRequestReviewRequestUpdate) Model {
+	data := &agent.UpdateData{
+		ID:                    pullRequestReviewRequestID,
+		CustomerID:            customerID,
+		RefType:               refType,
+		IntegrationInstanceID: StringPointer(integrationInstanceID),
+		Model:                 sourcecode.PullRequestReviewRequestModelName.String(),
+		Set:                   make(map[string]string),
+		Unset:                 make([]string, 0),
+		Push:                  make(map[string]string),
+		Pull:                  make(map[string]string),
+	}
+
+	// setters
+	if val.Set.Active != nil {
+		data.Set[sourcecode.PullRequestReviewRequestModelActiveColumn] = Stringify(val.Set.Active)
+	}
+	// unsetters
+
+	// pushers
+
+	// pullers
+
+	// always set the updated_date when updating
+	// FIXME(robin): add this to review request
+	// data.Set[sourcecode.PullRequestReviewRequestModelUpdatedDateColumn] = Stringify(datetime.NewDateNow())
+
+	return data
 }
 
 // WorkIssueUpdate is an action for update a work.Issue
