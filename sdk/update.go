@@ -5,6 +5,7 @@ import (
 
 	"github.com/pinpt/go-common/v10/datetime"
 	"github.com/pinpt/integration-sdk/agent"
+	"github.com/pinpt/integration-sdk/sourcecode"
 	"github.com/pinpt/integration-sdk/work"
 )
 
@@ -12,6 +13,57 @@ import (
 type NameRefID struct {
 	RefID *string `json:"ref_id,omitempty"`
 	Name  *string `json:"name,omitempty"`
+}
+
+// SourceCodePullRequestReviewRequestUpdate is an action for update a sourcecode.PullRequestReviewRequest
+type SourceCodePullRequestReviewRequestUpdate struct {
+	Set struct {
+		Active *bool
+	}
+	Unset struct {
+	}
+	Push struct {
+	}
+	Pull struct {
+	}
+}
+
+// NewSourceCodePullRequestReviewRequestUpdate will create a new update object for sourcecode.PullRequestReviewRequest which can be sent to an sdk.Pipe using Write
+func NewSourceCodePullRequestReviewRequestUpdate(customerID string, integrationInstanceID string, pullRequestReviewRequestID string, refType string, val SourceCodePullRequestReviewRequestUpdate) Model {
+	data := &agent.UpdateData{
+		ID:                    pullRequestReviewRequestID,
+		CustomerID:            customerID,
+		RefType:               refType,
+		IntegrationInstanceID: StringPointer(integrationInstanceID),
+		Model:                 sourcecode.PullRequestReviewRequestModelName.String(),
+		Set:                   make(map[string]string),
+		Unset:                 make([]string, 0),
+		Push:                  make(map[string]string),
+		Pull:                  make(map[string]string),
+	}
+
+	// setters
+	if val.Set.Active != nil {
+		data.Set[sourcecode.PullRequestReviewRequestModelActiveColumn] = Stringify(val.Set.Active)
+	}
+	// unsetters
+
+	// pushers
+
+	// pullers
+
+	// always set the updated_date when updating
+	// FIXME(robin): add this to review request
+	// data.Set[sourcecode.PullRequestReviewRequestModelUpdatedDateColumn] = Stringify(datetime.NewDateNow())
+
+	return data
+}
+
+// NewSourceCodePullRequestReviewRequestDeactivate will create a new update object that sets active to false for sourcecode.PullRequestReviewRequest which can be sent to an sdk.Pipe using Write
+func NewSourceCodePullRequestReviewRequestDeactivate(customerID string, integrationInstanceID string, pullRequestReviewRequestID string, refType string) Model {
+	var update SourceCodePullRequestReviewRequestUpdate
+	update.Set.Active = BoolPointer(false)
+	return NewSourceCodePullRequestReviewRequestUpdate(customerID, integrationInstanceID, pullRequestReviewRequestID, refType, update)
 }
 
 // WorkIssueUpdate is an action for update a work.Issue
@@ -189,6 +241,13 @@ func NewWorkIssueUpdate(customerID string, integrationInstanceID string, refID s
 	return data
 }
 
+// NewWorkIssueDeactivate will create a new update object that sets active to false for work.Issue which can be sent to an sdk.Pipe using Write
+func NewWorkIssueDeactivate(customerID string, integrationInstanceID string, refID string, refType string) Model {
+	var update WorkIssueUpdate
+	update.Set.Active = BoolPointer(false)
+	return NewWorkIssueUpdate(customerID, integrationInstanceID, refID, refType, update)
+}
+
 // WorkIssueCommentUpdate is an action for update a work.IssueComment
 type WorkIssueCommentUpdate struct {
 	Set struct {
@@ -231,6 +290,13 @@ func NewWorkIssueCommentUpdate(customerID string, integrationInstanceID string, 
 	data.Set[work.IssueCommentModelUpdatedDateColumn] = Stringify(datetime.NewDateNow())
 
 	return data
+}
+
+// NewWorkIssueCommentDeactivate will create a new update object that sets active to false for work.IssueComment which can be sent to an sdk.Pipe using Write
+func NewWorkIssueCommentDeactivate(customerID string, integrationInstanceID string, refID string, refType string, projectRefID string) Model {
+	var update WorkIssueCommentUpdate
+	update.Set.Active = BoolPointer(false)
+	return NewWorkIssueCommentUpdate(customerID, integrationInstanceID, refID, refType, projectRefID, update)
 }
 
 // WorkProjectUpdate is an action for update a work.Project
@@ -282,6 +348,13 @@ func NewWorkProjectUpdate(customerID string, integrationInstanceID string, refID
 	data.Set[work.ProjectModelUpdatedDateColumn] = Stringify(datetime.NewDateNow())
 
 	return data
+}
+
+// NewWorkProjectDeactivate will create a new update object that sets active to false for work.Project which can be sent to an sdk.Pipe using Write
+func NewWorkProjectDeactivate(customerID string, integrationInstanceID string, refID string, refType string) Model {
+	var update WorkProjectUpdate
+	update.Set.Active = BoolPointer(false)
+	return NewWorkProjectUpdate(customerID, integrationInstanceID, refID, refType, update)
 }
 
 // AgileSprintUpdate is an action for update a work.Sprint
@@ -355,6 +428,13 @@ func NewAgileSprintUpdate(customerID string, integrationInstanceID string, refID
 	return data
 }
 
+// NewAgileSprintDeactivate will create a new update object that sets active to false for Agile.Sprint which can be sent to an sdk.Pipe using Write
+func NewAgileSprintDeactivate(customerID string, integrationInstanceID string, refID string, refType string) Model {
+	var update AgileSprintUpdate
+	update.Set.Active = BoolPointer(false)
+	return NewAgileSprintUpdate(customerID, integrationInstanceID, refID, refType, update)
+}
+
 // AgileBoardUpdate is an action for update a work.Board
 type AgileBoardUpdate struct {
 	Set struct {
@@ -401,4 +481,11 @@ func NewAgileBoardUpdate(customerID string, integrationInstanceID string, refID 
 	data.Set[work.BoardModelUpdatedDateColumn] = Stringify(datetime.NewDateNow())
 
 	return data
+}
+
+// NewAgileBoardDeactivate will create a new update object that sets active to false for Agile.Board which can be sent to an sdk.Pipe using Write
+func NewAgileBoardDeactivate(customerID string, integrationInstanceID string, refID string, refType string) Model {
+	var update AgileBoardUpdate
+	update.Set.Active = BoolPointer(false)
+	return NewAgileBoardUpdate(customerID, integrationInstanceID, refID, refType, update)
 }
