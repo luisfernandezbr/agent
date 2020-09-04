@@ -11,3 +11,10 @@ type Model = datamodel.Model
 
 // PartialModel is a partial datamodel type with all optional fields
 type PartialModel = datamodel.PartialModel
+
+// IntegrationModel has some extra methods that exist on sourcedata types
+type IntegrationModel interface {
+	datamodel.Model
+	GetIntegrationInstanceID() *string
+	SetIntegrationInstanceID(string)
+}
