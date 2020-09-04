@@ -74,6 +74,13 @@ func (p *eventAPIPipe) Write(object datamodel.Model) error {
 	if p.stats != nil {
 		p.stats.Increment(model, 1)
 	}
+	// if integration_instance_id is missing set it
+	if intg, ok := object.(sdk.IntegrationModel); ok {
+		// TODO(robin): do the same for customer ID
+		if intg.GetIntegrationInstanceID() == nil || *(intg.GetIntegrationInstanceID()) == "" {
+			intg.SetIntegrationInstanceID(p.integrationInstanceID)
+		}
+	}
 	p.mu.Lock()
 	f := p.files[model]
 	if f == nil {
