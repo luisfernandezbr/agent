@@ -9,6 +9,7 @@ type ValidatedAccount struct {
 	TotalCount  int    `json:"totalCount"`
 	Type        string `json:"type"`
 	Public      bool   `json:"public"`
+	Selected    bool   `json:"selected"`
 }
 
 // Validate is a control interface for validating a configuration before enroll
