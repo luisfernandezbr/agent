@@ -724,13 +724,12 @@ func (s *Server) onOauth1(req agent.Oauth1Request) (string, string, error) {
 
 func (s *Server) makeExportStat(integrationInstanceID, customerID, jobID string) {
 	if client, err := s.newGraphqlClient(customerID); err == nil {
-		err := agent.CreateExportStat(client, agent.ExportStat{
-			ID:                    agent.NewExportStatID(integrationInstanceID),
-			IntegrationInstanceID: integrationInstanceID,
-			CustomerID:            customerID,
-			JobID:                 jobID,
-			CreatedDate:           agent.ExportStatCreatedDate(datetime.NewDateNow()),
-		})
+		id := agent.NewExportStatID(integrationInstanceID)
+		err := agent.ExecExportStatSilentUpdateMutation(client, id, graphql.Variables{
+			agent.ExportStatModelIntegrationInstanceIDColumn: integrationInstanceID,
+			agent.ExportStatModelJobIDColumn:                 jobID,
+			agent.ExportStatModelCreatedDateColumn:           agent.ExportStatCreatedDate(datetime.NewDateNow()),
+		}, true)
 		if err != nil {
 			log.Error(s.logger, "error creating liveness record", "err", err)
 		} else {

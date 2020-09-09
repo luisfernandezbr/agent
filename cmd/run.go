@@ -27,6 +27,7 @@ import (
 	pjson "github.com/pinpt/go-common/v10/json"
 	"github.com/pinpt/go-common/v10/log"
 	pos "github.com/pinpt/go-common/v10/os"
+	pstrings "github.com/pinpt/go-common/v10/strings"
 	"github.com/pinpt/integration-sdk/agent"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -617,12 +618,19 @@ var runCmd = &cobra.Command{
 			if channel == "" {
 				channel = "stable"
 			}
+			// each replica agent should recieve updates
+			groupSuffix, err := os.Hostname()
+			if err != nil {
+				groupSuffix = pstrings.NewUUIDV4()
+				log.Warn(logger, "unable to get hostname, using random uuid", "uuid", groupSuffix, "err", err)
+			}
 			ch, err = event.NewSubscription(ctx, event.Subscription{
-				GroupID:     "agent-run-" + publisher + "-" + integration,
+				GroupID:     "agent-run-" + publisher + "-" + integration + "-" + groupSuffix,
 				Topics:      []string{"ops.db.Change"},
 				Channel:     channel,
 				HTTPHeaders: map[string]string{"x-api-key": secret},
 				DisablePing: true,
+				Temporary:   true,
 				Logger:      logger,
 				Filter: &event.SubscriptionFilter{
 					ObjectExpr: `model:"registry.Integration"`,
