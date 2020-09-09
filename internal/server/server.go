@@ -68,6 +68,7 @@ type Server struct {
 	webhook  *Subscriber
 	mutation *Subscriber
 	location string
+	ticker   *time.Ticker
 }
 
 var _ io.Closer = (*Server)(nil)
@@ -432,7 +433,6 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 		evt.Commit()
 		return err
 	}
-	log.Debug(s.logger, "received db change", "evt", ch, "model", ch.Model)
 	switch ch.Model {
 	case agent.IntegrationInstanceModelName.String():
 		// integration has changed so we need to either enroll or dismiss
@@ -722,6 +722,38 @@ func (s *Server) onOauth1(req agent.Oauth1Request) (string, string, error) {
 	return "", "", fmt.Errorf("invalid stage requested")
 }
 
+func (s *Server) makeExportStat(integrationInstanceID, customerID, jobID string) {
+	if client, err := s.newGraphqlClient(customerID); err == nil {
+		id := agent.NewExportStatID(integrationInstanceID)
+		err := agent.ExecExportStatSilentUpdateMutation(client, id, graphql.Variables{
+			agent.ExportStatModelIntegrationInstanceIDColumn: integrationInstanceID,
+			agent.ExportStatModelJobIDColumn:                 jobID,
+			agent.ExportStatModelCreatedDateColumn:           agent.ExportStatCreatedDate(datetime.NewDateNow()),
+		}, true)
+		if err != nil {
+			log.Error(s.logger, "error creating liveness record", "err", err)
+		} else {
+			log.Debug(s.logger, "created export liveness record")
+		}
+	} else {
+		log.Error(s.logger, "error creating client for liveness", "err", err)
+	}
+}
+
+func (s *Server) startExportLiveness(export agent.Export) {
+	s.ticker = time.NewTicker(time.Minute * 3)
+	s.makeExportStat(*export.IntegrationInstanceID, export.CustomerID, export.JobID)
+	go func(integrationInstanceID, customerID, jobID string) {
+		for range s.ticker.C {
+			s.makeExportStat(integrationInstanceID, customerID, jobID)
+		}
+	}(*export.IntegrationInstanceID, export.CustomerID, export.JobID)
+}
+
+func (s *Server) stopExportLiveness() {
+	s.ticker.Stop()
+}
+
 func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location string) error {
 	log.Debug(s.logger, "received event", "evt", evt, "refType", refType, "location", location)
 	switch evt.Model {
@@ -822,12 +854,12 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 		}
 		// update the integration state to acknowledge that we are exporting
 		vars := make(graphql.Variables)
-		vars[agent.IntegrationInstanceModelExportAcknowledgedColumn] = true
 		vars[agent.IntegrationInstanceModelStateColumn] = agent.IntegrationInstanceStateExporting
-		// TODO(robin): add last export acknowledged date
 		if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, instanceID, vars, false); err != nil {
 			log.Error(s.logger, "error updating agent integration", "err", err, "id", instanceID)
 		}
+		s.startExportLiveness(req)
+		defer s.stopExportLiveness()
 		var errmessage *string
 		if err := s.handleExport(s.logger, cl, req); err != nil {
 			log.Error(s.logger, "error running export request", "err", err)
@@ -839,6 +871,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 		if errmessage != nil {
 			vars[agent.IntegrationInstanceModelErroredColumn] = true
 			vars[agent.IntegrationInstanceModelErrorMessageColumn] = *errmessage
+			vars[agent.IntegrationInstanceModelErrorDateColumn] = datetime.NewDateNow()
 		}
 		if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, instanceID, vars, false); err != nil {
 			log.Error(s.logger, "error updating agent integration", "err", err, "id", instanceID)

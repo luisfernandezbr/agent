@@ -100,7 +100,7 @@ func NewEventSubscriber(config Config, topics []string, filters *event.Subscript
 	}
 	log.Info(config.Logger, "creating NewEventSubscriber", "topics", topics, "headers", filters.HeaderExpr, "object", filters.ObjectExpr)
 	ch, err := event.NewSubscription(config.Ctx, event.Subscription{
-		Logger:            config.Logger,
+		// Logger:            config.Logger,
 		Topics:            topics,
 		GroupID:           config.GroupID,
 		HTTPHeaders:       httpheaders,

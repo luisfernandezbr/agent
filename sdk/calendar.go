@@ -38,8 +38,8 @@ func CalendarNewCalendarID(customerID string, refID string, refType string) stri
 }
 
 // CalendarNewEventID provides a template for generating an ID field for Event
-func CalendarNewEventID(customerID string, refID string, refType string) string {
-	return calendar.NewEventID(customerID, refType, refID)
+func CalendarNewEventID(customerID string, refID string, refType string, ownerRefID string) string {
+	return calendar.NewEventID(customerID, refType, refID, ownerRefID)
 }
 
 // CalendarNewUserID provides a template for generating an ID field for User
