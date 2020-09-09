@@ -14,6 +14,10 @@ type validate struct {
 	refType               string
 }
 
+func (v *validate) State() sdk.State {
+	return nil
+}
+
 func (v *validate) IntegrationInstanceID() string {
 	return v.integrationInstanceID
 }

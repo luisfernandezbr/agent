@@ -665,6 +665,10 @@ func (s *Server) onValidate(req agent.ValidateRequest) (*string, error) {
 	if err != nil {
 		return nil, err
 	}
+	state, err := s.newState(req.CustomerID, *req.IntegrationInstanceID)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := s.config.Integration.Integration.Validate(eventAPIvalidate.NewValidate(
 		*cfg,
 		s.logger,
@@ -672,6 +676,7 @@ func (s *Server) onValidate(req agent.ValidateRequest) (*string, error) {
 		req.CustomerID,
 		*req.IntegrationInstanceID,
 		client,
+		state,
 	))
 	var result *string
 	if err != nil {

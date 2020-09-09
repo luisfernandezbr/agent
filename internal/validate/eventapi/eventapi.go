@@ -21,6 +21,11 @@ type validate struct {
 	client                graphql.Client
 	mu                    sync.Mutex
 	paused                bool
+	state                 sdk.State
+}
+
+func (v *validate) State() sdk.State {
+	return v.state
 }
 
 func (v *validate) IntegrationInstanceID() string {
@@ -77,12 +82,13 @@ func (v *validate) Resumed() error {
 }
 
 // NewValidate will return a validate
-func NewValidate(config sdk.Config, logger log.Logger, refType string, customerID string, integrationInstanceID string, client graphql.Client) sdk.Validate {
+func NewValidate(config sdk.Config, logger log.Logger, refType string, customerID string, integrationInstanceID string, client graphql.Client, state sdk.State) sdk.Validate {
 	return &validate{
 		customerID:            customerID,
 		refType:               refType,
 		integrationInstanceID: integrationInstanceID,
 		config:                config,
 		client:                client,
+		state:                 state,
 	}
 }
