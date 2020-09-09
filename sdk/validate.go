@@ -15,4 +15,6 @@ type ValidatedAccount struct {
 type Validate interface {
 	Control
 	Config() Config
+	// State is a customer specific state object for this integration and customer
+	State() State
 }
