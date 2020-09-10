@@ -872,6 +872,10 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			vars[agent.IntegrationInstanceModelErroredColumn] = true
 			vars[agent.IntegrationInstanceModelErrorMessageColumn] = *errmessage
 			vars[agent.IntegrationInstanceModelErrorDateColumn] = datetime.NewDateNow()
+		} else {
+			vars[agent.IntegrationInstanceModelErroredColumn] = false
+			vars[agent.IntegrationInstanceModelErrorMessageColumn] = nil
+			vars[agent.IntegrationInstanceModelErrorDateColumn] = datetime.NewDateFromEpoch(0)
 		}
 		if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, instanceID, vars, false); err != nil {
 			log.Error(s.logger, "error updating agent integration", "err", err, "id", instanceID)
