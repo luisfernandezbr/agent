@@ -387,7 +387,7 @@ func (m *eventAPIManager) PrivateKey(identifier sdk.Identifier) (*rsa.PrivateKey
 	if instance.PrivateKey == nil {
 		return nil, ErrNoPrivateKey
 	}
-	return util.ParsePrivateKey(string(*instance.PrivateKey))
+	return util.ParsePrivateKey(*instance.PrivateKey)
 }
 
 // RefreshOAuth2Token will refresh the OAuth2 access token using the provided refreshToken and return a new access token
