@@ -10,7 +10,7 @@ require (
 	github.com/fatih/color v1.9.0
 	github.com/go-redis/redis/v8 v8.0.0-beta.7
 	github.com/jhaynie/go-vcr/v2 v2.0.2
-	github.com/jhaynie/oauth1 v1.0.0
+	github.com/jhaynie/oauth1 v1.0.1
 	github.com/mailru/easyjson v0.7.1
 	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible
