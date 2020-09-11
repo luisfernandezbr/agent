@@ -347,6 +347,10 @@ func (m *eventAPIManager) Errored(customerID string, integrationInstanceID strin
 			log.Error(m.logger, "error finding the integration instance", "err", err, "integration_instance_id", integrationInstanceID, "customer_id", customerID)
 			return
 		}
+		if instance == nil {
+			log.Error(m.logger, "integration instance not found", "integration_instance_id", integrationInstanceID, "customer_id", customerID)
+			return
+		}
 		var found bool
 		hooks := make([]*agent.IntegrationInstanceWebhooks, 0)
 		for _, webhook := range instance.Webhooks {
@@ -373,12 +377,23 @@ func (m *eventAPIManager) Errored(customerID string, integrationInstanceID strin
 	}
 }
 
+func (m *eventAPIManager) privateKeyCacheKey(customerID string, integrationInstanceID string) string {
+	return hash.Values(customerID, integrationInstanceID)
+}
+
 // ErrNoPrivateKey is thrown from PrivateKey if the integration instance has no private key
 var ErrNoPrivateKey = errors.New("no private key found")
 
 // PrivateKey will return a private key for signing requests
 func (m *eventAPIManager) PrivateKey(identifier sdk.Identifier) (*rsa.PrivateKey, error) {
 	customerID, integrationInstanceID := identifier.CustomerID(), identifier.IntegrationInstanceID()
+	cacheKey := m.privateKeyCacheKey(customerID, integrationInstanceID)
+	if val, ok := m.cache.Get(cacheKey); ok && val != nil {
+		if key, ok := val.(*rsa.PrivateKey); ok {
+			return key, nil
+		}
+		log.Warn(m.logger, "cached key was not an rsa.PrivateKey", "value", val)
+	}
 	client := m.createGraphql(customerID)
 	instance, err := agent.FindIntegrationInstance(client, integrationInstanceID)
 	if err != nil {
@@ -387,7 +402,12 @@ func (m *eventAPIManager) PrivateKey(identifier sdk.Identifier) (*rsa.PrivateKey
 	if instance.PrivateKey == nil {
 		return nil, ErrNoPrivateKey
 	}
-	return util.ParsePrivateKey(*instance.PrivateKey)
+	key, err := util.ParsePrivateKey(*instance.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	m.cache.Set(cacheKey, key, time.Minute*15)
+	return key, nil
 }
 
 // RefreshOAuth2Token will refresh the OAuth2 access token using the provided refreshToken and return a new access token
