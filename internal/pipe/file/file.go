@@ -45,6 +45,20 @@ func (p *filePipe) Write(object datamodel.Model) error {
 	}
 	model := object.GetModelName().String()
 	p.mu.Lock()
+
+	// if integration_instance_id, customer_id, or ref_type are missing, error and let the developer know
+	if intg, ok := object.(sdk.IntegrationModel); ok {
+		if intg.GetIntegrationInstanceID() == nil || *(intg.GetIntegrationInstanceID()) == "" {
+			return fmt.Errorf("object missing integration_instance_id: %s", model)
+		}
+		if intg.GetCustomerID() == "" {
+			return fmt.Errorf("object missing customer_id: %s", model)
+		}
+		if intg.GetRefType() == "" {
+			return fmt.Errorf("object missing ref_type: %s", model)
+		}
+	}
+
 	f := p.files[model]
 	if f == nil {
 		fp := filepath.Join(p.dir, model+".json.gz")

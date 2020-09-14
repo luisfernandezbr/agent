@@ -94,11 +94,22 @@ func (p *eventAPIPipe) Write(object datamodel.Model) error {
 	if p.stats != nil {
 		p.stats.Increment(model, 1)
 	}
-	// if integration_instance_id is missing set it
+	// if integration_instance_id, customer_id, or ref_type are missing, try to set them
 	if intg, ok := object.(sdk.IntegrationModel); ok {
-		// TODO(robin): do the same for customer ID
 		if intg.GetIntegrationInstanceID() == nil || *(intg.GetIntegrationInstanceID()) == "" {
 			intg.SetIntegrationInstanceID(p.integrationInstanceID)
+		}
+		if intg.GetCustomerID() == "" {
+			if p.customerID == "" {
+				return fmt.Errorf("object missing customer_id: %s", model)
+			}
+			intg.SetCustomerID(p.customerID)
+		}
+		if intg.GetRefType() == "" {
+			if p.reftype == "" {
+				return fmt.Errorf("object missing ref_type: %s", model)
+			}
+			intg.SetRefType(p.reftype)
 		}
 	}
 	p.mu.Lock()

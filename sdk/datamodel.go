@@ -17,4 +17,8 @@ type IntegrationModel interface {
 	datamodel.Model
 	GetIntegrationInstanceID() *string
 	SetIntegrationInstanceID(string)
+	GetCustomerID() string
+	SetCustomerID(string)
+	GetRefType() string
+	SetRefType(string)
 }

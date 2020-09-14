@@ -20,7 +20,19 @@ func (p *consolePipe) Write(object datamodel.Model) error {
 	if p.closed {
 		return fmt.Errorf("pipe closed")
 	}
-	log.Debug(p.logger, object.Stringify(), "model", object.GetModelName())
+	model := object.GetModelName()
+	if intg, ok := object.(sdk.IntegrationModel); ok {
+		if intg.GetIntegrationInstanceID() == nil || *(intg.GetIntegrationInstanceID()) == "" {
+			return fmt.Errorf("object missing integration_instance_id: %s", model)
+		}
+		if intg.GetCustomerID() == "" {
+			return fmt.Errorf("object missing customer_id: %s", model)
+		}
+		if intg.GetRefType() == "" {
+			return fmt.Errorf("object missing ref_type: %s", model)
+		}
+	}
+	log.Debug(p.logger, object.Stringify(), "model", model)
 	return nil
 }
 
