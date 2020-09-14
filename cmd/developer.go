@@ -14,5 +14,6 @@ func init() {
 		dev.LogoutCmd,
 		dev.PackageCmd,
 		dev.PublishCmd,
+		dev.UtilCmd,
 	)
 }
