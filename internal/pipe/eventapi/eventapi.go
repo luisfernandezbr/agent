@@ -171,7 +171,6 @@ func (p *eventAPIPipe) send(model string, f *wrapperFile) error {
 		return fmt.Errorf("error reading file: %w", err)
 	}
 	object := &agent.ExportData{
-		ID:                    fmt.Sprintf("%s-%s", agent.NewExportDataID(p.customerID, p.reftype, p.uuid), model),
 		CustomerID:            p.customerID,
 		RefType:               p.reftype,
 		RefID:                 p.uuid,
