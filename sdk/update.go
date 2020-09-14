@@ -262,10 +262,9 @@ type WorkIssueCommentUpdate struct {
 }
 
 // NewWorkIssueCommentUpdate will create a new update object for work.IssueComment which can be sent to an sdk.Pipe using Write
-func NewWorkIssueCommentUpdate(customerID string, integrationInstanceID string, refID string, refType string, projectRefID string, val WorkIssueCommentUpdate) Model {
-	projectID := NewWorkProjectID(customerID, projectRefID, refType)
+func NewWorkIssueCommentUpdate(customerID string, integrationInstanceID string, refID string, refType string, val WorkIssueCommentUpdate) Model {
 	data := &agent.UpdateData{
-		ID:                    NewWorkIssueCommentID(customerID, refID, refType, projectID),
+		ID:                    NewWorkIssueCommentID(customerID, refID, refType),
 		CustomerID:            customerID,
 		RefID:                 refID,
 		RefType:               refType,
@@ -293,10 +292,10 @@ func NewWorkIssueCommentUpdate(customerID string, integrationInstanceID string, 
 }
 
 // NewWorkIssueCommentDeactivate will create a new update object that sets active to false for work.IssueComment which can be sent to an sdk.Pipe using Write
-func NewWorkIssueCommentDeactivate(customerID string, integrationInstanceID string, refID string, refType string, projectRefID string) Model {
+func NewWorkIssueCommentDeactivate(customerID string, integrationInstanceID string, refID string, refType string) Model {
 	var update WorkIssueCommentUpdate
 	update.Set.Active = BoolPointer(false)
-	return NewWorkIssueCommentUpdate(customerID, integrationInstanceID, refID, refType, projectRefID, update)
+	return NewWorkIssueCommentUpdate(customerID, integrationInstanceID, refID, refType, update)
 }
 
 // WorkProjectUpdate is an action for update a work.Project

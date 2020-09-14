@@ -200,8 +200,8 @@ func NewWorkIssueID(customerID string, refID string, refType string) string {
 }
 
 // NewWorkIssueCommentID will return the work issue comment id
-func NewWorkIssueCommentID(customerID string, refID string, refType string, projectID string) string {
-	return work.NewIssueCommentID(customerID, refID, refType, projectID)
+func NewWorkIssueCommentID(customerID string, refID string, refType string) string {
+	return work.NewIssueCommentID(customerID, refID, refType)
 }
 
 // NewWorkIssuePriorityID will return the work issue priority id
