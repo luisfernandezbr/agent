@@ -1,4 +1,4 @@
-package file
+package eventapi
 
 import (
 	"compress/gzip"
@@ -13,6 +13,7 @@ import (
 
 	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/go-common/v10/datamodel"
+	"github.com/pinpt/go-common/v10/datetime"
 	"github.com/pinpt/go-common/v10/event"
 	pjson "github.com/pinpt/go-common/v10/json"
 	"github.com/pinpt/go-common/v10/log"
@@ -32,9 +33,28 @@ func (f *wrapperFile) Write(buf []byte) (int, error) {
 	return f.gz.Write(buf)
 }
 
+func (f *wrapperFile) WriteLine(buf []byte) (int, error) {
+	return f.Write(append(buf, eol...))
+}
+
 func (f *wrapperFile) Close() error {
-	f.gz.Close()
+	if err := f.gz.Close(); err != nil {
+		return err
+	}
 	return f.of.Close()
+}
+
+func newWrapperFile(dir, model string) (*wrapperFile, error) {
+	fp := filepath.Join(dir, fmt.Sprintf("%s-%d.json.gz", model, datetime.EpochNow()))
+	of, err := os.OpenFile(fp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	if err != nil {
+		return nil, err
+	}
+	gz, err := gzip.NewWriterLevel(of, gzip.BestCompression)
+	if err != nil {
+		return nil, err
+	}
+	return &wrapperFile{gz, of, time.Time{}, 0, 0}, nil
 }
 
 type eventAPIPipe struct {
@@ -84,26 +104,21 @@ func (p *eventAPIPipe) Write(object datamodel.Model) error {
 	p.mu.Lock()
 	f := p.files[model]
 	if f == nil {
-		fp := filepath.Join(p.dir, model+".json.gz")
-		of, err := os.OpenFile(fp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+		var err error
+		f, err = newWrapperFile(p.dir, model)
 		if err != nil {
-			p.mu.Unlock()
-			return err
+			return fmt.Errorf("error creating new wrapper file: %w", err)
 		}
-		gz, err := gzip.NewWriterLevel(of, gzip.BestCompression)
-		if err != nil {
-			p.mu.Unlock()
-			return err
-		}
-		f = &wrapperFile{gz, of, time.Time{}, 0, 0}
 		p.files[model] = f
 	}
 	f.ts = time.Now() // keep track of last write
 	buf := []byte(object.Stringify())
 	f.count++
 	f.bytes += int64(len(buf) + 1)
-	f.Write(buf)
-	f.Write(eol)
+	if _, err := f.WriteLine(buf); err != nil {
+		p.mu.Unlock()
+		return fmt.Errorf("error writing to buffer file: %w", err)
+	}
 	p.mu.Unlock()
 	return nil
 }
@@ -114,6 +129,7 @@ func (p *eventAPIPipe) Flush() error {
 	p.mu.Lock()
 	for model, of := range p.files {
 		of.Close()
+		delete(p.files, model)
 		if err := p.send(model, of); err != nil {
 			log.Error(p.logger, "error sending data to event-api", "model", model, "err", err)
 		}
@@ -126,7 +142,9 @@ func (p *eventAPIPipe) Flush() error {
 func (p *eventAPIPipe) Close() error {
 	log.Debug(p.logger, "pipe closing")
 	p.closed = true
-	p.Flush()
+	if err := p.Flush(); err != nil {
+		log.Error(p.logger, "error flushing pipe", "err", err)
+	}
 	p.cancel()
 	p.wg.Wait() // wait for our flush to finish
 	p.files = nil
@@ -148,7 +166,6 @@ type sendRecord struct {
 
 func (p *eventAPIPipe) send(model string, f *wrapperFile) error {
 	log.Debug(p.logger, "sending to event-api", "model", model, "size", pnum.ToBytesSize(f.bytes), "count", f.count, "last_event", time.Since(f.ts))
-	f.Close()
 	buf, err := ioutil.ReadFile(f.of.Name())
 	if err != nil {
 		return fmt.Errorf("error reading file: %w", err)
@@ -183,6 +200,7 @@ func (p *eventAPIPipe) send(model string, f *wrapperFile) error {
 	if err := event.Publish(p.ctx, evt, p.channel, p.apikey, opts...); err != nil {
 		return err
 	}
+	os.Remove(f.of.Name())
 	log.Debug(p.logger, "sent to event-api", "model", model, "duration", time.Since(ts))
 	return nil
 }
@@ -212,7 +230,9 @@ func (p *eventAPIPipe) run() {
 			p.mu.Lock()
 			for model, f := range p.files {
 				if f.count >= maxRecords || f.bytes >= maxBytes || time.Since(f.ts) >= maxDuration {
-					f.Close()
+					if err := f.Close(); err != nil {
+						log.Error(p.logger, "error closing pipe file", "err", err)
+					}
 					// delete, it gets created on demand
 					delete(p.files, model)
 					// ready to send
