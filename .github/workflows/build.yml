@@ -33,14 +33,14 @@ jobs:
       - uses: actions/checkout@v2
       
       - name: Login to Github CR
-        run: echo "${{ secrets.PP_GITHUB_TOKEN }}" | docker login https://ghcr.io -u pinpointbot --password-stdin
+        run: echo "${{ secrets.PP_GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u pinpointbot --password-stdin
 
       - name: Build Docker
         run: docker build . --file Dockerfile --tag $IMAGE_NAME
       
       - name: Push image
         run: |
-          IMAGE_ID=ghcr.io/pinpt/$IMAGE_NAME
+          IMAGE_ID=ghcr.io/pinpt/agent.next/$IMAGE_NAME
           
           VERSION=${{ github.sha }}
           
