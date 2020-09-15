@@ -55,8 +55,6 @@ jobs:
     name: Tag Docker
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
-    env:
-      BASE_IMAGE: docker.pkg.github.com/pinpt/agent.next/$IMAGE_NAME:${{ github.sha }}
     needs:
       - build-docker
     steps:
@@ -66,7 +64,7 @@ jobs:
         run: echo "${{ secrets.PP_GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u pinpointbot --password-stdin
 
       - name: Pull Image
-        run: docker pull $BASE_IMAGE
+        run: docker pull docker.pkg.github.com/pinpt/agent.next/$IMAGE_NAME:${{ github.sha }}
       
       - name: Push image
         run: |
