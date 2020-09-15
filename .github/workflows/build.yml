@@ -2,9 +2,11 @@ name: Go
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
+    tags:
+      - stable
   pull_request:
-    branches: [ master ]
 
 env:
   IMAGE_NAME: agent.next
@@ -40,6 +42,34 @@ jobs:
       
       - name: Push image
         run: |
+          # TODO: port to ghcr
+          IMAGE_ID=docker.pkg.github.com/pinpt/agent.next/$IMAGE_NAME          
+
+          echo TAG=${{ github.sha }}
+          echo IMAGE_ID=$IMAGE_ID
+
+          docker tag $IMAGE_NAME $IMAGE_ID:${{ github.sha }}
+          docker push $IMAGE_ID:${{ github.sha }}
+
+  tag-docker:
+    name: Tag Docker
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    env:
+      BASE_IMAGE: docker.pkg.github.com/pinpt/agent.next/$IMAGE_NAME:${{ github.sha }}
+    needs:
+      - build-docker
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Login to Github CR
+        run: echo "${{ secrets.PP_GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u pinpointbot --password-stdin
+
+      - name: Pull Image
+        run: docker pull $BASE_IMAGE
+      
+      - name: Push image
+        run: |
           IMAGE_ID=docker.pkg.github.com/pinpt/agent.next/$IMAGE_NAME          
           
           echo ${{ github.ref }}
@@ -56,8 +86,5 @@ jobs:
           echo VERSION=$VERSION
           echo IMAGE_ID=$IMAGE_ID
 
-          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
+          docker tag $BASE_IMAGE $IMAGE_ID:$VERSION
           docker push $IMAGE_ID:$VERSION
-
-          docker tag $IMAGE_NAME $IMAGE_ID:${{ github.sha }}
-          docker push $IMAGE_ID:${{ github.sha }}
