@@ -51,12 +51,13 @@ var PublishCmd = &cobra.Command{
 		integrationDir := args[0]
 		logger := log.NewCommandLogger(cmd)
 		defer logger.Close()
+		channel, _ := cmd.Flags().GetString("channel")
 		tmpdir, err := ioutil.TempDir("", "")
 		if err != nil {
 			log.Fatal(logger, "error creating temp dir", "err", err)
 		}
 		defer os.RemoveAll(tmpdir)
-		c, err := loadDevConfig()
+		c, err := loadDevConfig(channel)
 		if err != nil {
 			log.Fatal(logger, "error opening developer config", "err", err)
 		}
@@ -65,10 +66,6 @@ var PublishCmd = &cobra.Command{
 		}
 		if c.expired() {
 			log.Fatal(logger, "your login session has expired. please login again")
-		}
-		channel, _ := cmd.Flags().GetString("channel")
-		if c.Channel != channel {
-			log.Fatal(logger, "your login session was for a different channel. please login again")
 		}
 		privateKey, err := util.ParsePrivateKey(c.PrivateKey)
 		if err != nil {

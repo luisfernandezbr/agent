@@ -12,6 +12,7 @@ import (
 	"github.com/pinpt/go-common/v10/fileutil"
 	pjson "github.com/pinpt/go-common/v10/json"
 	"github.com/pinpt/go-common/v10/log"
+	pos "github.com/pinpt/go-common/v10/os"
 	"github.com/spf13/cobra"
 )
 
@@ -30,6 +31,7 @@ var PackageCmd = &cobra.Command{
 		bundleDir := filepath.Join(distDir, "bundle")
 		dataDir := filepath.Join(bundleDir, "data")
 		appDir := filepath.Join(integrationDir, "app")
+		channel, _ := cmd.Flags().GetString("channel")
 		os.MkdirAll(bundleDir, 0700)
 		os.MkdirAll(dataDir, 0700)
 
@@ -97,7 +99,7 @@ var PackageCmd = &cobra.Command{
 		}
 
 		// write out dev certificate (if we have one)
-		if devCfg, err := loadDevConfig(); err == nil {
+		if devCfg, err := loadDevConfig(channel); err == nil {
 			if devCfg.Certificate != "" {
 				if err := ioutil.WriteFile(filepath.Join(bundleDir, "cert.pem"), []byte(devCfg.Certificate), 0644); err != nil {
 					log.Fatal(logger, "error writing developer certificate to bundle dir", "err", err)
@@ -124,4 +126,5 @@ func init() {
 	PackageCmd.Flags().String("dir", "dist", "the output directory to place the generated file")
 	PackageCmd.Flags().StringArray("os", []string{"darwin", "linux", "windows"}, "the OS to build for")
 	PackageCmd.Flags().StringArray("arch", []string{"amd64"}, "the architecture to build for")
+	PackageCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "stable"), "the channel which can be set")
 }

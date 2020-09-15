@@ -47,8 +47,13 @@ func (c *devConfig) filename() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	fn := filepath.Join(home, ".pinpoint-developer")
-	return fn, nil
+	if c.Channel == "" {
+		return "", fmt.Errorf("cannot open pinpoint developer file: no channel provided")
+	}
+	if c.Channel != "stable" {
+		return filepath.Join(home, ".pinpoint-developer-"+c.Channel), nil
+	}
+	return filepath.Join(home, ".pinpoint-developer"), nil
 }
 
 func (c *devConfig) save() error {
@@ -64,8 +69,9 @@ func (c *devConfig) save() error {
 	return json.NewEncoder(of).Encode(c)
 }
 
-func loadDevConfig() (*devConfig, error) {
+func loadDevConfig(channel string) (*devConfig, error) {
 	var c devConfig
+	c.Channel = channel
 	fn, err := c.filename()
 	if err != nil {
 		return nil, err
@@ -99,14 +105,14 @@ var LoginCmd = &cobra.Command{
 		url := sdk.JoinURL(baseurl, "/login?apikey=true")
 
 		err := util.WaitForRedirect(url, func(w http.ResponseWriter, r *http.Request) {
-			config, _ = loadDevConfig()
+			config, _ = loadDevConfig(channel)
 			q := r.URL.Query()
 			customerID := q.Get("customer_id")
 			if config != nil {
 				if config.CustomerID == customerID {
-					log.Info(logger, "refreshing token", "customer_id", config.CustomerID)
+					log.Info(logger, "refreshing token", "customer_id", customerID)
 				} else {
-					log.Info(logger, "logging into new customer, you will need to generate a new private key before publishing 🔑", "customer_id", config.CustomerID)
+					log.Info(logger, "logging into new customer, you will need to generate a new private key before publishing 🔑", "customer_id", customerID)
 				}
 			} else {
 				config = &devConfig{}
@@ -147,7 +153,7 @@ var testKeyCmd = &cobra.Command{
 
 		var apikey string
 		if altApikey == "" {
-			config, err := loadDevConfig()
+			config, err := loadDevConfig(channel)
 			if err != nil {
 				log.Fatal(logger, "error loading dev config", "err", err)
 			}
