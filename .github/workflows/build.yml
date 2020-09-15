@@ -6,30 +6,46 @@ on:
   pull_request:
     branches: [ master ]
 
+env:
+  IMAGE_NAME: agent.next
+
 jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
     steps:
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.13
+        id: go
 
-    - name: Set up Go 1.x
-      uses: actions/setup-go@v2
-      with:
-        go-version: ^1.13
-      id: go
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
 
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v2
+      - name: Build
+        run: go build .
+  
+  build-docker:
+    name: Build Docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Login to Github CR
+        run: echo "${{ secrets.PP_GITHUB_TOKEN }}" | docker login https://ghcr.io -u pinpointbot --password-stdin
 
-    - name: Build
-      run: go build .
+      - name: Build Docker
+        run: docker build . --file Dockerfile --tag $IMAGE_NAME
+      
+      - name: Push image
+        run: |
+          IMAGE_ID=ghcr.io/pinpt/$IMAGE_NAME
+          
+          VERSION=${{ github.sha }}
+          
+          echo IMAGE_ID=$IMAGE_ID
+          echo VERSION=$VERSION
 
-    - name: Build Docker
-      uses: docker/build-push-action@v1
-      with:
-        username: pinpointbot
-        password: ${{ secrets.PP_GITHUB_TOKEN }}
-        repository: pinpt/agent.next/agent.next
-        dockerfile: build/Dockerfile
-        registry: docker.pkg.github.com
-        tags: ${{ github.sha }}
+          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
+          docker push $IMAGE_ID:$VERSION
