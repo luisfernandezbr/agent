@@ -40,7 +40,7 @@ jobs:
       
       - name: Push image
         run: |
-          IMAGE_ID=ghcr.io/pinpt/agent.next/$IMAGE_NAME
+          IMAGE_ID=docker.pkg.github.com/pinpt/agent.next/$IMAGE_NAME
           
           VERSION=${{ github.sha }}
           
