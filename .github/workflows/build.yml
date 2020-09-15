@@ -5,7 +5,7 @@ on:
     branches:
       - master
     tags:
-      - stable
+      - '*-stable'
   pull_request:
 
 env:
@@ -79,10 +79,10 @@ jobs:
           [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
 
           # Use Docker `latest` tag convention
-          [ "$VERSION" == "master" ] && VERSION=latest
+          [ "$VERSION" == "master" ] && VERSION=latest || VERSION=stable
 
           echo VERSION=$VERSION
           echo IMAGE_ID=$IMAGE_ID
 
-          docker tag $BASE_IMAGE $IMAGE_ID:$VERSION
+          docker tag docker.pkg.github.com/pinpt/agent.next/$IMAGE_NAME:${{ github.sha }} $IMAGE_ID:$VERSION
           docker push $IMAGE_ID:$VERSION
