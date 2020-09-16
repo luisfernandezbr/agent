@@ -134,7 +134,7 @@ var EnrollCmd = &cobra.Command{
 		logger := log.NewCommandLogger(cmd)
 		defer logger.Close()
 		channel, _ := cmd.Flags().GetString("channel")
-		config, err := loadDevConfig()
+		config, err := loadDevConfig(channel)
 		if err != nil {
 			log.Fatal(logger, "unable to load developer config", "err", err)
 		}

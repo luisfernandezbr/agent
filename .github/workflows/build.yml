@@ -2,25 +2,87 @@ name: Go
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
+    tags:
+      - 'v*'
   pull_request:
-    branches: [ master ]
+
+env:
+  IMAGE_NAME: agent.next
 
 jobs:
-
   build:
     name: Build
     runs-on: ubuntu-latest
     steps:
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.13
+        id: go
 
-    - name: Set up Go 1.x
-      uses: actions/setup-go@v2
-      with:
-        go-version: ^1.13
-      id: go
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
 
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v2
+      - name: Build
+        run: go build .
+  
+  build-docker:
+    name: Build Docker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Login to Github CR
+        run: echo "${{ secrets.PP_GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u pinpointbot --password-stdin
 
-    - name: Build
-      run: go build .
+      - name: Build Docker
+        run: docker build . --file Dockerfile --tag $IMAGE_NAME
+      
+      - name: Push image
+        run: |
+          # TODO: port to ghcr
+          IMAGE_ID=docker.pkg.github.com/pinpt/agent.next/$IMAGE_NAME          
+
+          echo TAG=${{ github.sha }}
+          echo IMAGE_ID=$IMAGE_ID
+
+          docker tag $IMAGE_NAME $IMAGE_ID:${{ github.sha }}
+          docker push $IMAGE_ID:${{ github.sha }}
+
+  tag-docker:
+    name: Tag Docker
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    needs:
+      - build-docker
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Login to Github CR
+        run: echo "${{ secrets.PP_GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u pinpointbot --password-stdin
+
+      - name: Pull Image
+        run: docker pull docker.pkg.github.com/pinpt/agent.next/$IMAGE_NAME:${{ github.sha }}
+      
+      - name: Push image
+        run: |
+          IMAGE_ID=docker.pkg.github.com/pinpt/agent.next/$IMAGE_NAME          
+          
+          echo ${{ github.ref }}
+
+          # Strip git ref prefix from version
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+
+          # Strip "v" prefix from tag name
+          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+
+          # Use Docker `latest` tag convention
+          [ "$VERSION" == "master" ] && VERSION=latest
+
+          echo VERSION=$VERSION
+          echo IMAGE_ID=$IMAGE_ID
+
+          docker tag docker.pkg.github.com/pinpt/agent.next/$IMAGE_NAME:${{ github.sha }} $IMAGE_ID:$VERSION
+          docker push $IMAGE_ID:$VERSION
