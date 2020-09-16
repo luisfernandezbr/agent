@@ -72,7 +72,7 @@ var PublishCmd = &cobra.Command{
 			log.Fatal(logger, "unable to parse private key in config")
 		}
 		log.Info(logger, "building package")
-		cm := exec.Command(os.Args[0], "package", integrationDir, "--dir", tmpdir)
+		cm := exec.Command(os.Args[0], "package", integrationDir, "--dir", tmpdir, "--channel", channel)
 		cm.Stdout = os.Stdout
 		cm.Stderr = os.Stderr
 		cm.Stdin = os.Stdin
