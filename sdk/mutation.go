@@ -25,6 +25,7 @@ type MutationUser struct {
 	// ID is the ref_id to the source system
 	ID         string      `json:"id"`
 	OAuth2Auth *oauth2Auth `json:"oauth2_auth,omitempty"`
+	OAuth1Auth *oauth1Auth `json:"oauth1_auth,omitempty"`
 	BasicAuth  *basicAuth  `json:"basic_auth,omitempty"`
 	APIKeyAuth *apikeyAuth `json:"apikey_auth,omitempty"`
 }
@@ -127,6 +128,11 @@ type WorkIssueUpdateMutation struct {
 		Assignee bool `json:"assignee"` // Assignee is for removing the assignee from the issue (if set to true)
 	} `json:"unset"`
 }
+
+const (
+	// WorkIssueTransitionRequiresResolution tells the ui that resolution is required to make a transition
+	WorkIssueTransitionRequiresResolution = "resolution"
+)
 
 // AgileSprintCreateMutation is an create mutation for a sprint
 type AgileSprintCreateMutation struct {

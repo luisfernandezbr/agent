@@ -985,9 +985,13 @@ func (s *Server) onMutation(evt event.SubscriptionEvent, refType string, locatio
 			resp.RefType = m.RefType
 			log.Debug(s.logger, "sending mutation response", "payload", resp.Stringify())
 			if err := s.mutation.ch.Publish(event.PublishEvent{
-				Object:  &resp,
-				Headers: map[string]string{"ref_type": m.RefType, "ref_id": m.RefID},
-				Logger:  s.logger,
+				Object: &resp,
+				Headers: map[string]string{
+					"ref_type":                m.RefType,
+					"ref_id":                  m.RefID,
+					"integration_instance_id": *m.IntegrationInstanceID,
+				},
+				Logger: s.logger,
 			}); err != nil {
 				log.Error(s.logger, "error publishing mutation response event", "err", err)
 			}
