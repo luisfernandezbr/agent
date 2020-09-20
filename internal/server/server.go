@@ -64,9 +64,10 @@ type Server struct {
 	logger   log.Logger
 	config   Config
 	dbchange *Subscriber
-	event    *Subscriber
 	webhook  *Subscriber
 	mutation *Subscriber
+	validate *Subscriber
+	export   *Subscriber
 	location string
 	ticker   *time.Ticker
 }
@@ -79,9 +80,13 @@ func (s *Server) Close() error {
 		s.dbchange.Close()
 		s.dbchange = nil
 	}
-	if s.event != nil {
-		s.event.Close()
-		s.event = nil
+	if s.export != nil {
+		s.export.Close()
+		s.export = nil
+	}
+	if s.validate != nil {
+		s.validate.Close()
+		s.validate = nil
 	}
 	if s.webhook != nil {
 		s.webhook.Close()
@@ -635,12 +640,12 @@ func toResponseErr(err error) *string {
 	return &str
 }
 
-// eventPublish will publish a model on s.event's subscription
-func (s *Server) eventPublish(model datamodel.Model, headers map[string]string) {
+// eventPublish will publish a model on the subscription channel
+func (s *Server) eventPublish(ch *event.SubscriptionChannel, model datamodel.Model, headers map[string]string) {
 	// publish on another thread because we're inside s.event's cosumer loop
 	go func() {
 		log.Debug(s.logger, "publishing an event", "model", model, "headers", headers)
-		if err := s.event.ch.Publish(event.PublishEvent{
+		if err := ch.Publish(event.PublishEvent{
 			Object:  model,
 			Headers: headers,
 			Logger:  s.logger,
@@ -783,7 +788,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 		if req.EnrollmentID != nil {
 			headers["enrollment_id"] = *req.EnrollmentID
 		}
-		s.eventPublish(res, headers)
+		s.eventPublish(s.validate.ch, res, headers)
 		if err != nil {
 			log.Error(s.logger, "sent validation response with error", "result", result, "err", err.Error(), "headers", headers)
 		} else {
@@ -816,7 +821,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 		if req.EnrollmentID != nil {
 			headers["enrollment_id"] = *req.EnrollmentID
 		}
-		s.eventPublish(res, headers)
+		s.eventPublish(s.validate.ch, res, headers)
 		if err != nil {
 			log.Error(s.logger, "sent oauth1 response with error", "err", err.Error(), "headers", headers)
 		} else {
@@ -1025,16 +1030,27 @@ func New(config Config) (*Server, error) {
 	} else {
 		validateObjectExpr = fmt.Sprintf(`ref_type:"%s" AND enrollment_id:"%s"`, config.Integration.Descriptor.RefType, config.EnrollmentID)
 	}
-	// FIXME: break these out since one will block the other
-	server.event, err = NewEventSubscriber(
+	server.export, err = NewEventSubscriber(
 		config,
 		[]string{
 			agent.ExportModelName.String(),
+		},
+		&event.SubscriptionFilter{
+			ObjectExpr: exportObjectExpr,
+		},
+		location,
+		server.onEvent)
+	if err != nil {
+		return nil, err
+	}
+	server.validate, err = NewEventSubscriber(
+		config,
+		[]string{
 			agent.Oauth1RequestModelName.String(),
 			agent.ValidateRequestModelName.String(),
 		},
 		&event.SubscriptionFilter{
-			ObjectExpr: fmt.Sprintf(`(%s) OR (%s)`, exportObjectExpr, validateObjectExpr),
+			ObjectExpr: validateObjectExpr,
 		},
 		location,
 		server.onEvent)

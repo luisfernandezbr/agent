@@ -29,11 +29,13 @@ import (
 
 // ConfigFile is the configuration file for the runner
 type ConfigFile struct {
-	Channel      string `json:"channel"`
-	CustomerID   string `json:"customer_id"`
-	SystemID     string `json:"system_id"`
-	APIKey       string `json:"apikey"`
-	EnrollmentID string `json:"enrollment_id"`
+	Channel      string    `json:"channel"`
+	CustomerID   string    `json:"customer_id"`
+	SystemID     string    `json:"system_id"`
+	APIKey       string    `json:"apikey"`
+	RefreshKey   string    `json:"refresh_key"`
+	EnrollmentID string    `json:"enrollment_id"`
+	Expires      time.Time `json:"expires"`
 }
 
 func cloudAgentGroupID(reftype string) string {

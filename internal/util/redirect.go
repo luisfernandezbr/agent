@@ -30,6 +30,9 @@ func WaitForRedirect(rawURL string, handler func(w http.ResponseWriter, r *http.
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		handler(w, r)
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
 		done <- true
 	})
 

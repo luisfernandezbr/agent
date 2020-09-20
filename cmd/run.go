@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -103,7 +104,56 @@ func clientFromConfig(config *runner.ConfigFile) (graphql.Client, error) {
 		return nil, err
 	}
 	gclient.SetHeader("Authorization", config.APIKey)
+
 	return gclient, nil
+}
+
+func validateConfig(config *runner.ConfigFile, channel string, force bool) (bool, error) {
+	var resp struct {
+		Expired bool `json:"expired"`
+		Valid   bool `json:"valid"`
+	}
+	if !force {
+		res, err := api.Get(context.Background(), channel, api.AuthService, "/validate?customer_id="+config.CustomerID, config.APIKey)
+		if err != nil {
+			return false, err
+		}
+		defer res.Body.Close()
+		if err := json.NewDecoder(res.Body).Decode(&resp); err != nil {
+			return false, err
+		}
+	} else {
+		resp.Expired = true
+	}
+	if resp.Expired {
+		newToken, err := util.RefreshOAuth2Token(http.DefaultClient, channel, "pinpoint", config.RefreshKey)
+		if err != nil {
+			return false, err
+		}
+		config.APIKey = newToken // update the new token
+		return true, nil
+	}
+	if resp.Valid {
+		return false, fmt.Errorf("the apikey or refresh token is no longer valid")
+	}
+	return false, nil
+}
+
+func saveConfig(cmd *cobra.Command, config *runner.ConfigFile) error {
+	cfg, err := configFilename(cmd)
+	if err != nil {
+		return err
+	}
+	of, err := os.Open(cfg)
+	if err != nil {
+		return err
+	}
+	defer of.Close()
+	// save our channels back to the config
+	if err := json.NewEncoder(of).Encode(config); err != nil {
+		return err
+	}
+	return nil
 }
 
 func loadConfig(cmd *cobra.Command, logger log.Logger, channel string) (string, *runner.ConfigFile) {
@@ -122,6 +172,16 @@ func loadConfig(cmd *cobra.Command, logger log.Logger, channel string) (string, 
 			log.Fatal(logger, "error parsing config file at "+cfg, "err", err)
 		}
 		of.Close()
+		updated, err := validateConfig(&config, channel, false)
+		if err != nil {
+			log.Fatal(logger, "error validating the apikey", "err", err)
+		}
+		if updated {
+			// save our changes back to the config
+			if err := saveConfig(cmd, &config); err != nil {
+				log.Fatal(logger, "error opening config file for writing at "+cfg, "err", err)
+			}
+		}
 		client, err := clientFromConfig(&config)
 		if err != nil {
 			log.Fatal(logger, "error creating client", "err", err)
@@ -378,13 +438,19 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 		}
 	}
 
+	var restarting bool
 	done := make(chan bool)
 	finished := make(chan bool)
 	pos.OnExit(func(_ int) {
-		done <- true
-		<-finished
-		log.Info(logger, "👯")
+		if !restarting {
+			done <- true
+			<-finished
+			log.Info(logger, "👯")
+		}
 	})
+
+	// calculate the duration of time left before the
+	refreshDuration := config.Expires.Sub(time.Now().Add(time.Minute * 30))
 
 	var shutdownWg sync.WaitGroup
 
@@ -392,6 +458,25 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 completed:
 	for {
 		select {
+		case <-time.After(refreshDuration):
+			// if we get here, we need to refresh our expiring apikey and restart all the integrations
+			log.Info(logger, "need to update apikey before it expires and restart 🤞🏽")
+
+			// 1. fetch our new apikey
+			if _, err := validateConfig(config, channel, true); err != nil {
+				log.Fatal(logger, "error refreshing the expiring apikey", "err", err)
+			}
+			// 2. save the config file changes
+			if err := saveConfig(cmd, config); err != nil {
+				log.Fatal(logger, "error saving the new apikey", "err", err)
+			}
+			// 3. stop all of our current integrations
+			restarting = true
+			done <- true
+
+			// 4. restart ourself which should re-entrant this function
+			go runIntegrationMonitor(ctx, logger, cmd)
+
 		case <-time.After(time.Minute * 5):
 			if err := pingEnrollment(logger, gclient, config.EnrollmentID, "", true); err != nil {
 				log.Error(logger, "unable to update enrollment", "enrollment_id", config.EnrollmentID, "err", err)
@@ -467,6 +552,12 @@ completed:
 	}
 
 	shutdownWg.Wait()
+
+	// if restarting, dont send a shutdown or block on finished
+	if restarting {
+		return
+	}
+
 	if err := pingEnrollment(logger, gclient, config.EnrollmentID, agent.EnrollmentModelLastShutdownDateColumn, false); err != nil {
 		log.Error(logger, "unable to update enrollment", "enrollment_id", config.EnrollmentID, "err", err)
 	}
@@ -488,7 +579,15 @@ func enrollAgent(logger log.Logger, channel string, configFileName string) (*run
 	err := util.WaitForRedirect(url, func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		config.APIKey = q.Get("apikey")
+		config.RefreshKey = q.Get("refresh_token")
 		config.CustomerID = q.Get("customer_id")
+		expires := q.Get("expires")
+		if expires != "" {
+			e, _ := strconv.ParseInt(expires, 10, 64)
+			config.Expires = datetime.DateFromEpoch(e)
+		} else {
+			config.Expires = time.Now().Add(time.Hour * 23)
+		}
 		userID = q.Get("user_id")
 		w.WriteHeader(http.StatusOK)
 	})
