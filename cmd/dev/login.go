@@ -24,6 +24,7 @@ import (
 type devConfig struct {
 	CustomerID       string    `json:"customer_id"`
 	APIKey           string    `json:"apikey"`
+	RefreshKey       string    `json:"refresh_token"`
 	PrivateKey       string    `json:"private_key"`
 	Certificate      string    `json:"certificate"`
 	Expires          time.Time `json:"expires"`
@@ -102,12 +103,28 @@ var LoginCmd = &cobra.Command{
 
 		channel, _ := cmd.Flags().GetString("channel")
 		baseurl := api.BackendURL(api.AuthService, channel)
-		url := sdk.JoinURL(baseurl, "/login?apikey=true")
+		url := sdk.JoinURL(baseurl, "/oauth2/pinpoint/agent/authorize?apikey=true")
+
+		var ok bool
+		var errmsg string
 
 		err := util.WaitForRedirect(url, func(w http.ResponseWriter, r *http.Request) {
 			config, _ = loadDevConfig(channel)
 			q := r.URL.Query()
+			err := q.Get("error")
+			if err != "" {
+				_errdesc := q.Get("error_description")
+				if _errdesc == "" || _errdesc == "undefined" {
+					_errdesc = err
+				}
+				errmsg = _errdesc
+				httpmessage.RenderStatus(w, r, http.StatusUnauthorized, "Login Failed", "Login failed. "+_errdesc)
+				return
+			}
 			customerID := q.Get("customer_id")
+			if customerID == "" {
+				log.Fatal(logger, "the authorization server didn't return a valid customer_id")
+			}
 			if config != nil {
 				if config.CustomerID == customerID {
 					log.Info(logger, "refreshing token", "customer_id", customerID)
@@ -125,17 +142,21 @@ var LoginCmd = &cobra.Command{
 				config.Expires = time.Now().Add(time.Hour * 23)
 			}
 			config.APIKey = q.Get("apikey")
+			config.RefreshKey = q.Get("refresh_token")
 			config.CustomerID = customerID
 			config.Channel = channel
 			if err := config.save(); err != nil {
 				log.Error(logger, "error saving config", "err", err)
 			}
+			ok = true
 			httpmessage.RenderStatus(w, r, http.StatusOK, "Login Success", "You have logged in successfully and can now close this window")
 		})
 		if err != nil {
 			log.Fatal(logger, "error waiting for browser", "err", err)
 		}
-
+		if !ok {
+			log.Fatal(logger, "error logging in", "err", errmsg)
+		}
 		log.Info(logger, "logged in", "customer_id", config.CustomerID)
 	},
 }

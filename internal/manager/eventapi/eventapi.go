@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	gohttp "net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -418,23 +417,16 @@ func (m *eventAPIManager) RefreshOAuth2Token(refType string, refreshToken string
 	if refreshToken == "" {
 		return "", fmt.Errorf("error refreshing oauth2 token, missing refreshToken")
 	}
-	theurl := sdk.JoinURL(
-		api.BackendURL(api.AuthService, m.channel),
-		fmt.Sprintf("oauth/%s/refresh/%s", refType, url.PathEscape(refreshToken)),
-	)
-	var res struct {
-		AccessToken string `json:"access_token"`
-	}
-	client := http.New(m.transport).New(theurl, map[string]string{"Content-Type": "application/json"})
-	_, err := client.Get(&res)
-	log.Debug(m.logger, "refresh oauth2 token", "url", theurl, "err", err)
+	client := &gohttp.Client{Transport: m.transport}
+	accessToken, err := util.RefreshOAuth2Token(client, m.channel, refType, refreshToken)
+	log.Debug(m.logger, "refresh oauth2 token", "err", err)
 	if err != nil {
 		return "", err
 	}
-	if res.AccessToken == "" {
+	if accessToken == "" {
 		return "", errors.New("new token not returned, refresh_token might be bad")
 	}
-	return res.AccessToken, nil
+	return accessToken, nil
 }
 
 type integrationUserResult struct {
