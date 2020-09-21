@@ -921,21 +921,22 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 
 func (s *Server) onWebhook(evt event.SubscriptionEvent, refType string, location string) error {
 	log.Debug(s.logger, "received webhook event", "evt", evt)
+	customerID := evt.Headers["customer_id"]
+	logger := log.With(s.logger, "customer_id", customerID)
+	if customerID == "" {
+		evt.Commit()
+		return errors.New("webhook missing customer id")
+	}
+	integrationInstanceID := evt.Headers["integration_instance_id"]
+	if integrationInstanceID == "" {
+		evt.Commit()
+		return errors.New("webhook missing integration id")
+	}
 	switch evt.Model {
 	case web.HookModelName.String():
 		var wh web.Hook
 		if err := json.Unmarshal([]byte(evt.Data), &wh); err != nil {
 			log.Fatal(s.logger, "error parsing webhook", "err", err)
-		}
-		customerID := evt.Headers["customer_id"]
-		if customerID == "" {
-			evt.Commit()
-			return errors.New("webhook missing customer id")
-		}
-		integrationInstanceID := evt.Headers["integration_instance_id"]
-		if integrationInstanceID == "" {
-			evt.Commit()
-			return errors.New("webhook missing integration id")
 		}
 		wehbookURL := evt.Headers["webhook_url"]
 		if wehbookURL == "" {
@@ -954,8 +955,8 @@ func (s *Server) onWebhook(evt event.SubscriptionEvent, refType string, location
 		}
 		var errmessage *string
 		// TODO(robin): maybe scrub some event-api related fields out of the headers
-		if err := s.handleWebhook(s.logger, cl, integrationInstanceID, customerID, wehbookURL, evt.Headers["ref_id"], wh); err != nil {
-			log.Error(s.logger, "error running webhook", "err", err)
+		if err := s.handleWebhook(logger, cl, integrationInstanceID, customerID, wehbookURL, evt.Headers["ref_id"], wh); err != nil {
+			log.Error(logger, "error running webhook", "err", err)
 			errmessage = sdk.StringPointer(err.Error())
 		}
 		// update the db with our new integration state
@@ -964,7 +965,7 @@ func (s *Server) onWebhook(evt event.SubscriptionEvent, refType string, location
 			vars[agent.IntegrationInstanceModelErroredColumn] = true
 			vars[agent.IntegrationInstanceModelErrorMessageColumn] = *errmessage
 			if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, integrationInstanceID, vars, false); err != nil {
-				log.Error(s.logger, "error updating agent integration", "err", err, "id", integrationInstanceID)
+				log.Error(logger, "error updating agent integration", "err", err, "id", integrationInstanceID)
 			}
 		}
 	}
