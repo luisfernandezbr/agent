@@ -8,14 +8,14 @@ require (
 	github.com/andybalholm/cascadia v1.2.0 // indirect
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/fatih/color v1.9.0
-	github.com/go-redis/redis/v8 v8.0.0-beta.7
+	github.com/go-redis/redis/v8 v8.1.3
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/jhaynie/go-vcr/v2 v2.0.2
 	github.com/jhaynie/oauth1 v1.0.1
 	github.com/mailru/easyjson v0.7.1
 	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible
-	github.com/pinpt/go-common/v10 v10.0.23
+	github.com/pinpt/go-common/v10 v10.0.24
 	github.com/pinpt/httpclient v0.0.0-20200627153820-d374c2f15648 // indirect
 	github.com/pinpt/integration-sdk v0.0.1217
 	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
