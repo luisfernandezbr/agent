@@ -446,11 +446,22 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 			// check to see if this is a delete OR we've deleted the integration
 			if ch.Action == Delete || integration.Deleted {
 				// check cache key or you will get into an infinite loop
-				val := s.config.RedisClient.Exists(s.config.Ctx, cachekey).Val()
+				var val int64
+				if integration.Location == agent.IntegrationInstanceLocationCloud {
+					val = s.config.RedisClient.Exists(s.config.Ctx, cachekey).Val()
+				} else {
+					if exists := s.config.State.Exists(cachekey); exists {
+						val = 1
+					}
+				}
 				log.Debug(s.logger, "recieved db change for deleted integration", "id", integration.ID, "cachekey", cachekey, "val", val, "will_dismiss", val > 0)
 				if val > 0 {
-					// delete the integration cache key and then signal a removal
-					defer s.config.RedisClient.Del(s.config.Ctx, cachekey)
+					if integration.Location == agent.IntegrationInstanceLocationCloud {
+						// delete the integration cache key and then signal a removal
+						defer s.config.RedisClient.Del(s.config.Ctx, cachekey)
+					} else {
+						defer s.config.State.Delete(cachekey)
+					}
 					log.Info(s.logger, "an integration instance has been deleted", "id", integration.ID, "customer_id", integration.CustomerID)
 					if err := s.handleRemoveIntegration(integration); err != nil {
 						log.Error(s.logger, "error removing integration", "err", err, "id", integration.ID)
