@@ -586,9 +586,16 @@ func convertExportIntegrationInstance(submodel agent.ExportIntegration) *agent.I
 func (s *Server) handleEnroll(integrationInstance *agent.IntegrationInstance) error {
 	cachekey := makeEnrollCachekey(integrationInstance.CustomerID, integrationInstance.ID)
 	hashcode := calculateIntegrationHashCode(integrationInstance)
+	iscloud := integrationInstance.Location == agent.IntegrationInstanceLocationCloud
 	var install bool
+	var res string
+	var err error
 	// if it's active then check to see if we're updated
-	res, err := s.config.RedisClient.Get(s.config.Ctx, cachekey).Result()
+	if iscloud {
+		res, err = s.config.RedisClient.Get(s.config.Ctx, cachekey).Result()
+	} else {
+		_, err = s.config.State.Get(cachekey, &res)
+	}
 	if err != nil {
 		if err != redis.Nil {
 			return fmt.Errorf("error getting cachekey for state: %w", err)
@@ -603,8 +610,14 @@ func (s *Server) handleEnroll(integrationInstance *agent.IntegrationInstance) er
 	}
 	if install {
 		// update our hash key and then signal an addition
-		if err := s.config.RedisClient.Set(s.config.Ctx, cachekey, hashcode, 0).Err(); err != nil {
-			return fmt.Errorf("error setting the cache key (%s) on the install: %w", cachekey, err)
+		if iscloud {
+			if err := s.config.RedisClient.Set(s.config.Ctx, cachekey, hashcode, 0).Err(); err != nil {
+				return fmt.Errorf("error setting the cache key (%s) on the install: %w", cachekey, err)
+			}
+		} else {
+			if err := s.config.State.Set(cachekey, hashcode); err != nil {
+				return fmt.Errorf("error setting the cache key (%s) on the install: %w", cachekey, err)
+			}
 		}
 		log.Info(s.logger, "an integration instance has been added", "id", integrationInstance.ID, "customer_id", integrationInstance.CustomerID, "cachekey", cachekey, "hashcode", hashcode)
 		if err := s.handleAddIntegration(integrationInstance); err != nil {
