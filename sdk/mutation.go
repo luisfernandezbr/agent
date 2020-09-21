@@ -30,6 +30,15 @@ type MutationUser struct {
 	APIKeyAuth *apikeyAuth `json:"apikey_auth,omitempty"`
 }
 
+// MutationData is the 'payload' field in agent.Mutation
+type MutationData struct {
+	ID      string          `json:"id"`
+	Model   string          `json:"model"`
+	Action  MutationAction  `json:"action"`
+	Payload json.RawMessage `json:"payload"`
+	User    MutationUser    `json:"user"`
+}
+
 // Mutation is a control interface for a mutation
 type Mutation interface {
 	Control
@@ -115,9 +124,10 @@ type WorkIssueCreateMutation struct {
 // WorkIssueUpdateMutation is an update mutation for a issue
 type WorkIssueUpdateMutation struct {
 	Set struct {
-		Title         *string `json:"title"`                // Title is for updating the title to the issue
-		Transition    *NameID `json:"transition,omitempty"` // Transition information (if used) for the issue
-		Status        *NameID `json:"status,omitempty"`     // Status is for changing the status of the issue
+		Title      *string `json:"title"`                // Title is for updating the title to the issue
+		Transition *NameID `json:"transition,omitempty"` // Transition information (if used) for the issue
+		// Deprecated: Use Transition to change a status
+		// Status        *NameID `json:"status,omitempty"`     // Status is for changing the status of the issue
 		Priority      *NameID `json:"priority,omitempty"`   // Priority is for changing the priority of the issue
 		Resolution    *NameID `json:"resolution,omitempty"` // Resolution is for changing the resolution of the issue
 		Epic          *NameID `json:"epic,omitempty"`       // Epic is for updating the epic for the issue

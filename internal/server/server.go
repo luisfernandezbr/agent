@@ -344,17 +344,9 @@ func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integra
 	return nil
 }
 
-type mutationData struct {
-	ID      string             `json:"id"`
-	Model   string             `json:"model"`
-	Action  sdk.MutationAction `json:"action"`
-	Payload json.RawMessage    `json:"payload"`
-	User    sdk.MutationUser   `json:"user"`
-}
-
 func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integrationInstanceID, customerID string, refID string, refType string, mutation agent.Mutation) error {
 	buf := []byte(mutation.Payload)
-	var data mutationData
+	var data sdk.MutationData
 	if err := json.Unmarshal(buf, &data); err != nil {
 		return fmt.Errorf("error unmarshaling mutation data payload: %w", err)
 	}
