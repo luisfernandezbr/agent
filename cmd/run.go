@@ -449,6 +449,10 @@ func runIntegrationMonitor(ctx context.Context, logger log.Logger, cmd *cobra.Co
 		}
 	})
 
+	if err := pingEnrollment(logger, gclient, config.EnrollmentID, "", true); err != nil {
+		log.Error(logger, "unable to update enrollment", "enrollment_id", config.EnrollmentID, "err", err)
+	}
+
 	// calculate the duration of time left before the
 	refreshDuration := config.Expires.Sub(time.Now().Add(time.Minute * 30))
 
