@@ -88,7 +88,7 @@ type WorkIssueUpdate struct {
 		PlannedStartDate *time.Time
 		PlannedEndDate   *time.Time
 		SprintIDs        *[]string
-		Transitions      *[]NameRefID
+		Transitions      *[]WorkIssueTransitions
 	}
 	Unset struct {
 		StoryPoints      *bool
@@ -187,7 +187,11 @@ func NewWorkIssueUpdate(customerID string, integrationInstanceID string, refID s
 		data.Set["sprint_ids"] = Stringify(*val.Set.SprintIDs)
 	}
 	if val.Set.Transitions != nil {
-		data.Set["transitions"] = Stringify(*val.Set.Transitions)
+		if *val.Set.Transitions != nil {
+			data.Set["transitions"] = Stringify(*val.Set.Transitions)
+		} else {
+			data.Set["transitions"] = Stringify([]WorkIssueTransitions{})
+		}
 	}
 	// unsetters
 	if val.Unset.StoryPoints != nil {
