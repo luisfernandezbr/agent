@@ -425,7 +425,6 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 		log.Debug(s.logger, "skipping db change since we're not targeted", "need_location", s.location, "need_reftype", s.config.Integration.Descriptor.RefType, "location", location, "ref_type", refType)
 		return nil
 	}
-	fmt.Println(evt.Data)
 	ch, err := createDBChangeEvent(evt.Data)
 	if err != nil {
 		evt.Commit()
