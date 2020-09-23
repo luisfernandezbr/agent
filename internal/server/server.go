@@ -661,6 +661,7 @@ func (s *Server) eventPublish(ch *event.SubscriptionChannel, model datamodel.Mod
 	// publish on another thread because we're inside s.event's cosumer loop
 	go func() {
 		log.Debug(s.logger, "publishing an event", "model", model, "headers", headers)
+		ts := time.Now()
 		if err := ch.Publish(event.PublishEvent{
 			Object:  model,
 			Headers: headers,
@@ -668,6 +669,7 @@ func (s *Server) eventPublish(ch *event.SubscriptionChannel, model datamodel.Mod
 		}); err != nil {
 			log.Error(s.logger, "error publishing %s: %w", model.GetModelName(), err)
 		}
+		log.Debug(s.logger, "publishing an event (sent)", "model", model, "headers", headers, "duration", time.Since(ts))
 	}()
 }
 
@@ -752,7 +754,7 @@ func (s *Server) onOauth1Identity(req agent.Oauth1UserIdentityRequest) (*sdk.OAu
 	}
 	if fn, ok := s.config.Integration.Integration.(sdk.OAuth1Integration); ok {
 		identifier := sdk.NewSimpleIdentifier(req.CustomerID, *req.IntegrationInstanceID, req.RefType)
-		return fn.IdentifyOAuth1User(identifier, req.URL, key, req.ConsumerKey, req.ConsumerSecret, req.Token, req.TokenSecret)
+		return fn.IdentifyOAuth1User(identifier, req.URL, key, req.ConsumerKey, req.ConsumerSecret, *req.Token, *req.TokenSecret)
 	}
 	return nil, fmt.Errorf("error fulfilling the oauth1 identity request because the integration doesn't support it")
 }
@@ -903,7 +905,6 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 		} else {
 			log.Info(s.logger, "sent oauth1 identity response", "headers", headers, "identity", identity)
 		}
-
 	case agent.ExportModelName.String():
 		var req agent.Export
 		if err := json.Unmarshal([]byte(evt.Data), &req); err != nil {
