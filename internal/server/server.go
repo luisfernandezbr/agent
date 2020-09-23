@@ -1101,7 +1101,7 @@ func New(config Config) (*Server, error) {
 		location: location.String(),
 	}
 	var err error
-	server.dbchange, err = NewDBChangeSubscriber(config, location, server.onDBChange)
+	server.dbchange, err = NewDBChangeSubscriber(config, location, config.Integration.Descriptor.RefType, server.onDBChange)
 	if err != nil {
 		return nil, err
 	}
