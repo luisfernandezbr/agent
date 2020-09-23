@@ -128,10 +128,10 @@ type WorkIssueUpdateMutation struct {
 		Transition *NameID `json:"transition,omitempty"` // Transition information (if used) for the issue
 		// Deprecated: Use Transition to change a status
 		// Status        *NameID `json:"status,omitempty"`     // Status is for changing the status of the issue
-		Priority      *NameID `json:"priority,omitempty"`   // Priority is for changing the priority of the issue
-		Resolution    *NameID `json:"resolution,omitempty"` // Resolution is for changing the resolution of the issue
-		Epic          *NameID `json:"epic,omitempty"`       // Epic is for updating the epic for the issue
-		AssigneeRefID *string `json:"assignee,omitempty"`   // AssigneeRefID is for changing the assignee of the issue to a ref_id
+		Priority      *NameID `json:"priority,omitempty"`        // Priority is for changing the priority of the issue
+		Resolution    *NameID `json:"resolution,omitempty"`      // Resolution is for changing the resolution of the issue
+		Epic          *NameID `json:"epic,omitempty"`            // Epic is for updating the epic for the issue
+		AssigneeRefID *string `json:"assignee_ref_id,omitempty"` // AssigneeRefID is for changing the assignee of the issue to a ref_id
 	} `json:"set"`
 	Unset struct {
 		Epic     bool `json:"epic"`     // Epic is for removing the epic from the issue (if set to true)
