@@ -39,7 +39,7 @@ var models = []string{
 
 // createDBChangeSubscriptionFilter will create the subscription filter for a specific refType
 func createDBChangeSubscriptionFilter(refType string, location agent.ExportIntegrationLocation) *event.SubscriptionFilter {
-	// TODO(robin): just put this in server.New, its already to specific
+	// TODO(robin): just put this in server.New, its already too specific
 	modelexpr := []string{}
 	for _, model := range models {
 		modelexpr = append(modelexpr, fmt.Sprintf(`model:"%s"`, model))
