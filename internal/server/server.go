@@ -661,6 +661,7 @@ func (s *Server) eventPublish(ch *event.SubscriptionChannel, model datamodel.Mod
 	// publish on another thread because we're inside s.event's cosumer loop
 	go func() {
 		log.Debug(s.logger, "publishing an event", "model", model, "headers", headers)
+		ts := time.Now()
 		if err := ch.Publish(event.PublishEvent{
 			Object:  model,
 			Headers: headers,
@@ -668,6 +669,7 @@ func (s *Server) eventPublish(ch *event.SubscriptionChannel, model datamodel.Mod
 		}); err != nil {
 			log.Error(s.logger, "error publishing %s: %w", model.GetModelName(), err)
 		}
+		log.Debug(s.logger, "publishing an event (sent)", "model", model, "headers", headers, "duration", time.Since(ts))
 	}()
 }
 
@@ -713,7 +715,7 @@ func (s *Server) onValidate(req agent.ValidateRequest) (*string, error) {
 	return result, nil
 }
 
-// onOauth1 fetchings the token and returns a requestToken and requestSecret
+// onOauth1 fetches the token and returns a requestToken and requestSecret
 func (s *Server) onOauth1(req agent.Oauth1Request) (string, string, error) {
 	log.Debug(s.logger, "on OAuth1 request", "req", sdk.Stringify(req))
 	key, err := util.ParsePrivateKey(req.PrivateKey)
@@ -741,6 +743,20 @@ func (s *Server) onOauth1(req agent.Oauth1Request) (string, string, error) {
 		return config.AccessToken(*req.Token, *req.TokenSecret, *req.Code)
 	}
 	return "", "", fmt.Errorf("invalid stage requested")
+}
+
+// onOauth1Identity fetches the oauth1 identity of a user
+func (s *Server) onOauth1Identity(req agent.Oauth1UserIdentityRequest) (*sdk.OAuth1Identity, error) {
+	log.Debug(s.logger, "on OAuth1 identity request", "req", sdk.Stringify(req))
+	key, err := util.ParsePrivateKey(req.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	if fn, ok := s.config.Integration.Integration.(sdk.OAuth1Integration); ok {
+		identifier := sdk.NewSimpleIdentifier(req.CustomerID, *req.IntegrationInstanceID, req.RefType)
+		return fn.IdentifyOAuth1User(identifier, req.URL, key, req.ConsumerKey, req.ConsumerSecret, *req.Token, *req.TokenSecret)
+	}
+	return nil, fmt.Errorf("error fulfilling the oauth1 identity request because the integration doesn't support it")
 }
 
 func (s *Server) makeExportStat(integrationInstanceID, customerID, jobID string) {
@@ -842,6 +858,52 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			log.Error(s.logger, "sent oauth1 response with error", "err", err.Error(), "headers", headers)
 		} else {
 			log.Info(s.logger, "sent oauth1 response", "headers", headers)
+		}
+	case agent.Oauth1UserIdentityRequestModelName.String():
+		var req agent.Oauth1UserIdentityRequest
+		if err := json.Unmarshal([]byte(evt.Data), &req); err != nil {
+			// NOTE: This is a serious error because if we can't decode the body then
+			// we can't set the sessionID on the resp so the ui won't recieve the message,
+			// so it will hang forever.
+			evt.Commit()
+			return fmt.Errorf("critical error parsing oauth1 identity request: %w", err)
+		}
+		identity, err := s.onOauth1Identity(req)
+		var errmsg *string
+		if err != nil {
+			errmsg = sdk.StringPointer(err.Error())
+		}
+		var identityField *agent.Oauth1UserIdentityResponseIdentity
+		if err == nil {
+			identityField = &agent.Oauth1UserIdentityResponseIdentity{
+				Name:      identity.Name,
+				Email:     identity.Email,
+				AvatarURL: identity.AvatarURL,
+			}
+		}
+		res := &agent.Oauth1UserIdentityResponse{
+			CustomerID:            req.CustomerID,
+			Error:                 errmsg,
+			Success:               err == nil,
+			RefType:               req.RefType,
+			RefID:                 identity.RefID,
+			Identity:              identityField,
+			IntegrationInstanceID: req.IntegrationInstanceID,
+			SessionID:             req.SessionID,
+		}
+		headers := map[string]string{
+			"ref_type":    req.RefType,
+			"customer_id": req.CustomerID,
+			"session_id":  req.SessionID,
+		}
+		if req.EnrollmentID != nil {
+			headers["enrollment_id"] = *req.EnrollmentID
+		}
+		s.eventPublish(s.validate.ch, res, headers)
+		if err != nil {
+			log.Error(s.logger, "sent oauth1 identity response with error", "err", err.Error(), "headers", headers)
+		} else {
+			log.Info(s.logger, "sent oauth1 identity response", "headers", headers, "identity", identity)
 		}
 	case agent.ExportModelName.String():
 		var req agent.Export
@@ -1068,6 +1130,7 @@ func New(config Config) (*Server, error) {
 		config,
 		[]string{
 			agent.Oauth1RequestModelName.String(),
+			agent.Oauth1UserIdentityRequestModelName.String(),
 			agent.ValidateRequestModelName.String(),
 		},
 		&event.SubscriptionFilter{
