@@ -848,6 +848,10 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 		if err := json.Unmarshal([]byte(evt.Data), &req); err != nil {
 			log.Fatal(s.logger, "error parsing export event", "err", err)
 		}
+		if req.Integration.Location.String() != location {
+			log.Info(s.logger, "skipping export request, location of integration does not match agent location", "integration", req.Integration.Location.String(), "agent", location)
+			break
+		}
 		if time.Since(evt.Timestamp) > time.Minute*5 {
 			log.Info(s.logger, "skipping export request, too old", "age", time.Since(evt.Timestamp), "id", evt.ID)
 			break
