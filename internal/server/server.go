@@ -382,20 +382,20 @@ func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integr
 		RefType:               refType,
 		IntegrationInstanceID: integrationInstanceID,
 		Pipe:                  p,
-		ID:                    data.ID,
+		ID:                    data.RefID,
 		Model:                 data.Model,
 		Action:                data.Action,
 		Payload:               payload,
 		User:                  data.User,
 	})
-	log.Info(logger, "running mutation", "id", data.ID, "customer_id", customerID, "ref_id", refID)
+	log.Info(logger, "running mutation", "id", mutation.ID, "customer_id", customerID, "ref_id", refID)
 	if err := s.config.Integration.Integration.Mutation(e); err != nil {
 		return fmt.Errorf("error running integration mutation: %w", err)
 	}
 	if err := state.Flush(); err != nil {
 		log.Error(logger, "error flushing state", "err", err)
 	}
-	log.Info(logger, "mutation completed", "duration", time.Since(started), "id", data.ID, "ref_id", refID, "customer_id", customerID)
+	log.Info(logger, "mutation completed", "duration", time.Since(started), "id", mutation.ID, "ref_id", refID, "customer_id", customerID)
 	return nil
 }
 

@@ -15,6 +15,12 @@ type NameRefID struct {
 	Name  *string `json:"name,omitempty"`
 }
 
+// NameID is a container for containing the ID, Name or both
+type NameID struct {
+	ID   *string `json:"id,omitempty"`
+	Name *string `json:"name,omitempty"`
+}
+
 // SourceCodePullRequestReviewRequestUpdate is an action for update a sourcecode.PullRequestReviewRequest
 type SourceCodePullRequestReviewRequestUpdate struct {
 	Set struct {
