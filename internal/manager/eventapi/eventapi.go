@@ -398,6 +398,9 @@ func (m *eventAPIManager) PrivateKey(identifier sdk.Identifier) (*rsa.PrivateKey
 	if err != nil {
 		return nil, fmt.Errorf("error getting integration instance: %w", err)
 	}
+	if instance == nil {
+		return nil, fmt.Errorf("no integration instance found for id %s", integrationInstanceID)
+	}
 	if instance.PrivateKey == nil {
 		return nil, ErrNoPrivateKey
 	}
