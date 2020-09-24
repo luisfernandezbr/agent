@@ -152,7 +152,8 @@ type AgileSprintCreateMutation struct {
 	StartDate    time.Time         `json:"start_date"`       // StartDate is the start date for the sprint
 	EndDate      time.Time         `json:"end_date"`         // EndDate is the end date for the sprint
 	IssueRefIDs  []string          `json:"issue_ref_ids"`    // IssueRefIDs is an array of issue ref_ids to add to the sprint
-	ProjectRefID string            `json:"project_id"`       // ProjectID is the id to the issue project as a ref_id
+	ProjectRefID *string           `json:"project_ref_id"`   // ProjectRefID is the id to the issue project as a ref_id
+	BoardRefIDs  []string          `json:"board_ref_ids"`    // BoardRefIDs are the ids of the boards to link the sprint to, required by some source systems
 }
 
 // AgileSprintUpdateMutation is an update mutation for a sprint

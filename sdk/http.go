@@ -210,8 +210,7 @@ func WithOAuth1(manager Manager, identifier Identifier, consumerKey string, cons
 			ConsumerSecret: consumerSecret,
 			Signer:         &oauth1.RSASigner{PrivateKey: privateKey},
 		}
-		token := oauth1.NewToken(token, tokenSecret)
-		opt.Transport = &wrappedRoundTripper{config, token, opt.Transport}
+		opt.Transport = &wrappedRoundTripper{config, oauth1.NewToken(token, tokenSecret), opt.Transport}
 		return nil
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"math/rand"
 	"net/http"
@@ -79,7 +80,9 @@ func (c *client) exec(opt *sdk.HTTPOptions, out interface{}, options ...sdk.With
 	}
 	// read the body
 	var buf bytes.Buffer
-	io.Copy(&buf, resp.Body)
+	if _, err := io.Copy(&buf, resp.Body); err != nil {
+		return nil, fmt.Errorf("error copying response body: %w", err)
+	}
 	resp.Body.Close()
 	res.Body = buf.Bytes()
 	if resp.StatusCode > 299 {
@@ -87,6 +90,9 @@ func (c *client) exec(opt *sdk.HTTPOptions, out interface{}, options ...sdk.With
 			StatusCode: resp.StatusCode,
 			Body:       &buf,
 		}
+	}
+	if out == nil {
+		return res, nil
 	}
 	if strings.Contains(resp.Header.Get("Content-Type"), "json") {
 		if i, ok := out.(easyjson.Unmarshaler); ok {

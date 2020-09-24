@@ -1069,7 +1069,7 @@ func (s *Server) onMutation(evt event.SubscriptionEvent, refType string, locatio
 			resp.IntegrationInstanceID = m.IntegrationInstanceID
 			resp.Error = errmessage
 			resp.Success = errmessage == nil
-			resp.RefID = m.ID
+			resp.RefID = m.RefID
 			resp.RefType = m.RefType
 			log.Debug(s.logger, "sending mutation response", "payload", resp.Stringify())
 			if err := s.mutation.ch.Publish(event.PublishEvent{
