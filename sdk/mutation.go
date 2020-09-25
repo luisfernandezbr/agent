@@ -106,15 +106,15 @@ type SourcecodePullRequestUpdateMutation struct {
 
 // WorkIssueCreateMutation is a create mutation for a issue
 type WorkIssueCreateMutation struct {
-	Title         string     `json:"title"`               // Title is for setting the title of the issue
-	Description   string     `json:"description"`         // Description is for setting the description of the issue
-	AssigneeRefID *string    `json:"assignee,omitempty"`  // AssigneeRefID is for setting the assignee of the issue to a ref_id
-	Priority      *NameRefID `json:"priority,omitempty"`  // Priority is for setting the priority of the issue
-	Type          *NameRefID `json:"type,omitempty"`      // Type is for setting the issue type of the issue
-	ProjectRefID  string     `json:"project_id"`          // ProjectID is the id to the issue project as a ref_id
-	Epic          *NameRefID `json:"epic,omitempty"`      // Epic is for setting an epic for the issue
-	ParentRefID   *string    `json:"parent_id,omitempty"` // ParentRefID is for setting the parent issue as a ref_id
-	Labels        []string   `json:"labels,omitempty"`    // Labels is for setting the labels for an issue
+	Title         string     `json:"title"`                     // Title is for setting the title of the issue
+	Description   string     `json:"description"`               // Description is for setting the description of the issue
+	AssigneeRefID *string    `json:"assignee_ref_id,omitempty"` // AssigneeRefID is for setting the assignee of the issue to a ref_id
+	Priority      *NameRefID `json:"priority,omitempty"`        // Priority is for setting the priority of the issue
+	Type          *NameRefID `json:"type,omitempty"`            // Type is for setting the issue type of the issue
+	ProjectRefID  string     `json:"project_ref_id"`            // ProjectID is the id to the issue project as a ref_id
+	Epic          *NameRefID `json:"epic,omitempty"`            // Epic is for setting an epic for the issue
+	ParentRefID   *string    `json:"parent_ref_id,omitempty"`   // ParentRefID is for setting the parent issue as a ref_id
+	Labels        []string   `json:"labels,omitempty"`          // Labels is for setting the labels for an issue
 }
 
 // WorkIssueUpdateMutation is an update mutation for a issue
