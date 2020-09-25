@@ -258,6 +258,7 @@ func Main(integration sdk.Integration, args ...string) {
 			}
 			os.MkdirAll(tmpdir, 0700)
 
+			consoleout, _ := cmd.Flags().GetBool("console-out")
 			outdir, _ := cmd.Flags().GetString("dir")
 			statefn := filepath.Join(outdir, descriptor.RefType+".state.json")
 
@@ -267,11 +268,11 @@ func Main(integration sdk.Integration, args ...string) {
 			}
 			defer stateobj.Close()
 			var pipe sdk.Pipe
-			if outdir != "" {
+			if consoleout {
+				pipe = console.New(logger)
+			} else {
 				os.MkdirAll(outdir, 0700)
 				pipe = file.New(logger, outdir)
-			} else {
-				pipe = console.New(logger)
 			}
 			defer pipe.Close()
 			historical, _ := cmd.Flags().GetBool("historical")
@@ -327,6 +328,7 @@ func Main(integration sdk.Integration, args ...string) {
 			}
 			os.MkdirAll(tmpdir, 0700)
 
+			consoleout, _ := cmd.Flags().GetBool("console-out")
 			outdir, _ := cmd.Flags().GetString("dir")
 			statefn := filepath.Join(outdir, descriptor.RefType+".state.json")
 
@@ -336,11 +338,11 @@ func Main(integration sdk.Integration, args ...string) {
 			}
 			defer stateobj.Close()
 			var pipe sdk.Pipe
-			if outdir != "" {
+			if consoleout {
+				pipe = console.New(logger)
+			} else {
 				os.MkdirAll(outdir, 0700)
 				pipe = file.New(logger, outdir)
-			} else {
-				pipe = console.New(logger)
 			}
 			defer pipe.Close()
 
@@ -426,6 +428,7 @@ func Main(integration sdk.Integration, args ...string) {
 			}
 			os.MkdirAll(tmpdir, 0700)
 
+			consoleout, _ := cmd.Flags().GetBool("console-out")
 			outdir, _ := cmd.Flags().GetString("dir")
 			statefn := filepath.Join(outdir, descriptor.RefType+".state.json")
 
@@ -435,11 +438,11 @@ func Main(integration sdk.Integration, args ...string) {
 			}
 			defer stateobj.Close()
 			var pipe sdk.Pipe
-			if outdir != "" {
+			if consoleout {
+				pipe = console.New(logger)
+			} else {
 				os.MkdirAll(outdir, 0700)
 				pipe = file.New(logger, outdir)
-			} else {
-				pipe = console.New(logger)
 			}
 			defer pipe.Close()
 
@@ -526,6 +529,7 @@ func Main(integration sdk.Integration, args ...string) {
 
 	// dev export command
 	devExportCmd.Flags().String("dir", "", "directory to place files when in dev mode")
+	devExportCmd.Flags().Bool("console-out", false, "print each exported model to the console")
 	devExportCmd.Flags().Bool("historical", false, "force a historical export")
 	devExportCmd.Flags().Bool("webhook", false, "turn on webhooks")
 	devExportCmd.Flags().String("record", "", "record all interactions to directory specified")
@@ -533,6 +537,7 @@ func Main(integration sdk.Integration, args ...string) {
 
 	// dev webhook command
 	devWebhookCmd.Flags().String("dir", "", "directory to place files when in dev mode")
+	devWebhookCmd.Flags().Bool("console-out", false, "print each exported model to the console")
 	devWebhookCmd.Flags().String("input", "", "the json payload of the webhook")
 	devWebhookCmd.Flags().StringArray("header", []string{""}, "the headers of the webhook")
 	devWebhookCmd.Flags().String("ref-id", "", "the refid on the webhook")
@@ -540,6 +545,7 @@ func Main(integration sdk.Integration, args ...string) {
 
 	// dev mutation command
 	devMutationCmd.Flags().String("dir", "", "directory to place files when in dev mode")
+	devMutationCmd.Flags().Bool("console-out", false, "print each exported model to the console")
 	devMutationCmd.Flags().String("input", "", "the json payload of the mutation")
 
 	if err := serverCmd.Execute(); err != nil {

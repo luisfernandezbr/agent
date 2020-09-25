@@ -134,6 +134,10 @@ var DevCmd = createDevCommand("dev", "dev-export", "run an integration in develo
 		devargs = append(devargs, "--secret", secret)
 	}
 
+	consoleout, _ := cmd.Flags().GetBool("console-out")
+	if consoleout {
+		devargs = append(devargs, "--console-out")
+	}
 	record, _ := cmd.Flags().GetString("record")
 	replay, _ := cmd.Flags().GetString("replay")
 
@@ -165,6 +169,7 @@ func init() {
 	DevCmd.PersistentFlags().String("dir", "dev_dist", "the directory to output pipe contents")
 	DevCmd.PersistentFlags().String("channel", "dev", "the channel which can be set")
 	DevCmd.PersistentFlags().String("secret", pos.Getenv("PP_AUTH_SHARED_SECRET", ""), "internal shared secret")
+	DevCmd.PersistentFlags().Bool("console-out", false, "print each exported model to the console")
 	DevCmd.Flags().Bool("webhook", false, "enable webhook registration")
 	DevCmd.Flags().MarkHidden("channel")
 	DevCmd.Flags().Bool("historical", false, "force a historical export")

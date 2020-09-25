@@ -87,3 +87,21 @@ func (g *{{ .TitleCaseName }}Integration) Export(export sdk.Export) error {
 	sdk.LogInfo(logger, "export finished", "duration", time.Since(started))
 	return nil
 }
+
+// AutoConfigure is called when a cloud integration has requested to be auto configured
+func (g *{{ .TitleCaseName }}Integration) AutoConfigure(autoconfig sdk.AutoConfigure) (*sdk.Config, error) {
+	return nil, nil
+}
+
+// Mutation is called when a mutation request is received on behalf of the integration
+func (g *{{ .TitleCaseName }}Integration) Mutation(mutation sdk.Mutation) error {
+	return nil
+}
+
+// Validate is called before a new integration instance is added to determine
+// if the config is valid and the integration can properly communicate with the
+// source system. The result and the error will both be delivered to the App.
+// Returning a nil error is considered a successful validation.
+func (g *{{ .TitleCaseName }}Integration)Validate(validate sdk.Validate) (result map[string]interface{}, err error) {
+	return nil, nil
+}
