@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pinpt/agent/sdk"
+	"github.com/pinpt/agent/v4/sdk"
 	"github.com/pinpt/go-common/v10/fileutil"
 	pjson "github.com/pinpt/go-common/v10/json"
 )

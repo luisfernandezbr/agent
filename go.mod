@@ -1,4 +1,4 @@
-module github.com/pinpt/agent
+module github.com/pinpt/agent/v4
 
 go 1.14
 

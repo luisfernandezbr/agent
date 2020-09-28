@@ -1,6 +1,6 @@
 package sdktest
 
-import "github.com/pinpt/agent/sdk"
+import "github.com/pinpt/agent/v4/sdk"
 
 // MockPipe stores sent things inside it
 type MockPipe struct {
