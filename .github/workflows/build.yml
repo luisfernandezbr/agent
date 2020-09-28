@@ -86,6 +86,7 @@ jobs:
 
           docker tag docker.pkg.github.com/pinpt/agent/$IMAGE_NAME:${{ github.sha }} $IMAGE_ID:$VERSION
           docker push $IMAGE_ID:$VERSION
+
       - name: Delete Package Versions
         uses: actions/delete-package-versions@v1.0.3
         with:
