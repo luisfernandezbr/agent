@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/pinpt/agent/internal/util"
-	"github.com/pinpt/agent/sdk"
+	"github.com/pinpt/agent/v4/internal/util"
+	"github.com/pinpt/agent/v4/sdk"
 	"github.com/pinpt/go-common/v10/api"
 	"github.com/pinpt/go-common/v10/datetime"
 	"github.com/pinpt/go-common/v10/fileutil"
