@@ -5,7 +5,7 @@ on:
     branches:
       - master
     tags:
-      - 'v*'
+      - "v*"
   pull_request:
 
 env:
@@ -27,19 +27,19 @@ jobs:
 
       - name: Build
         run: go build .
-  
+
   build-docker:
     name: Build Docker
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      
+
       - name: Login to Github CR
         run: echo "${{ secrets.PP_GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u pinpointbot --password-stdin
 
       - name: Build Docker
         run: docker build . --file Dockerfile --tag $IMAGE_NAME
-      
+
       - name: Push image
         run: |
           # TODO: port to ghcr
@@ -59,17 +59,17 @@ jobs:
       - build-docker
     steps:
       - uses: actions/checkout@v2
-      
+
       - name: Login to Github CR
         run: echo "${{ secrets.PP_GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u pinpointbot --password-stdin
 
       - name: Pull Image
         run: docker pull docker.pkg.github.com/pinpt/agent/$IMAGE_NAME:${{ github.sha }}
-      
+
       - name: Push image
         run: |
           IMAGE_ID=docker.pkg.github.com/pinpt/agent/$IMAGE_NAME          
-          
+
           echo ${{ github.ref }}
 
           # Strip git ref prefix from version
@@ -86,3 +86,7 @@ jobs:
 
           docker tag docker.pkg.github.com/pinpt/agent/$IMAGE_NAME:${{ github.sha }} $IMAGE_ID:$VERSION
           docker push $IMAGE_ID:$VERSION
+      - name: Delete Package Versions
+        uses: actions/delete-package-versions@v1.0.3
+        with:
+          package-name: "agent"
