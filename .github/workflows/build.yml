@@ -9,7 +9,7 @@ on:
   pull_request:
 
 env:
-  IMAGE_NAME: agent.next
+  IMAGE_NAME: agent
 
 jobs:
   build:
@@ -43,7 +43,7 @@ jobs:
       - name: Push image
         run: |
           # TODO: port to ghcr
-          IMAGE_ID=docker.pkg.github.com/pinpt/agent.next/$IMAGE_NAME          
+          IMAGE_ID=docker.pkg.github.com/pinpt/agent/$IMAGE_NAME          
 
           echo TAG=${{ github.sha }}
           echo IMAGE_ID=$IMAGE_ID
@@ -64,11 +64,11 @@ jobs:
         run: echo "${{ secrets.PP_GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u pinpointbot --password-stdin
 
       - name: Pull Image
-        run: docker pull docker.pkg.github.com/pinpt/agent.next/$IMAGE_NAME:${{ github.sha }}
+        run: docker pull docker.pkg.github.com/pinpt/agent/$IMAGE_NAME:${{ github.sha }}
       
       - name: Push image
         run: |
-          IMAGE_ID=docker.pkg.github.com/pinpt/agent.next/$IMAGE_NAME          
+          IMAGE_ID=docker.pkg.github.com/pinpt/agent/$IMAGE_NAME          
           
           echo ${{ github.ref }}
 
@@ -84,5 +84,5 @@ jobs:
           echo VERSION=$VERSION
           echo IMAGE_ID=$IMAGE_ID
 
-          docker tag docker.pkg.github.com/pinpt/agent.next/$IMAGE_NAME:${{ github.sha }} $IMAGE_ID:$VERSION
+          docker tag docker.pkg.github.com/pinpt/agent/$IMAGE_NAME:${{ github.sha }} $IMAGE_ID:$VERSION
           docker push $IMAGE_ID:$VERSION

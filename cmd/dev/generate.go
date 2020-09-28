@@ -11,7 +11,7 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/fatih/color"
-	"github.com/pinpt/agent.next/generator"
+	"github.com/pinpt/agent/generator"
 	"github.com/pinpt/go-common/v10/fileutil"
 	"github.com/pinpt/go-common/v10/log"
 	"github.com/spf13/cobra"

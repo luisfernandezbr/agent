@@ -3,7 +3,7 @@ package dev
 import (
 	"time"
 
-	"github.com/pinpt/agent.next/sdk"
+	"github.com/pinpt/agent/sdk"
 )
 
 // if this gets complicated and needs a pipe or something make a dev/eventapi implementation

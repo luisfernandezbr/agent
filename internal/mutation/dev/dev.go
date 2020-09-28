@@ -3,7 +3,7 @@ package dev
 import (
 	"time"
 
-	"github.com/pinpt/agent.next/sdk"
+	"github.com/pinpt/agent/sdk"
 	"github.com/pinpt/go-common/v10/log"
 )
 

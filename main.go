@@ -2,7 +2,7 @@
 package main
 
 import (
-	"github.com/pinpt/agent.next/cmd"
+	"github.com/pinpt/agent/cmd"
 )
 
 // these values go from the go build, do not change them

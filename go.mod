@@ -1,4 +1,4 @@
-module github.com/pinpt/agent.next
+module github.com/pinpt/agent
 
 go 1.14
 

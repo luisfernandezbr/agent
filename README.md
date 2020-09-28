@@ -16,7 +16,7 @@ go install -tags dev
 ```
 **NOTE:** Include the `dev` build tag do have access to the developer tools.
 
-This will build the agent.next binary and install it in your `$GOPATH/bin` folder. Make sure this folder is in your `$PATH`.
+This will build the agent binary and install it in your `$GOPATH/bin` folder. Make sure this folder is in your `$PATH`.
 
 Make sure and setup your `$GOPRIVATE` env to read any pinpoint modules from our repo:
 
@@ -29,7 +29,7 @@ go env -w GOPRIVATE=github.com/pinpt
 You will need to call the `generate` command and answer a few questions, for example:
 
 ```
-> agent.next generate
+> agent generate
     ____  _                   _       __ 
    / __ \(_)___  ____  ____  (_)___  / /_
   / /_/ / / __ \/ __ \/ __ \/ / __ \/ __/
@@ -57,7 +57,7 @@ The project will be created. Go to that directory and open it in VSCode to start
 Clone the repo for the GitHub integration:
 
 ```
-git clone git@github.com:pinpt/agent.next.github
+git clone git@github.com:pinpt/agent
 ```
 
 ### Export
@@ -65,15 +65,15 @@ git clone git@github.com:pinpt/agent.next.github
 This will print each exported model to the console.
 
 ```
-cd pinpt/agent.next.github
-agent.next dev . --log-level debug --console-out --set apikey_auth='{"apikey": "$GITHUB_TOKEN" }'
+cd pinpt/agent
+agent dev . --log-level debug --console-out --set apikey_auth='{"apikey": "$GITHUB_TOKEN" }'
 ```
 
 You can run and have exports go to a directory if `console-out` is omitted. The default directory is `./dev-dir` but you can pass in a `--dir` arg instead:
 
 ```
-cd pinpt/agent.next.github
-agent.next dev . --log-level debug --set apikey_auth='{"apikey": "$GITHUB_TOKEN" }' --dir exports
+cd pinpt/agent
+agent dev . --log-level debug --set apikey_auth='{"apikey": "$GITHUB_TOKEN" }' --dir exports
 ```
 
 The `--dir` takes a folder to place the exported models (all data per model goes into one file JSON new line delimited).
@@ -81,15 +81,15 @@ The `--dir` takes a folder to place the exported models (all data per model goes
 If you are going to subscribe to webhooks, pass in the `--webhook` arg to register the url with out server, otherwise the register call will fail
 
 ```
-cd pinpt/agent.next.github
-agent.next dev . --log-level debug --set apikey_auth='{"apikey": "$GITHUB_TOKEN" }' --dir exports --webhook
+cd pinpt/agent
+agent dev . --log-level debug --set apikey_auth='{"apikey": "$GITHUB_TOKEN" }' --dir exports --webhook
 ```
 
 ### Webhooks
 
 ```
-cd pinpt/agent.next.github
-agent.next dev webhook . --log-level debug --set apikey_auth='{"apikey": "$GITHUB_TOKEN" }' --input webhook_payload.json
+cd pinpt/agent
+agent dev webhook . --log-level debug --set apikey_auth='{"apikey": "$GITHUB_TOKEN" }' --input webhook_payload.json
 ```
 
 The `webhook_payload.json` contains a sample webhook payload 
@@ -104,8 +104,8 @@ The server mode can either run in standalone or multi agent mode.  Standalone mo
 You must first build integrations:
 
 ```
-cd pinpt/agent.next.github
-agent.next build .
+cd pinpt/agent
+agent build .
 ```
 
 This will be placed in your `dist` folder as a file named `github`.

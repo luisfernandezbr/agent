@@ -11,7 +11,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/pinpt/agent.next/sdk"
+	"github.com/pinpt/agent/sdk"
 	"github.com/pinpt/go-common/v10/datetime"
 	"github.com/pinpt/go-common/v10/fileutil"
 	"github.com/pinpt/go-common/v10/log"
@@ -57,7 +57,7 @@ var BuildCmd = &cobra.Command{
 		logger := log.NewCommandLogger(cmd)
 		defer logger.Close()
 		integrationDir, _ = filepath.Abs(integrationDir)
-		integration := strings.Replace(filepath.Base(integrationDir), "agent.next.", "", -1)
+		integration := filepath.Base(integrationDir)
 		fp := filepath.Join(integrationDir, "integration.go")
 		if !fileutil.FileExists(fp) {
 			log.Fatal(logger, "couldn't find the integration at "+fp)
@@ -72,7 +72,7 @@ var BuildCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(logger, "error reading plugin go.mod", "err", err)
 		}
-		ioutil.WriteFile(modfp, []byte(string(mod)+"\nreplace github.com/pinpt/agent.next => ../agent.next"), 0644)
+		ioutil.WriteFile(modfp, []byte(string(mod)+"\nreplace github.com/pinpt/agent => ../agent"), 0644)
 
 		bundle, _ := cmd.Flags().GetBool("bundle")
 		var bundleRewriter rewriteFunc

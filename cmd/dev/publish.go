@@ -14,8 +14,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/pinpt/agent.next/internal/util"
-	"github.com/pinpt/agent.next/sdk"
+	"github.com/pinpt/agent/internal/util"
+	"github.com/pinpt/agent/sdk"
 	"github.com/pinpt/go-common/v10/api"
 	"github.com/pinpt/go-common/v10/fileutil"
 	"github.com/pinpt/go-common/v10/hash"

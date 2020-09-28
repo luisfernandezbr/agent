@@ -18,7 +18,7 @@ import (
 
 func buildIntegration(logger log.Logger, distDir, integrationDir string) string {
 	integrationDir, _ = filepath.Abs(integrationDir)
-	integration := strings.Replace(filepath.Base(integrationDir), "agent.next.", "", -1)
+	integration := filepath.Base(integrationDir)
 	fp := filepath.Join(integrationDir, "integration.go")
 	if !fileutil.FileExists(fp) {
 		log.Fatal(logger, "couldn't find the integration at "+fp)
@@ -54,7 +54,7 @@ func createDevCommand(name string, cmdname string, short string, inputRequired b
 				log.Info(logger, "completed", "duration", time.Since(started).String())
 			}()
 
-			distDir := filepath.Join(os.TempDir(), "agent.next")
+			distDir := filepath.Join(os.TempDir(), "agent")
 			integrationFile := buildIntegration(logger, distDir, integrationDir)
 
 			channel, _ := cmd.Flags().GetString("channel")
