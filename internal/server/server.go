@@ -886,10 +886,12 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			Error:                 errmsg,
 			Success:               err == nil,
 			RefType:               req.RefType,
-			RefID:                 identity.RefID,
 			Identity:              identityField,
 			IntegrationInstanceID: req.IntegrationInstanceID,
 			SessionID:             req.SessionID,
+		}
+		if identity != nil {
+			res.RefID = identity.RefID
 		}
 		headers := map[string]string{
 			"ref_type":    req.RefType,
