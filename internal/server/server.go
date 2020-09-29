@@ -792,7 +792,17 @@ func (s *Server) stopExportLiveness() {
 }
 
 func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location string) error {
-	log.Debug(s.logger, "received event", "evt", evt, "refType", refType, "location", location)
+	logger := s.logger
+	var temp struct {
+		CustomerID string `json:"customer_id"`
+	}
+	if err := json.Unmarshal([]byte(evt.Data), &temp); err != nil {
+		// this should never ever happen, but just in case
+		log.Debug(s.logger, "could not get customer id")
+	} else {
+		logger = log.With(logger, "customer_id", temp.CustomerID, "ref_type", refType)
+	}
+	log.Debug(logger, "received event", "evt", evt, "refType", refType, "location", location)
 	switch evt.Model {
 	case agent.ValidateRequestModelName.String():
 		var req agent.ValidateRequest
@@ -822,9 +832,9 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 		}
 		s.eventPublish(s.validate.ch, res, headers)
 		if err != nil {
-			log.Error(s.logger, "sent validation response with error", "result", result, "err", err.Error(), "headers", headers)
+			log.Error(logger, "sent validation response with error", "result", result, "err", err.Error(), "headers", headers)
 		} else {
-			log.Info(s.logger, "sent validation response", "result", result, "headers", headers)
+			log.Info(logger, "sent validation response", "result", result, "headers", headers)
 		}
 	case agent.Oauth1RequestModelName.String():
 		var req agent.Oauth1Request
@@ -855,9 +865,9 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 		}
 		s.eventPublish(s.validate.ch, res, headers)
 		if err != nil {
-			log.Error(s.logger, "sent oauth1 response with error", "err", err.Error(), "headers", headers)
+			log.Error(logger, "sent oauth1 response with error", "err", err.Error(), "headers", headers)
 		} else {
-			log.Info(s.logger, "sent oauth1 response", "headers", headers)
+			log.Info(logger, "sent oauth1 response", "headers", headers)
 		}
 	case agent.Oauth1UserIdentityRequestModelName.String():
 		var req agent.Oauth1UserIdentityRequest
@@ -903,21 +913,21 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 		}
 		s.eventPublish(s.validate.ch, res, headers)
 		if err != nil {
-			log.Error(s.logger, "sent oauth1 identity response with error", "err", err.Error(), "headers", headers)
+			log.Error(logger, "sent oauth1 identity response with error", "err", err.Error(), "headers", headers)
 		} else {
-			log.Info(s.logger, "sent oauth1 identity response", "headers", headers, "identity", identity)
+			log.Info(logger, "sent oauth1 identity response", "headers", headers, "identity", identity)
 		}
 	case agent.ExportModelName.String():
 		var req agent.Export
 		if err := json.Unmarshal([]byte(evt.Data), &req); err != nil {
-			log.Fatal(s.logger, "error parsing export event", "err", err)
+			log.Fatal(logger, "error parsing export event", "err", err)
 		}
 		if req.Integration.Location.String() != location {
-			log.Info(s.logger, "skipping export request, location of integration does not match agent location", "integration", req.Integration.Location.String(), "agent", location)
+			log.Info(logger, "skipping export request, location of integration does not match agent location", "integration", req.Integration.Location.String(), "agent", location)
 			break
 		}
 		if time.Since(evt.Timestamp) > time.Minute*5 {
-			log.Info(s.logger, "skipping export request, too old", "age", time.Since(evt.Timestamp), "id", evt.ID)
+			log.Info(logger, "skipping export request, too old", "age", time.Since(evt.Timestamp), "id", evt.ID)
 			break
 		}
 		cl, err := s.newGraphqlClient(req.CustomerID)
@@ -933,25 +943,25 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 		}
 		if instance == nil {
 			evt.Commit()
-			log.Info(s.logger, "skipping export request because the integration instance no longer exists in the db", "id", instanceID)
+			log.Info(logger, "skipping export request because the integration instance no longer exists in the db", "id", instanceID)
 			return nil
 		}
 		if !instance.Active {
 			evt.Commit()
-			log.Info(s.logger, "skipping export request because the integration instance is no longer active", "id", instanceID)
+			log.Info(logger, "skipping export request because the integration instance is no longer active", "id", instanceID)
 			return nil
 		}
 		// update the integration state to acknowledge that we are exporting
 		vars := make(graphql.Variables)
 		vars[agent.IntegrationInstanceModelStateColumn] = agent.IntegrationInstanceStateExporting
 		if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, instanceID, vars, false); err != nil {
-			log.Error(s.logger, "error updating agent integration", "err", err, "id", instanceID)
+			log.Error(logger, "error updating agent integration", "err", err, "id", instanceID)
 		}
 		s.startExportLiveness(req)
 		defer s.stopExportLiveness()
 		var errmessage *string
-		if err := s.handleExport(s.logger, cl, req); err != nil {
-			log.Error(s.logger, "error running export request", "err", err)
+		if err := s.handleExport(logger, cl, req); err != nil {
+			log.Error(logger, "error running export request", "err", err)
 			errmessage = sdk.StringPointer(err.Error())
 		}
 		// update the db with our new integration state
@@ -967,7 +977,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			vars[agent.IntegrationInstanceModelErrorDateColumn] = datetime.NewDateFromEpoch(0)
 		}
 		if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, instanceID, vars, false); err != nil {
-			log.Error(s.logger, "error updating agent integration", "err", err, "id", instanceID)
+			log.Error(logger, "error updating agent integration", "err", err, "id", instanceID)
 		}
 		vars = make(graphql.Variables)
 		ts := time.Now()
@@ -980,7 +990,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			vars[agent.IntegrationInstanceStatModelLastHistoricalCompletedDateColumn] = dt
 		}
 		if err := agent.ExecIntegrationInstanceStatSilentUpdateMutation(cl, agent.NewIntegrationInstanceStatID(instanceID), vars, false); err != nil {
-			log.Error(s.logger, "error updating agent integration stat", "err", err, "id", instanceID)
+			log.Error(logger, "error updating agent integration stat", "err", err, "id", instanceID)
 		}
 	}
 	evt.Commit()
