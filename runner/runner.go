@@ -232,11 +232,14 @@ func Main(integration sdk.Integration, args ...string) {
 			log.Info(logger, "starting", "ref_type", descriptor.RefType, "version", descriptor.BuildCommitSHA)
 			channel, _ := cmd.Flags().GetString("channel")
 			secret, _ := cmd.Flags().GetString("secret")
+			apikey, _ := cmd.Flags().GetString("apikey")
 			intconfig := getIntegrationConfig(cmd)
 			webhookEnabled, _ := cmd.Flags().GetBool("webhook")
 			record, _ := cmd.Flags().GetString("record")
 			replay, _ := cmd.Flags().GetString("replay")
+
 			manager, err := emanager.New(emanager.Config{
+				APIKey:         apikey,
 				Channel:        channel,
 				Logger:         logger,
 				Secret:         secret,
@@ -307,8 +310,11 @@ func Main(integration sdk.Integration, args ...string) {
 			log.Info(logger, "starting", "ref_type", descriptor.RefType, "version", descriptor.BuildCommitSHA)
 			channel, _ := cmd.Flags().GetString("channel")
 			secret, _ := cmd.Flags().GetString("secret")
+			apikey, _ := cmd.Flags().GetString("apikey")
+
 			intconfig := getIntegrationConfig(cmd)
 			manager, err := emanager.New(emanager.Config{
+				APIKey:         apikey,
 				Channel:        channel,
 				Secret:         secret,
 				Logger:         logger,
@@ -408,8 +414,10 @@ func Main(integration sdk.Integration, args ...string) {
 			log.Info(logger, "starting", "ref_type", descriptor.RefType, "version", descriptor.BuildCommitSHA)
 			channel, _ := cmd.Flags().GetString("channel")
 			secret, _ := cmd.Flags().GetString("secret")
+			apikey, _ := cmd.Flags().GetString("apikey")
 			intconfig := getIntegrationConfig(cmd)
 			manager, err := emanager.New(emanager.Config{
+				APIKey:  apikey,
 				Channel: channel,
 				Secret:  secret,
 				Logger:  logger,
@@ -534,6 +542,7 @@ func Main(integration sdk.Integration, args ...string) {
 	devExportCmd.Flags().Bool("webhook", false, "turn on webhooks")
 	devExportCmd.Flags().String("record", "", "record all interactions to directory specified")
 	devExportCmd.Flags().String("replay", "", "replay all interactions from directory specified")
+	devExportCmd.Flags().String("apikey", "", "apikey for graph-api")
 
 	// dev webhook command
 	devWebhookCmd.Flags().String("dir", "", "directory to place files when in dev mode")
@@ -542,11 +551,13 @@ func Main(integration sdk.Integration, args ...string) {
 	devWebhookCmd.Flags().StringArray("header", []string{""}, "the headers of the webhook")
 	devWebhookCmd.Flags().String("ref-id", "", "the refid on the webhook")
 	devWebhookCmd.Flags().String("webhook-url", "", "the url on the webhook")
+	devWebhookCmd.Flags().String("apikey", "", "apikey for graph-api")
 
 	// dev mutation command
 	devMutationCmd.Flags().String("dir", "", "directory to place files when in dev mode")
 	devMutationCmd.Flags().Bool("console-out", false, "print each exported model to the console")
 	devMutationCmd.Flags().String("input", "", "the json payload of the mutation")
+	devMutationCmd.Flags().String("apikey", "", "apikey for graph-api")
 
 	if err := serverCmd.Execute(); err != nil {
 		fmt.Println(err)

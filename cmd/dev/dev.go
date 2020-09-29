@@ -68,6 +68,17 @@ func createDevCommand(name string, cmdname string, short string, inputRequired b
 				"--channel", channel,
 				"--log-level", "debug",
 			})
+			secret, _ := cmd.Flags().GetString("secret")
+			if secret == "" {
+				conf, err := loadDevConfig(channel)
+				if err != nil {
+					log.Error(logger, "error loading dev config", "err", err)
+					os.Exit(1)
+				}
+				devargs = append(devargs, "--apikey", conf.APIKey)
+			} else {
+				devargs = append(devargs, "--secret", secret)
+			}
 			if inputRequired {
 				data, _ := cmd.Flags().GetString("input")
 				if data == "" {
@@ -128,11 +139,6 @@ var DevCmd = createDevCommand("dev", "dev-export", "run an integration in develo
 		devargs = append(devargs, "--webhook")
 	}
 
-	secret, _ := cmd.Flags().GetString("secret")
-	if secret != "" {
-		devargs = append(devargs, "--secret", secret)
-	}
-
 	consoleout, _ := cmd.Flags().GetBool("console-out")
 	if consoleout {
 		devargs = append(devargs, "--console-out")
@@ -154,8 +160,7 @@ var DevCmd = createDevCommand("dev", "dev-export", "run an integration in develo
 var webHookCmd = createDevCommand("webhook", "dev-webhook", "run an integration in development mode and feed it a webhook", true, func(cmd *cobra.Command, args []string) []string {
 	refID, _ := cmd.Flags().GetString("ref-id")
 	webhookURL, _ := cmd.Flags().GetString("webhook-url")
-	secret, _ := cmd.Flags().GetString("secret")
-	return append(args, "--ref-id", refID, "--webhook-url", webhookURL, "--secret", secret)
+	return append(args, "--ref-id", refID, "--webhook-url", webhookURL)
 })
 
 var mutationCmd = createDevCommand("mutation", "dev-mutation", "run an integration in development mode and feed it a mutation", true, func(cmd *cobra.Command, args []string) []string {
