@@ -83,11 +83,12 @@ jobs:
           # Strip "v" prefix from tag name
           [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
 
-          # Use Docker `latest` tag convention
-          [ "$VERSION" == "master" ] && VERSION=latest
+          if [ "$VERSION" != "master" ]; then
+            echo pushing $IMAGE_ID:$VERSION
+            docker tag $IMAGE_ID:${{ github.sha }} $IMAGE_ID:$VERSION
+            docker push $IMAGE_ID:$VERSION
+          fi
 
-          echo VERSION=$VERSION
-          echo IMAGE_ID=$IMAGE_ID
-
-          docker tag docker.pkg.github.com/pinpt/agent/$IMAGE_NAME:${{ github.sha }} $IMAGE_ID:$VERSION
-          docker push $IMAGE_ID:$VERSION
+          echo pushing $IMAGE_ID:latest
+          docker tag $IMAGE_ID:${{ github.sha }} $IMAGE_ID:latest
+          docker push $IMAGE_ID:latest
