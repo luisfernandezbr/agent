@@ -289,7 +289,7 @@ func (s *Server) handleExport(logger log.Logger, client graphql.Client, req agen
 	delete(vars, "customer_id")
 	delete(vars, "hashcode")
 	if err := agent.ExecExportCompleteSilentUpdateMutation(client, id, vars, true); err != nil {
-		return fmt.Errorf("error updated agent complete. %w", err)
+		return fmt.Errorf("error creating export complete: %w", err)
 	}
 	log.Info(logger, "export completed", "duration", time.Since(started), "jobid", req.JobID, "customer_id", req.CustomerID, "err", eerr)
 	if eerr != nil {
