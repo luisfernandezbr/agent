@@ -78,6 +78,7 @@ func (s *Subscriber) run() {
 		if err := s.cb(event, s.refType, s.location); err != nil {
 			log.Error(s.logger, "error from callback", "err", err)
 		}
+		event.Commit()
 	}
 }
 
