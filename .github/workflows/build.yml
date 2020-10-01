@@ -51,11 +51,6 @@ jobs:
           docker tag $IMAGE_NAME $IMAGE_ID:${{ github.sha }}
           docker push $IMAGE_ID:${{ github.sha }}
 
-      - name: Delete Package Versions
-        uses: actions/delete-package-versions@v1.0.3
-        with:
-          package-name: "agent"
-
   tag-docker:
     name: Tag Docker
     runs-on: ubuntu-latest
