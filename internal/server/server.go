@@ -344,15 +344,15 @@ func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integra
 	return nil
 }
 
-func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integrationInstanceID, customerID string, refType string, mutation agent.Mutation) error {
+func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integrationInstanceID, customerID string, refType string, mutation agent.Mutation) (*sdk.MutationResponse, error) {
 	buf := []byte(mutation.Payload)
 	var data sdk.MutationData
 	if err := json.Unmarshal(buf, &data); err != nil {
-		return fmt.Errorf("error unmarshaling mutation data payload: %w", err)
+		return nil, fmt.Errorf("error unmarshaling mutation data payload: %w", err)
 	}
 	payload, err := sdk.CreateMutationPayloadFromData(data.Model, data.Action, data.Payload)
 	if err != nil {
-		return fmt.Errorf("error creating mutation payload. %w", err)
+		return nil, fmt.Errorf("error creating mutation payload. %w", err)
 	}
 	jobID := fmt.Sprintf("mutation_%d", datetime.EpochNow())
 	dir := s.newTempDir(jobID)
@@ -360,15 +360,15 @@ func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integr
 	started := time.Now()
 	sdkconfig, err := s.fetchConfig(client, integrationInstanceID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if sdkconfig == nil {
 		log.Info(logger, "received a mutation for an integration that no longer exists, ignoring", "id", integrationInstanceID)
-		return nil
+		return nil, nil
 	}
 	state, err := s.newState(customerID, integrationInstanceID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	p := s.newPipe(logger, dir, customerID, jobID, integrationInstanceID)
 	defer p.Close()
@@ -389,14 +389,15 @@ func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integr
 		User:                  data.User,
 	})
 	log.Info(logger, "running mutation", "id", mutation.ID, "customer_id", customerID, "ref_id", data.RefID)
-	if err := s.config.Integration.Integration.Mutation(e); err != nil {
-		return fmt.Errorf("error running integration mutation: %w", err)
+	mr, err := s.config.Integration.Integration.Mutation(e)
+	if err != nil {
+		return nil, fmt.Errorf("error running integration mutation: %w", err)
 	}
 	if err := state.Flush(); err != nil {
 		log.Error(logger, "error flushing state", "err", err)
 	}
 	log.Info(logger, "mutation completed", "duration", time.Since(started), "id", mutation.ID, "ref_id", data.RefID, "customer_id", customerID)
-	return nil
+	return mr, nil
 }
 
 func calculateIntegrationHashCode(integration *agent.IntegrationInstance) string {
@@ -1050,7 +1051,8 @@ func (s *Server) onMutation(evt event.SubscriptionEvent, refType string, locatio
 		}
 		var errmessage *string
 		// TODO(robin): maybe scrub some event-api related fields out of the headers
-		if err := s.handleMutation(logger, cl, *m.IntegrationInstanceID, m.CustomerID, refType, m); err != nil {
+		mr, err := s.handleMutation(logger, cl, *m.IntegrationInstanceID, m.CustomerID, refType, m)
+		if err != nil {
 			log.Error(logger, "error running mutation", "err", err)
 			errmessage = sdk.StringPointer(err.Error())
 		}
@@ -1061,7 +1063,16 @@ func (s *Server) onMutation(evt event.SubscriptionEvent, refType string, locatio
 		resp.IntegrationInstanceID = m.IntegrationInstanceID
 		resp.Error = errmessage
 		resp.Success = errmessage == nil
-		resp.RefID = m.RefID
+		if mr.RefID != nil {
+			resp.RefID = *mr.RefID
+		} else {
+			resp.RefID = m.RefID
+		}
+		if mr.Properties != nil {
+			resp.Properties = sdk.StringPointer(sdk.Stringify(mr.Properties))
+		}
+		resp.URL = mr.URL
+		resp.EntityID = mr.EntityID
 		resp.RefType = m.RefType
 		s.eventPublish(s.mutation.ch, &resp, map[string]string{
 			"ref_type":                m.RefType,
