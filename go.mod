@@ -15,9 +15,9 @@ require (
 	github.com/mailru/easyjson v0.7.1
 	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible
-	github.com/pinpt/go-common/v10 v10.0.24
+	github.com/pinpt/go-common/v10 v10.0.25
 	github.com/pinpt/httpclient v0.0.0-20200627153820-d374c2f15648 // indirect
-	github.com/pinpt/integration-sdk v0.0.1223
+	github.com/pinpt/integration-sdk v0.0.1233
 	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
 	github.com/russross/blackfriday/v2 v2.0.1
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
@@ -26,7 +26,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.6.1
 	go.mongodb.org/mongo-driver v1.4.1 // indirect
-	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a // indirect
+	golang.org/x/crypto v0.0.0-20201001193750-eb9a90e9f9cb // indirect
 	golang.org/x/net v0.0.0-20200625001655-4c5254603344 // indirect
 	golang.org/x/sys v0.0.0-20200817155316-9781c653f443 // indirect
 	gopkg.in/yaml.v2 v2.3.0

@@ -512,7 +512,7 @@ func Main(integration sdk.Integration, args ...string) {
 					os.Exit(1) // force exit if not already stopped
 				}()
 			})
-			if err := integration.Mutation(mutation); err != nil {
+			if _, err := integration.Mutation(mutation); err != nil {
 				log.Fatal(logger, "error running mutation", "err", err)
 			}
 		},

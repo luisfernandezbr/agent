@@ -60,6 +60,14 @@ type Mutation interface {
 	User() MutationUser
 }
 
+// MutationResponse data
+type MutationResponse struct {
+	RefID      *string                // the ID of the entity in the source system
+	EntityID   *string                // the entity ID in the pinpoint system for the entity that was mutated
+	URL        *string                // optional url for the mutation entity in the source system
+	Properties map[string]interface{} // optional properties to send in the result specific to the mutation type
+}
+
 // CreateMutationPayloadFromData will create a mutation payload object from a data payload
 func CreateMutationPayloadFromData(model string, action MutationAction, buf []byte) (interface{}, error) {
 	switch action {
