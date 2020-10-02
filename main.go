@@ -1,3 +1,4 @@
+//go:generate go run generator/gittag/main.go
 //go:generate go-bindata -pkg generator -prefix generator/ -o generator/gen.go generator/template/...
 package main
 

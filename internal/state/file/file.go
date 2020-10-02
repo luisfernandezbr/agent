@@ -116,7 +116,7 @@ func New(fn string) (*State, error) {
 	if fileutil.FileExists(fn) {
 		of, err = os.Open(fn)
 	} else {
-		if err := os.MkdirAll(filepath.Dir(fn), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(fn), 0700); err != nil {
 			return nil, err
 		}
 		of, err = os.Create(fn)
