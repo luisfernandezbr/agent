@@ -1063,17 +1063,21 @@ func (s *Server) onMutation(evt event.SubscriptionEvent, refType string, locatio
 		resp.IntegrationInstanceID = m.IntegrationInstanceID
 		resp.Error = errmessage
 		resp.Success = errmessage == nil
-		if mr.RefID != nil {
-			resp.RefID = *mr.RefID
-		} else {
+		if mr == nil {
 			resp.RefID = m.RefID
+		} else {
+			if mr.RefID != nil {
+				resp.RefID = *mr.RefID
+			} else {
+				resp.RefID = m.RefID
+			}
+			if mr.Properties != nil {
+				resp.Properties = sdk.StringPointer(sdk.Stringify(mr.Properties))
+			}
+			resp.URL = mr.URL
+			resp.EntityID = mr.EntityID
+			resp.RefType = m.RefType
 		}
-		if mr.Properties != nil {
-			resp.Properties = sdk.StringPointer(sdk.Stringify(mr.Properties))
-		}
-		resp.URL = mr.URL
-		resp.EntityID = mr.EntityID
-		resp.RefType = m.RefType
 		s.eventPublish(s.mutation.ch, &resp, map[string]string{
 			"ref_type":                m.RefType,
 			"ref_id":                  m.RefID,
