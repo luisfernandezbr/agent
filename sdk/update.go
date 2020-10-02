@@ -139,7 +139,7 @@ func NewWorkIssueUpdate(customerID string, integrationInstanceID string, refID s
 		data.Set["title"] = Stringify(val.Set.Title)
 	}
 	if val.Set.Description != nil {
-		data.Set["description"] = *val.Set.Description
+		data.Set["description"] = Stringify(val.Set.Description)
 	}
 	if val.Set.StoryPoints != nil {
 		data.Set["story_points"] = Stringify(val.Set.StoryPoints)
