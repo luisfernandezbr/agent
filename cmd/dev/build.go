@@ -72,7 +72,11 @@ var BuildCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(logger, "error reading plugin go.mod", "err", err)
 		}
-		ioutil.WriteFile(modfp, []byte(string(mod)+"\nreplace github.com/pinpt/agent/v4 => ../agent"), 0644)
+		currentPath, _ := os.Getwd()
+		ind := strings.LastIndex(currentPath, "/")
+		currentAgentFolder := currentPath[ind+1:]
+
+		ioutil.WriteFile(modfp, []byte(string(mod)+fmt.Sprintf("\nreplace github.com/pinpt/%s/v4 => ../agent", currentAgentFolder)), 0644)
 
 		bundle, _ := cmd.Flags().GetBool("bundle")
 		var bundleRewriter rewriteFunc
