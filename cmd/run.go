@@ -77,7 +77,7 @@ func getIntegration(ctx context.Context, logger log.Logger, channel string, dir 
 }
 
 func startIntegration(ctx context.Context, logger log.Logger, integrationExecutable string, cmdargs []string) (*exec.Cmd, error) {
-	log.Info(logger, "starting", "file", integrationExecutable, "args", cmdargs)
+	log.Info(logger, "starting", "file", integrationExecutable)
 	cm := exec.CommandContext(ctx, integrationExecutable, cmdargs...)
 	cm.Stdout = os.Stdout
 	cm.Stderr = os.Stderr
