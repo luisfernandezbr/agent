@@ -237,6 +237,8 @@ func Main(integration sdk.Integration, args ...string) {
 			webhookEnabled, _ := cmd.Flags().GetBool("webhook")
 			record, _ := cmd.Flags().GetString("record")
 			replay, _ := cmd.Flags().GetString("replay")
+			integrationInstanceID, _ := cmd.Flags().GetString("integration-instance-id")
+			customerID, _ := cmd.Flags().GetString("customer-id")
 
 			manager, err := emanager.New(emanager.Config{
 				APIKey:         apikey,
@@ -279,7 +281,7 @@ func Main(integration sdk.Integration, args ...string) {
 			}
 			defer pipe.Close()
 			historical, _ := cmd.Flags().GetBool("historical")
-			exp, err := devexport.New(logger, intconfig, stateobj, "9999", "1234", "1", descriptor.RefType, historical, pipe)
+			exp, err := devexport.New(logger, intconfig, stateobj, "9999", customerID, integrationInstanceID, descriptor.RefType, historical, pipe)
 			if err != nil {
 				log.Fatal(logger, "export failed", "err", err)
 			}
@@ -311,6 +313,8 @@ func Main(integration sdk.Integration, args ...string) {
 			channel, _ := cmd.Flags().GetString("channel")
 			secret, _ := cmd.Flags().GetString("secret")
 			apikey, _ := cmd.Flags().GetString("apikey")
+			integrationInstanceID, _ := cmd.Flags().GetString("integration-instance-id")
+			customerID, _ := cmd.Flags().GetString("customer-id")
 
 			intconfig := getIntegrationConfig(cmd)
 			manager, err := emanager.New(emanager.Config{
@@ -376,11 +380,11 @@ func Main(integration sdk.Integration, args ...string) {
 				logger,
 				intconfig,
 				stateobj,
-				"1234",
+				customerID,
 				webhookURL,
 				refID,
 				descriptor.RefType,
-				"1",
+				integrationInstanceID,
 				pipe,
 				headers,
 				data,
@@ -415,6 +419,8 @@ func Main(integration sdk.Integration, args ...string) {
 			channel, _ := cmd.Flags().GetString("channel")
 			secret, _ := cmd.Flags().GetString("secret")
 			apikey, _ := cmd.Flags().GetString("apikey")
+			integrationInstanceID, _ := cmd.Flags().GetString("integration-instance-id")
+			customerID, _ := cmd.Flags().GetString("customer-id")
 			intconfig := getIntegrationConfig(cmd)
 			manager, err := emanager.New(emanager.Config{
 				APIKey:  apikey,
@@ -466,7 +472,7 @@ func Main(integration sdk.Integration, args ...string) {
 			var payload interface{}
 			var user sdk.MutationUser
 
-			if i, ok := data["id"].(string); ok {
+			if i, ok := data["ref_id"].(string); ok {
 				id = i
 			}
 			if m, ok := data["model"].(string); ok {
@@ -491,10 +497,10 @@ func Main(integration sdk.Integration, args ...string) {
 				logger,
 				intconfig,
 				stateobj,
-				"1234",
+				customerID,
 				"999",
-				"1",
 				descriptor.RefType,
+				integrationInstanceID,
 				pipe,
 				id,
 				model,
@@ -543,6 +549,8 @@ func Main(integration sdk.Integration, args ...string) {
 	devExportCmd.Flags().String("record", "", "record all interactions to directory specified")
 	devExportCmd.Flags().String("replay", "", "replay all interactions from directory specified")
 	devExportCmd.Flags().String("apikey", "", "apikey for graph-api")
+	devExportCmd.Flags().String("customer-id", "1234", "the customer id to use")
+	devExportCmd.Flags().String("integration-instance-id", "", "the integration instance id to use")
 
 	// dev webhook command
 	devWebhookCmd.Flags().String("dir", "", "directory to place files when in dev mode")
@@ -552,12 +560,16 @@ func Main(integration sdk.Integration, args ...string) {
 	devWebhookCmd.Flags().String("ref-id", "", "the refid on the webhook")
 	devWebhookCmd.Flags().String("webhook-url", "", "the url on the webhook")
 	devWebhookCmd.Flags().String("apikey", "", "apikey for graph-api")
+	devWebhookCmd.Flags().String("customer-id", "1234", "the customer id to use")
+	devWebhookCmd.Flags().String("integration-instance-id", "", "the integration instance id to use")
 
 	// dev mutation command
 	devMutationCmd.Flags().String("dir", "", "directory to place files when in dev mode")
 	devMutationCmd.Flags().Bool("console-out", false, "print each exported model to the console")
 	devMutationCmd.Flags().String("input", "", "the json payload of the mutation")
 	devMutationCmd.Flags().String("apikey", "", "apikey for graph-api")
+	devMutationCmd.Flags().String("customer-id", "1234", "the customer id to use")
+	devMutationCmd.Flags().String("integration-instance-id", "1", "the integration instance id to use")
 
 	if err := serverCmd.Execute(); err != nil {
 		fmt.Println(err)
