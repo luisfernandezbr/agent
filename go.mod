@@ -26,7 +26,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.6.1
 	go.mongodb.org/mongo-driver v1.4.1 // indirect
-	golang.org/x/crypto v0.0.0-20201001193750-eb9a90e9f9cb // indirect
+	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0 // indirect
 	golang.org/x/net v0.0.0-20200625001655-4c5254603344 // indirect
 	golang.org/x/sys v0.0.0-20200817155316-9781c653f443 // indirect
 	gopkg.in/yaml.v2 v2.3.0
