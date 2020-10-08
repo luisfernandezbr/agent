@@ -66,17 +66,6 @@ var BuildCmd = &cobra.Command{
 		distDir, _ = filepath.Abs(distDir)
 		os.MkdirAll(distDir, 0700)
 		dist := filepath.Join(distDir)
-		// local dev issue with plugins: https://github.com/golang/go/issues/31354
-		modfp := filepath.Join(integrationDir, "go.mod")
-		mod, err := ioutil.ReadFile(modfp)
-		if err != nil {
-			log.Fatal(logger, "error reading plugin go.mod", "err", err)
-		}
-		currentPath, _ := os.Getwd()
-		ind := strings.LastIndex(currentPath, "/")
-		currentAgentFolder := currentPath[ind+1:]
-
-		ioutil.WriteFile(modfp, []byte(string(mod)+fmt.Sprintf("\nreplace github.com/pinpt/%s/v4 => ../agent", currentAgentFolder)), 0644)
 
 		bundle, _ := cmd.Flags().GetBool("bundle")
 		var bundleRewriter rewriteFunc
@@ -129,13 +118,11 @@ var BuildCmd = &cobra.Command{
 				c.Env = env
 				if err := c.Run(); err != nil {
 					bundleRewriter()
-					ioutil.WriteFile(modfp, mod, 0644) // restore original
 					os.Exit(1)
 				}
 				log.Debug(logger, "file built to "+outfn)
 			}
 		}
-		ioutil.WriteFile(modfp, mod, 0644) // restore original
 		if bundleRewriter != nil {
 			bundleRewriter()
 		}
