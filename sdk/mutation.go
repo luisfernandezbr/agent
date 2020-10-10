@@ -142,6 +142,8 @@ type MutationFieldValue struct {
 func (m MutationFieldValue) AsNameRefID() (*NameRefID, error) {
 	if m.Type == WorkProjectCapabilityIssueMutationFieldsTypeWorkIssuePriority ||
 		m.Type == WorkProjectCapabilityIssueMutationFieldsTypeWorkIssueType ||
+		m.Type == WorkProjectCapabilityIssueMutationFieldsTypeEpic ||
+		m.Type == WorkProjectCapabilityIssueMutationFieldsTypeWorkSprint ||
 		m.Type == WorkProjectCapabilityIssueMutationFieldsTypeUser {
 		var nri NameRefID
 		if err := json.Unmarshal(m.Value, &nri); err != nil {
@@ -162,7 +164,13 @@ func (m MutationFieldValue) AsNumber() (int, error) {
 
 // AsString will return m's value as an int if it's type is WorkProjectCapabilityIssueMutationFieldsTypeString.
 func (m MutationFieldValue) AsString() (string, error) {
-	if m.Type == WorkProjectCapabilityIssueMutationFieldsTypeString {
+	if m.Type == WorkProjectCapabilityIssueMutationFieldsTypeString ||
+		m.Type == WorkProjectCapabilityIssueMutationFieldsTypeTextbox {
+		var str string
+		// you gotta unmarshal since it's a string
+		if err := json.Unmarshal(m.Value, &str); err != nil {
+			return "", fmt.Errorf("error decoding mutation field %s into string: %w", m.RefID, err)
+		}
 		return string(m.Value), nil
 	}
 	return "", fmt.Errorf("type %s is not a string", m.Type.String())
@@ -171,10 +179,8 @@ func (m MutationFieldValue) AsString() (string, error) {
 // WorkIssueUpdateMutation is an update mutation for a issue
 type WorkIssueUpdateMutation struct {
 	Set struct {
-		Title      *string    `json:"title"`                // Title is for updating the title to the issue
-		Transition *NameRefID `json:"transition,omitempty"` // Transition information (if used) for the issue
-		// Deprecated: Use Transition to change a status
-		// Status        *NameRefID `json:"status,omitempty"`     // Status is for changing the status of the issue
+		Title         *string    `json:"title"`                     // Title is for updating the title to the issue
+		Transition    *NameRefID `json:"transition,omitempty"`      // Transition information (if used) for the issue
 		Priority      *NameRefID `json:"priority,omitempty"`        // Priority is for changing the priority of the issue
 		Resolution    *NameRefID `json:"resolution,omitempty"`      // Resolution is for changing the resolution of the issue
 		Epic          *NameRefID `json:"epic,omitempty"`            // Epic is for updating the epic for the issue
