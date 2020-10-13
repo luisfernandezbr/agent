@@ -110,7 +110,6 @@ func NewEventSubscriber(config Config, topics []string, filters *event.Subscript
 		APIKey:            config.APIKey,
 		DisableAutoCommit: true,
 		Channel:           config.Channel,
-		DisablePing:       true,
 		Filter:            filters,
 	})
 	if err != nil {

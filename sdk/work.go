@@ -189,6 +189,45 @@ type WorkIssueTransitions = work.IssueTransitions
 // WorkProjectCapability is the project capability
 type WorkProjectCapability = work.ProjectCapability
 
+// WorkProjectCapabilityIssueMutationFields represents the object structure for issue_mutation_fields
+type WorkProjectCapabilityIssueMutationFields = work.ProjectCapabilityIssueMutationFields
+
+// WorkProjectCapabilityIssueMutationFieldsType is the enumeration type for type
+type WorkProjectCapabilityIssueMutationFieldsType = work.ProjectCapabilityIssueMutationFieldsType
+
+// WorkProjectCapabilityIssueMutationFieldsValues represents the object structure for values
+type WorkProjectCapabilityIssueMutationFieldsValues = work.ProjectCapabilityIssueMutationFieldsValues
+
+// WorkProjectCapabilityIssueMutationFieldsTypeString is the enumeration value for string
+const WorkProjectCapabilityIssueMutationFieldsTypeString = work.ProjectCapabilityIssueMutationFieldsTypeString
+
+// WorkProjectCapabilityIssueMutationFieldsTypeNumber is the enumeration value for number
+const WorkProjectCapabilityIssueMutationFieldsTypeNumber = work.ProjectCapabilityIssueMutationFieldsTypeNumber
+
+// WorkProjectCapabilityIssueMutationFieldsTypeWorkIssueType is the enumeration value for work_issue_type
+const WorkProjectCapabilityIssueMutationFieldsTypeWorkIssueType = work.ProjectCapabilityIssueMutationFieldsTypeWorkIssueType
+
+// WorkProjectCapabilityIssueMutationFieldsTypeWorkIssuePriority is the enumeration value for work_issue_priority
+const WorkProjectCapabilityIssueMutationFieldsTypeWorkIssuePriority = work.ProjectCapabilityIssueMutationFieldsTypeWorkIssuePriority
+
+// WorkProjectCapabilityIssueMutationFieldsTypeStringArray is the enumeration value for string_array
+const WorkProjectCapabilityIssueMutationFieldsTypeStringArray = work.ProjectCapabilityIssueMutationFieldsTypeStringArray
+
+// WorkProjectCapabilityIssueMutationFieldsTypeUser is the enumeration value for user
+const WorkProjectCapabilityIssueMutationFieldsTypeUser = work.ProjectCapabilityIssueMutationFieldsTypeUser
+
+// WorkProjectCapabilityIssueMutationFieldsTypeAttachment is the enumeration value for attachment
+const WorkProjectCapabilityIssueMutationFieldsTypeAttachment = work.ProjectCapabilityIssueMutationFieldsTypeAttachment
+
+// WorkProjectCapabilityIssueMutationFieldsTypeTextbox is the enumeration value for textbox
+const WorkProjectCapabilityIssueMutationFieldsTypeTextbox = work.ProjectCapabilityIssueMutationFieldsTypeTextbox
+
+// WorkProjectCapabilityIssueMutationFieldsTypeEpic is the enumeration value for Epic
+const WorkProjectCapabilityIssueMutationFieldsTypeEpic = work.ProjectCapabilityIssueMutationFieldsTypeEpic
+
+// WorkProjectCapabilityIssueMutationFieldsTypeWorkSprint is the enumeration value for Sprint
+const WorkProjectCapabilityIssueMutationFieldsTypeWorkSprint = work.ProjectCapabilityIssueMutationFieldsTypeWorkSprint
+
 // NewWorkProjectID will return the work project id
 func NewWorkProjectID(customerID string, refID string, refType string) string {
 	return work.NewProjectID(customerID, refID, refType)

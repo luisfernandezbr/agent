@@ -71,11 +71,11 @@ func createDevCommand(name string, cmdname string, short string, inputRequired b
 			secret, _ := cmd.Flags().GetString("secret")
 			if secret == "" {
 				conf, err := loadDevConfig(channel)
-				if err != nil {
-					log.Error(logger, "error loading dev config", "err", err)
-					os.Exit(1)
+				if err == nil {
+					devargs = append(devargs, "--apikey", conf.APIKey)
+				} else if channel != "dev" {
+					log.Debug(logger, "unable to use apikey", "err", err)
 				}
-				devargs = append(devargs, "--apikey", conf.APIKey)
 			} else {
 				devargs = append(devargs, "--secret", secret)
 			}
@@ -164,7 +164,9 @@ var webHookCmd = createDevCommand("webhook", "dev-webhook", "run an integration 
 })
 
 var mutationCmd = createDevCommand("mutation", "dev-mutation", "run an integration in development mode and feed it a mutation", true, func(cmd *cobra.Command, args []string) []string {
-	return args
+	customerID, _ := cmd.Flags().GetString("customer-id")
+	integrationInstanceID, _ := cmd.Flags().GetString("integration-instance-id")
+	return append(args, "--customer-id", customerID, "--integration-instance-id", integrationInstanceID)
 })
 
 func init() {
@@ -187,4 +189,6 @@ func init() {
 	webHookCmd.Flags().String("webhook-url", "http://example.com/hook/123456", "the webhook url value")
 
 	mutationCmd.Flags().String("input", "", "json body of a mutation payload, as a string or file")
+	mutationCmd.Flags().String("customer-id", "1234", "the customer id to use")
+	mutationCmd.Flags().String("integration-instance-id", "1", "the integration instance id to use")
 }

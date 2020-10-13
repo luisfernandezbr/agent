@@ -550,7 +550,7 @@ func Main(integration sdk.Integration, args ...string) {
 	devExportCmd.Flags().String("replay", "", "replay all interactions from directory specified")
 	devExportCmd.Flags().String("apikey", "", "apikey for graph-api")
 	devExportCmd.Flags().String("customer-id", "1234", "the customer id to use")
-	devExportCmd.Flags().String("integration-instance-id", "", "the integration instance id to use")
+	devExportCmd.Flags().String("integration-instance-id", "1", "the integration instance id to use")
 
 	// dev webhook command
 	devWebhookCmd.Flags().String("dir", "", "directory to place files when in dev mode")
@@ -561,7 +561,7 @@ func Main(integration sdk.Integration, args ...string) {
 	devWebhookCmd.Flags().String("webhook-url", "", "the url on the webhook")
 	devWebhookCmd.Flags().String("apikey", "", "apikey for graph-api")
 	devWebhookCmd.Flags().String("customer-id", "1234", "the customer id to use")
-	devWebhookCmd.Flags().String("integration-instance-id", "", "the integration instance id to use")
+	devWebhookCmd.Flags().String("integration-instance-id", "1", "the integration instance id to use")
 
 	// dev mutation command
 	devMutationCmd.Flags().String("dir", "", "directory to place files when in dev mode")

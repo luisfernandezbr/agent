@@ -2,6 +2,8 @@ package sdk
 
 import (
 	"encoding/json"
+	"fmt"
+	"strconv"
 
 	"github.com/pinpt/integration-sdk/sourcecode"
 	"github.com/pinpt/integration-sdk/work"
@@ -121,17 +123,64 @@ type WorkIssueCreateMutation struct {
 	Type          *NameRefID `json:"type,omitempty"`            // Type is for setting the issue type of the issue
 	ProjectRefID  string     `json:"project_ref_id"`            // ProjectID is the id to the issue project as a ref_id
 	Epic          *NameRefID `json:"epic,omitempty"`            // Epic is for setting an epic for the issue
-	ParentRefID   *string    `json:"parent_ref_id,omitempty"`   // ParentRefID is for setting the parent issue as a ref_id
 	Labels        []string   `json:"labels,omitempty"`          // Labels is for setting the labels for an issue
+
+	// NOTE(robin): the above fields are for backwards compatibility, using MutationFields is the future 🚀
+	ParentRefID *string              `json:"parent_ref_id,omitempty"` // ParentRefID is for setting the parent issue as a ref_id
+	Fields      []MutationFieldValue `json:"fields"`
+}
+
+// MutationFieldValue represents the value for the field, as defined in the project capabilities
+type MutationFieldValue struct {
+	RefID string                                       `json:"ref_id"`
+	Type  WorkProjectCapabilityIssueMutationFieldsType `json:"type"`
+	Value json.RawMessage                              `json:"value"`
+}
+
+// AsNameRefID will return m's value as a NameRefID if it's type is: WorkProjectCapabilityIssueMutationFieldsTypeWorkIssueType,
+// WorkProjectCapabilityIssueMutationFieldsTypeWorkIssuePriority, or WorkProjectCapabilityIssueMutationFieldsTypeUser.
+func (m MutationFieldValue) AsNameRefID() (*NameRefID, error) {
+	if m.Type == WorkProjectCapabilityIssueMutationFieldsTypeWorkIssuePriority ||
+		m.Type == WorkProjectCapabilityIssueMutationFieldsTypeWorkIssueType ||
+		m.Type == WorkProjectCapabilityIssueMutationFieldsTypeEpic ||
+		m.Type == WorkProjectCapabilityIssueMutationFieldsTypeWorkSprint ||
+		m.Type == WorkProjectCapabilityIssueMutationFieldsTypeUser {
+		var nri NameRefID
+		if err := json.Unmarshal(m.Value, &nri); err != nil {
+			return nil, fmt.Errorf("error decoding mutation field %s into NameRefID: %w", m.RefID, err)
+		}
+		return &nri, nil
+	}
+	return nil, fmt.Errorf("type %s is not a NameRefID", m.Type.String())
+}
+
+// AsNumber will return m's value as an int if it's type is WorkProjectCapabilityIssueMutationFieldsTypeNumber.
+func (m MutationFieldValue) AsNumber() (int, error) {
+	if m.Type == WorkProjectCapabilityIssueMutationFieldsTypeNumber {
+		return strconv.Atoi(string(m.Value))
+	}
+	return 0, fmt.Errorf("type %s is not a number", m.Type.String())
+}
+
+// AsString will return m's value as an int if it's type is WorkProjectCapabilityIssueMutationFieldsTypeString.
+func (m MutationFieldValue) AsString() (string, error) {
+	if m.Type == WorkProjectCapabilityIssueMutationFieldsTypeString ||
+		m.Type == WorkProjectCapabilityIssueMutationFieldsTypeTextbox {
+		var str string
+		// you gotta unmarshal since it's a string
+		if err := json.Unmarshal(m.Value, &str); err != nil {
+			return "", fmt.Errorf("error decoding mutation field %s into string: %w", m.RefID, err)
+		}
+		return string(m.Value), nil
+	}
+	return "", fmt.Errorf("type %s is not a string", m.Type.String())
 }
 
 // WorkIssueUpdateMutation is an update mutation for a issue
 type WorkIssueUpdateMutation struct {
 	Set struct {
-		Title      *string    `json:"title"`                // Title is for updating the title to the issue
-		Transition *NameRefID `json:"transition,omitempty"` // Transition information (if used) for the issue
-		// Deprecated: Use Transition to change a status
-		// Status        *NameRefID `json:"status,omitempty"`     // Status is for changing the status of the issue
+		Title         *string    `json:"title"`                     // Title is for updating the title to the issue
+		Transition    *NameRefID `json:"transition,omitempty"`      // Transition information (if used) for the issue
 		Priority      *NameRefID `json:"priority,omitempty"`        // Priority is for changing the priority of the issue
 		Resolution    *NameRefID `json:"resolution,omitempty"`      // Resolution is for changing the resolution of the issue
 		Epic          *NameRefID `json:"epic,omitempty"`            // Epic is for updating the epic for the issue
