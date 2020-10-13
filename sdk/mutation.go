@@ -222,4 +222,5 @@ type AgileSprintUpdateMutation struct {
 	Unset struct {
 		IssueRefIDs []string `json:"issue_ref_ids,omitempty"` // IssueRefIDs is an array of issue ref_ids to remove from the sprint
 	} `json:"unset"`
+	ProjectIDs []string `json:"project_ids"`
 }
