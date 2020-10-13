@@ -183,6 +183,8 @@ func init() {
 	DevCmd.Flags().String("replay", "", "replay all interactions from directory specified")
 	DevCmd.AddCommand(webHookCmd)
 	DevCmd.AddCommand(mutationCmd)
+	DevCmd.Flags().String("customer-id", "1234", "the customer id to use")
+	DevCmd.Flags().String("integration-instance-id", "1", "the integration instance id to use")
 	webHookCmd.Flags().StringArray("header", []string{}, "headers key/value pair such as a=b")
 	webHookCmd.Flags().String("input", "", "json body of a webhook payload, as a string or file")
 	webHookCmd.Flags().String("ref-id", "9999", "the ref_id value")
