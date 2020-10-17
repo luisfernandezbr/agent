@@ -21,8 +21,6 @@ import (
 
 	"github.com/cirruslabs/echelon"
 	"github.com/cirruslabs/echelon/renderers"
-	"github.com/pinpt/agent.next/internal/util"
-	"github.com/pinpt/agent.next/sdk"
 	"github.com/pinpt/agent/v4/internal/util"
 	"github.com/pinpt/agent/v4/sdk"
 	"github.com/pinpt/go-common/v10/api"
@@ -148,7 +146,7 @@ var PublishCmd = &cobra.Command{
 			panic(err)
 		}
 
-		chunkSize, _ := cmd.Flags().GetInt64("chunck")
+		chunkSize, _ := cmd.Flags().GetInt64("chunk")
 
 		//calculate content length
 		totalSize := int64(nmulti) + fi.Size() + int64(nboundary)
@@ -276,6 +274,6 @@ func init() {
 	PublishCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "stable"), "the channel which can be set")
 	PublishCmd.Flags().String("apikey", "", "api key")
 	PublishCmd.Flags().String("secret", "", "internal shared secret")
-	PublishCmd.Flags().Int64("chunck", 800, "chunck size")
+	PublishCmd.Flags().Int64("chunk", 800, "chunk size")
 	PublishCmd.Flags().MarkHidden("secret")
 }
