@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/pinpt/agent.next/sdk"
+	"github.com/pinpt/agent/v4/sdk"
 	"github.com/pinpt/go-common/v10/log"
 )
 

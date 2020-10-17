@@ -13,15 +13,15 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/jhaynie/oauth1"
-	eventAPIautoconfig "github.com/pinpt/agent.next/internal/autoconfig/eventapi"
-	eventAPIexport "github.com/pinpt/agent.next/internal/export/eventapi"
-	eventAPImutation "github.com/pinpt/agent.next/internal/mutation/eventapi"
-	pipe "github.com/pinpt/agent.next/internal/pipe/eventapi"
-	redisState "github.com/pinpt/agent.next/internal/state/redis"
-	"github.com/pinpt/agent.next/internal/util"
-	eventAPIvalidate "github.com/pinpt/agent.next/internal/validate/eventapi"
-	eventAPIwebhook "github.com/pinpt/agent.next/internal/webhook/eventapi"
-	"github.com/pinpt/agent.next/sdk"
+	eventAPIautoconfig "github.com/pinpt/agent/v4/internal/autoconfig/eventapi"
+	eventAPIexport "github.com/pinpt/agent/v4/internal/export/eventapi"
+	eventAPImutation "github.com/pinpt/agent/v4/internal/mutation/eventapi"
+	pipe "github.com/pinpt/agent/v4/internal/pipe/eventapi"
+	redisState "github.com/pinpt/agent/v4/internal/state/redis"
+	"github.com/pinpt/agent/v4/internal/util"
+	eventAPIvalidate "github.com/pinpt/agent/v4/internal/validate/eventapi"
+	eventAPIwebhook "github.com/pinpt/agent/v4/internal/webhook/eventapi"
+	"github.com/pinpt/agent/v4/sdk"
 	"github.com/pinpt/go-common/v10/api"
 	"github.com/pinpt/go-common/v10/datamodel"
 	"github.com/pinpt/go-common/v10/datetime"
@@ -289,7 +289,7 @@ func (s *Server) handleExport(logger log.Logger, client graphql.Client, req agen
 	delete(vars, "customer_id")
 	delete(vars, "hashcode")
 	if err := agent.ExecExportCompleteSilentUpdateMutation(client, id, vars, true); err != nil {
-		return fmt.Errorf("error updated agent complete. %w", err)
+		return fmt.Errorf("error creating export complete: %w", err)
 	}
 	log.Info(logger, "export completed", "duration", time.Since(started), "jobid", req.JobID, "customer_id", req.CustomerID, "err", eerr)
 	if eerr != nil {
@@ -344,15 +344,15 @@ func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integra
 	return nil
 }
 
-func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integrationInstanceID, customerID string, refID string, refType string, mutation agent.Mutation) error {
+func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integrationInstanceID, customerID string, refType string, mutation agent.Mutation) (*sdk.MutationResponse, error) {
 	buf := []byte(mutation.Payload)
 	var data sdk.MutationData
 	if err := json.Unmarshal(buf, &data); err != nil {
-		return fmt.Errorf("error unmarshaling mutation data payload: %w", err)
+		return nil, fmt.Errorf("error unmarshaling mutation data payload: %w", err)
 	}
 	payload, err := sdk.CreateMutationPayloadFromData(data.Model, data.Action, data.Payload)
 	if err != nil {
-		return fmt.Errorf("error creating mutation payload. %w", err)
+		return nil, fmt.Errorf("error creating mutation payload. %w", err)
 	}
 	jobID := fmt.Sprintf("mutation_%d", datetime.EpochNow())
 	dir := s.newTempDir(jobID)
@@ -360,15 +360,15 @@ func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integr
 	started := time.Now()
 	sdkconfig, err := s.fetchConfig(client, integrationInstanceID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if sdkconfig == nil {
 		log.Info(logger, "received a mutation for an integration that no longer exists, ignoring", "id", integrationInstanceID)
-		return nil
+		return nil, nil
 	}
 	state, err := s.newState(customerID, integrationInstanceID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	p := s.newPipe(logger, dir, customerID, jobID, integrationInstanceID)
 	defer p.Close()
@@ -378,7 +378,7 @@ func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integr
 		Config:                *sdkconfig,
 		State:                 state,
 		CustomerID:            customerID,
-		RefID:                 refID,
+		RefID:                 data.RefID,
 		RefType:               refType,
 		IntegrationInstanceID: integrationInstanceID,
 		Pipe:                  p,
@@ -388,15 +388,16 @@ func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integr
 		Payload:               payload,
 		User:                  data.User,
 	})
-	log.Info(logger, "running mutation", "id", mutation.ID, "customer_id", customerID, "ref_id", refID)
-	if err := s.config.Integration.Integration.Mutation(e); err != nil {
-		return fmt.Errorf("error running integration mutation: %w", err)
+	log.Info(logger, "running mutation", "id", mutation.ID, "customer_id", customerID, "ref_id", data.RefID)
+	mr, err := s.config.Integration.Integration.Mutation(e)
+	if err != nil {
+		return nil, fmt.Errorf("error running integration mutation: %w", err)
 	}
 	if err := state.Flush(); err != nil {
 		log.Error(logger, "error flushing state", "err", err)
 	}
-	log.Info(logger, "mutation completed", "duration", time.Since(started), "id", mutation.ID, "ref_id", refID, "customer_id", customerID)
-	return nil
+	log.Info(logger, "mutation completed", "duration", time.Since(started), "id", mutation.ID, "ref_id", data.RefID, "customer_id", customerID)
+	return mr, nil
 }
 
 func calculateIntegrationHashCode(integration *agent.IntegrationInstance) string {
@@ -421,13 +422,11 @@ func makeEnrollCachekey(customerID string, integrationInstanceID string) string 
 func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, location string) error {
 	if refType != s.config.Integration.Descriptor.RefType || location != s.location {
 		// skip db changes we're not targeting
-		evt.Commit()
 		log.Debug(s.logger, "skipping db change since we're not targeted", "need_location", s.location, "need_reftype", s.config.Integration.Descriptor.RefType, "location", location, "ref_type", refType)
 		return nil
 	}
 	ch, err := createDBChangeEvent(evt.Data)
 	if err != nil {
-		evt.Commit()
 		return err
 	}
 	switch ch.Model {
@@ -463,7 +462,6 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 					if s.config.State == nil {
 						state, err := s.newState(integration.CustomerID, integration.ID)
 						if err != nil {
-							evt.Commit()
 							return err
 						}
 						// check to see if this deletable state and if so, we delete all the keys
@@ -527,7 +525,6 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 				integrationInstanceID := integration.ID
 				state, err := s.newState(customerID, integrationInstanceID)
 				if err != nil {
-					evt.Commit()
 					return err
 				}
 				p := s.newPipe(s.logger, dir, customerID, jobID, integrationInstanceID)
@@ -548,7 +545,6 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 				log.Info(s.logger, "running auto configure")
 				newconfig, err := s.config.Integration.Integration.AutoConfigure(e)
 				if err != nil {
-					evt.Commit()
 					return fmt.Errorf("error running integration auto configure: %w", err)
 				}
 				log.Debug(s.logger, "flushing state")
@@ -557,7 +553,6 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 				}
 				gql, err := s.newGraphqlClient(integration.CustomerID)
 				if err != nil {
-					evt.Commit()
 					return fmt.Errorf("error creating graphql client: %w", err)
 				}
 				input := make(graphql.Variables)
@@ -568,14 +563,12 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 					input[agent.IntegrationInstanceModelConfigColumn] = sdk.Stringify(newconfig)
 				}
 				if err := agent.ExecIntegrationInstanceSilentUpdateMutation(gql, integration.ID, input, false); err != nil {
-					evt.Commit()
 					return fmt.Errorf("error updating agent instance: %w", err)
 				}
 				log.Info(s.logger, "auto configure completed", "duration", time.Since(started), "customer_id", customerID)
 			}
 		}
 	}
-	evt.Commit()
 	return nil
 }
 
@@ -792,7 +785,17 @@ func (s *Server) stopExportLiveness() {
 }
 
 func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location string) error {
-	log.Debug(s.logger, "received event", "evt", evt, "refType", refType, "location", location)
+	logger := s.logger
+	var temp struct {
+		CustomerID string `json:"customer_id"`
+	}
+	if err := json.Unmarshal([]byte(evt.Data), &temp); err != nil {
+		// this should never ever happen, but just in case
+		log.Debug(s.logger, "could not get customer id")
+	} else {
+		logger = log.With(logger, "customer_id", temp.CustomerID, "ref_type", refType)
+	}
+	log.Debug(logger, "received event", "evt", evt, "refType", refType, "location", location)
 	switch evt.Model {
 	case agent.ValidateRequestModelName.String():
 		var req agent.ValidateRequest
@@ -800,7 +803,6 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			// NOTE: This is a serious error because if we can't decode the body then
 			// we can't set the sessionID on the resp so the ui won't recieve the message,
 			// so it will hang forever.
-			evt.Commit()
 			return fmt.Errorf("critical error parsing validation request: %w", err)
 		}
 		result, err := s.onValidate(req)
@@ -822,9 +824,9 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 		}
 		s.eventPublish(s.validate.ch, res, headers)
 		if err != nil {
-			log.Error(s.logger, "sent validation response with error", "result", result, "err", err.Error(), "headers", headers)
+			log.Error(logger, "sent validation response with error", "result", result, "err", err.Error(), "headers", headers)
 		} else {
-			log.Info(s.logger, "sent validation response", "result", result, "headers", headers)
+			log.Info(logger, "sent validation response", "result", result, "headers", headers)
 		}
 	case agent.Oauth1RequestModelName.String():
 		var req agent.Oauth1Request
@@ -832,7 +834,6 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			// NOTE: This is a serious error because if we can't decode the body then
 			// we can't set the sessionID on the resp so the ui won't recieve the message,
 			// so it will hang forever.
-			evt.Commit()
 			return fmt.Errorf("critical error parsing oauth1 request: %w", err)
 		}
 		token, secret, err := s.onOauth1(req)
@@ -855,9 +856,9 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 		}
 		s.eventPublish(s.validate.ch, res, headers)
 		if err != nil {
-			log.Error(s.logger, "sent oauth1 response with error", "err", err.Error(), "headers", headers)
+			log.Error(logger, "sent oauth1 response with error", "err", err.Error(), "headers", headers)
 		} else {
-			log.Info(s.logger, "sent oauth1 response", "headers", headers)
+			log.Info(logger, "sent oauth1 response", "headers", headers)
 		}
 	case agent.Oauth1UserIdentityRequestModelName.String():
 		var req agent.Oauth1UserIdentityRequest
@@ -865,7 +866,6 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			// NOTE: This is a serious error because if we can't decode the body then
 			// we can't set the sessionID on the resp so the ui won't recieve the message,
 			// so it will hang forever.
-			evt.Commit()
 			return fmt.Errorf("critical error parsing oauth1 identity request: %w", err)
 		}
 		identity, err := s.onOauth1Identity(req)
@@ -886,10 +886,12 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			Error:                 errmsg,
 			Success:               err == nil,
 			RefType:               req.RefType,
-			RefID:                 identity.RefID,
 			Identity:              identityField,
 			IntegrationInstanceID: req.IntegrationInstanceID,
 			SessionID:             req.SessionID,
+		}
+		if identity != nil {
+			res.RefID = identity.RefID
 		}
 		headers := map[string]string{
 			"ref_type":    req.RefType,
@@ -901,55 +903,51 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 		}
 		s.eventPublish(s.validate.ch, res, headers)
 		if err != nil {
-			log.Error(s.logger, "sent oauth1 identity response with error", "err", err.Error(), "headers", headers)
+			log.Error(logger, "sent oauth1 identity response with error", "err", err.Error(), "headers", headers)
 		} else {
-			log.Info(s.logger, "sent oauth1 identity response", "headers", headers, "identity", identity)
+			log.Info(logger, "sent oauth1 identity response", "headers", headers, "identity", identity)
 		}
 	case agent.ExportModelName.String():
 		var req agent.Export
 		if err := json.Unmarshal([]byte(evt.Data), &req); err != nil {
-			log.Fatal(s.logger, "error parsing export event", "err", err)
+			log.Fatal(logger, "error parsing export event", "err", err)
 		}
 		if req.Integration.Location.String() != location {
-			log.Info(s.logger, "skipping export request, location of integration does not match agent location", "integration", req.Integration.Location.String(), "agent", location)
+			log.Info(logger, "skipping export request, location of integration does not match agent location", "integration", req.Integration.Location.String(), "agent", location)
 			break
 		}
 		if time.Since(evt.Timestamp) > time.Minute*5 {
-			log.Info(s.logger, "skipping export request, too old", "age", time.Since(evt.Timestamp), "id", evt.ID)
+			log.Info(logger, "skipping export request, too old", "age", time.Since(evt.Timestamp), "id", evt.ID)
 			break
 		}
 		cl, err := s.newGraphqlClient(req.CustomerID)
 		if err != nil {
-			evt.Commit()
 			return fmt.Errorf("error creating graphql client: %w", err)
 		}
 		instanceID := *req.IntegrationInstanceID
 		instance, err := agent.FindIntegrationInstance(cl, instanceID)
 		if err != nil {
-			evt.Commit()
 			return fmt.Errorf("error finding integration instance (%v): %w", instanceID, err)
 		}
 		if instance == nil {
-			evt.Commit()
-			log.Info(s.logger, "skipping export request because the integration instance no longer exists in the db", "id", instanceID)
+			log.Info(logger, "skipping export request because the integration instance no longer exists in the db", "id", instanceID)
 			return nil
 		}
 		if !instance.Active {
-			evt.Commit()
-			log.Info(s.logger, "skipping export request because the integration instance is no longer active", "id", instanceID)
+			log.Info(logger, "skipping export request because the integration instance is no longer active", "id", instanceID)
 			return nil
 		}
 		// update the integration state to acknowledge that we are exporting
 		vars := make(graphql.Variables)
 		vars[agent.IntegrationInstanceModelStateColumn] = agent.IntegrationInstanceStateExporting
 		if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, instanceID, vars, false); err != nil {
-			log.Error(s.logger, "error updating agent integration", "err", err, "id", instanceID)
+			log.Error(logger, "error updating agent integration", "err", err, "id", instanceID)
 		}
 		s.startExportLiveness(req)
 		defer s.stopExportLiveness()
 		var errmessage *string
-		if err := s.handleExport(s.logger, cl, req); err != nil {
-			log.Error(s.logger, "error running export request", "err", err)
+		if err := s.handleExport(logger, cl, req); err != nil {
+			log.Error(logger, "error running export request", "err", err)
 			errmessage = sdk.StringPointer(err.Error())
 		}
 		// update the db with our new integration state
@@ -965,7 +963,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			vars[agent.IntegrationInstanceModelErrorDateColumn] = datetime.NewDateFromEpoch(0)
 		}
 		if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, instanceID, vars, false); err != nil {
-			log.Error(s.logger, "error updating agent integration", "err", err, "id", instanceID)
+			log.Error(logger, "error updating agent integration", "err", err, "id", instanceID)
 		}
 		vars = make(graphql.Variables)
 		ts := time.Now()
@@ -978,10 +976,9 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			vars[agent.IntegrationInstanceStatModelLastHistoricalCompletedDateColumn] = dt
 		}
 		if err := agent.ExecIntegrationInstanceStatSilentUpdateMutation(cl, agent.NewIntegrationInstanceStatID(instanceID), vars, false); err != nil {
-			log.Error(s.logger, "error updating agent integration stat", "err", err, "id", instanceID)
+			log.Error(logger, "error updating agent integration stat", "err", err, "id", instanceID)
 		}
 	}
-	evt.Commit()
 	return nil
 }
 
@@ -990,12 +987,10 @@ func (s *Server) onWebhook(evt event.SubscriptionEvent, refType string, location
 	customerID := evt.Headers["customer_id"]
 	logger := log.With(s.logger, "customer_id", customerID)
 	if customerID == "" {
-		evt.Commit()
 		return errors.New("webhook missing customer id")
 	}
 	integrationInstanceID := evt.Headers["integration_instance_id"]
 	if integrationInstanceID == "" {
-		evt.Commit()
 		return errors.New("webhook missing integration id")
 	}
 	switch evt.Model {
@@ -1006,7 +1001,6 @@ func (s *Server) onWebhook(evt event.SubscriptionEvent, refType string, location
 		}
 		wehbookURL := evt.Headers["webhook_url"]
 		if wehbookURL == "" {
-			evt.Commit()
 			return errors.New("webhook missing webhook_url")
 		}
 		cl, err := graphql.NewClient(
@@ -1016,7 +1010,6 @@ func (s *Server) onWebhook(evt event.SubscriptionEvent, refType string, location
 			api.BackendURL(api.GraphService, s.config.Channel),
 		)
 		if err != nil {
-			evt.Commit()
 			return fmt.Errorf("error creating graphql client: %w", err)
 		}
 		var errmessage *string
@@ -1035,57 +1028,62 @@ func (s *Server) onWebhook(evt event.SubscriptionEvent, refType string, location
 			}
 		}
 	}
-	evt.Commit()
 	return nil
 }
 
 func (s *Server) onMutation(evt event.SubscriptionEvent, refType string, location string) error {
 	log.Debug(s.logger, "received mutation event", "evt", evt)
+	customerID := evt.Headers["customer_id"]
+	logger := log.With(s.logger, "customer_id", customerID)
 	switch evt.Model {
 	case agent.MutationModelName.String():
 		var m agent.Mutation
 		if err := json.Unmarshal([]byte(evt.Data), &m); err != nil {
-			log.Fatal(s.logger, "error parsing muation", "err", err)
+			log.Fatal(logger, "error parsing muation", "err", err)
 		}
 		if m.IntegrationInstanceID == nil {
-			log.Error(s.logger, "mutation event is missing integration instance id, skipping")
+			log.Error(logger, "mutation event is missing integration instance id, skipping")
 			break
 		}
 		cl, err := s.newGraphqlClient(m.CustomerID)
 		if err != nil {
-			log.Error(s.logger, "error creating graphql client", "err',err")
+			log.Error(logger, "error creating graphql client", "err',err")
 		}
 		var errmessage *string
 		// TODO(robin): maybe scrub some event-api related fields out of the headers
-		if err := s.handleMutation(s.logger, cl, *m.IntegrationInstanceID, m.CustomerID, evt.Headers["ref_id"], refType, m); err != nil {
-			log.Error(s.logger, "error running mutation", "err", err)
+		mr, err := s.handleMutation(logger, cl, *m.IntegrationInstanceID, m.CustomerID, refType, m)
+		if err != nil {
+			log.Error(logger, "error running mutation", "err", err)
 			errmessage = sdk.StringPointer(err.Error())
 		}
-		go func() {
-			// send the response to the mutation, but we need to do this on a separate go routine
-			var resp agent.MutationResponse
-			resp.ID = agent.NewMutationResponseID(m.CustomerID)
-			resp.CustomerID = m.CustomerID
-			resp.IntegrationInstanceID = m.IntegrationInstanceID
-			resp.Error = errmessage
-			resp.Success = errmessage == nil
+		// send the response to the mutation, but we need to do this on a separate go routine
+		var resp agent.MutationResponse
+		resp.ID = agent.NewMutationResponseID(m.CustomerID)
+		resp.CustomerID = m.CustomerID
+		resp.IntegrationInstanceID = m.IntegrationInstanceID
+		resp.Error = errmessage
+		resp.Success = errmessage == nil
+		if mr == nil {
 			resp.RefID = m.RefID
-			resp.RefType = m.RefType
-			log.Debug(s.logger, "sending mutation response", "payload", resp.Stringify())
-			if err := s.mutation.ch.Publish(event.PublishEvent{
-				Object: &resp,
-				Headers: map[string]string{
-					"ref_type":                m.RefType,
-					"ref_id":                  m.RefID,
-					"integration_instance_id": *m.IntegrationInstanceID,
-				},
-				Logger: s.logger,
-			}); err != nil {
-				log.Error(s.logger, "error publishing mutation response event", "err", err)
+		} else {
+			if mr.RefID != nil {
+				resp.RefID = *mr.RefID
+			} else {
+				resp.RefID = m.RefID
 			}
-		}()
+			if mr.Properties != nil {
+				resp.Properties = sdk.StringPointer(sdk.Stringify(mr.Properties))
+			}
+			resp.URL = mr.URL
+			resp.EntityID = mr.EntityID
+			resp.RefType = m.RefType
+		}
+		s.eventPublish(s.mutation.ch, &resp, map[string]string{
+			"ref_type":                m.RefType,
+			"ref_id":                  m.RefID,
+			"integration_instance_id": *m.IntegrationInstanceID,
+		})
 	}
-	evt.Commit()
 	return nil
 }
 

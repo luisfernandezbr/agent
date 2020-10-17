@@ -16,10 +16,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/pinpt/agent.next/internal/util"
-	"github.com/pinpt/agent.next/runner"
-	"github.com/pinpt/agent.next/sdk"
-	"github.com/pinpt/agent.next/sysinfo"
+	"github.com/pinpt/agent/v4/internal/util"
+	"github.com/pinpt/agent/v4/runner"
+	"github.com/pinpt/agent/v4/sdk"
+	"github.com/pinpt/agent/v4/sysinfo"
 	"github.com/pinpt/go-common/v10/api"
 	"github.com/pinpt/go-common/v10/datetime"
 	"github.com/pinpt/go-common/v10/event"
@@ -77,7 +77,7 @@ func getIntegration(ctx context.Context, logger log.Logger, channel string, dir 
 }
 
 func startIntegration(ctx context.Context, logger log.Logger, integrationExecutable string, cmdargs []string) (*exec.Cmd, error) {
-	log.Info(logger, "starting", "file", integrationExecutable, "args", cmdargs)
+	log.Info(logger, "starting", "file", integrationExecutable)
 	cm := exec.CommandContext(ctx, integrationExecutable, cmdargs...)
 	cm.Stdout = os.Stdout
 	cm.Stderr = os.Stderr

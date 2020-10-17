@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 
 	"github.com/jhaynie/go-vcr/v2/recorder"
-	"github.com/pinpt/agent.next/internal/graphql"
-	"github.com/pinpt/agent.next/internal/http"
-	"github.com/pinpt/agent.next/sdk"
+	"github.com/pinpt/agent/v4/internal/graphql"
+	"github.com/pinpt/agent/v4/internal/http"
+	"github.com/pinpt/agent/v4/sdk"
 	"github.com/pinpt/go-common/v10/api"
 	"github.com/pinpt/go-common/v10/fileutil"
 	"github.com/pinpt/go-common/v10/httpdefaults"

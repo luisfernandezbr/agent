@@ -5,11 +5,11 @@ on:
     branches:
       - master
     tags:
-      - 'v*'
+      - "v*"
   pull_request:
 
 env:
-  IMAGE_NAME: agent.next
+  IMAGE_NAME: agent
 
 jobs:
   build:
@@ -27,23 +27,23 @@ jobs:
 
       - name: Build
         run: go build .
-  
+
   build-docker:
     name: Build Docker
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      
+
       - name: Login to Github CR
         run: echo "${{ secrets.PP_GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u pinpointbot --password-stdin
 
       - name: Build Docker
         run: docker build . --file Dockerfile --tag $IMAGE_NAME
-      
+
       - name: Push image
         run: |
           # TODO: port to ghcr
-          IMAGE_ID=docker.pkg.github.com/pinpt/agent.next/$IMAGE_NAME          
+          IMAGE_ID=docker.pkg.github.com/pinpt/agent/$IMAGE_NAME          
 
           echo TAG=${{ github.sha }}
           echo IMAGE_ID=$IMAGE_ID
@@ -59,17 +59,17 @@ jobs:
       - build-docker
     steps:
       - uses: actions/checkout@v2
-      
+
       - name: Login to Github CR
         run: echo "${{ secrets.PP_GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u pinpointbot --password-stdin
 
       - name: Pull Image
-        run: docker pull docker.pkg.github.com/pinpt/agent.next/$IMAGE_NAME:${{ github.sha }}
-      
+        run: docker pull docker.pkg.github.com/pinpt/agent/$IMAGE_NAME:${{ github.sha }}
+
       - name: Push image
         run: |
-          IMAGE_ID=docker.pkg.github.com/pinpt/agent.next/$IMAGE_NAME          
-          
+          IMAGE_ID=docker.pkg.github.com/pinpt/agent/$IMAGE_NAME          
+
           echo ${{ github.ref }}
 
           # Strip git ref prefix from version
@@ -78,11 +78,12 @@ jobs:
           # Strip "v" prefix from tag name
           [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
 
-          # Use Docker `latest` tag convention
-          [ "$VERSION" == "master" ] && VERSION=latest
+          if [ "$VERSION" != "master" ]; then
+            echo pushing $IMAGE_ID:$VERSION
+            docker tag $IMAGE_ID:${{ github.sha }} $IMAGE_ID:$VERSION
+            docker push $IMAGE_ID:$VERSION
+          fi
 
-          echo VERSION=$VERSION
-          echo IMAGE_ID=$IMAGE_ID
-
-          docker tag docker.pkg.github.com/pinpt/agent.next/$IMAGE_NAME:${{ github.sha }} $IMAGE_ID:$VERSION
-          docker push $IMAGE_ID:$VERSION
+          echo pushing $IMAGE_ID:latest
+          docker tag $IMAGE_ID:${{ github.sha }} $IMAGE_ID:latest
+          docker push $IMAGE_ID:latest

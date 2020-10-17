@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/pinpt/agent.next/sdk"
+	"github.com/pinpt/agent/v4/sdk"
 	pjson "github.com/pinpt/go-common/v10/json"
 )
 

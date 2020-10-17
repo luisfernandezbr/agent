@@ -1,7 +1,9 @@
 package dev
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -10,8 +12,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/pinpt/agent.next/internal/util"
-	"github.com/pinpt/agent.next/sdk"
+	"github.com/pinpt/agent/v4/internal/util"
+	"github.com/pinpt/agent/v4/sdk"
 	"github.com/pinpt/go-common/v10/api"
 	"github.com/pinpt/go-common/v10/datetime"
 	"github.com/pinpt/go-common/v10/fileutil"
@@ -20,6 +22,8 @@ import (
 	pos "github.com/pinpt/go-common/v10/os"
 	"github.com/spf13/cobra"
 )
+
+// TODO (Pedro): A lot of this code is very similar to the one in cmd/dev - we should try to consolidate it
 
 type devConfig struct {
 	CustomerID       string    `json:"customer_id"`
@@ -77,18 +81,57 @@ func loadDevConfig(channel string) (*devConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	if fileutil.FileExists(fn) {
-		of, err := os.Open(fn)
-		if err != nil {
-			return nil, fmt.Errorf("error opening %s: %w", fn, err)
-		}
-		defer of.Close()
-		if err := json.NewDecoder(of).Decode(&c); err != nil {
-			return nil, fmt.Errorf("error decoding %s: %w", fn, err)
-		}
-		return &c, nil
+	if !fileutil.FileExists(fn) {
+		return nil, fmt.Errorf("config file %s does not exist", fn)
 	}
+	of, err := os.Open(fn)
+	if err != nil {
+		return nil, fmt.Errorf("error opening %s: %w", fn, err)
+	}
+	defer of.Close()
+	if err := json.NewDecoder(of).Decode(&c); err != nil {
+		return nil, fmt.Errorf("error decoding %s: %w", fn, err)
+	}
+
+	valid, err := validateConfig(&c, channel)
+	if err != nil {
+		return &c, fmt.Errorf("error vlidating config file. err %v", err)
+	}
+	if !valid {
+		return &c, errors.New("config file no longer valid")
+	}
+
 	return &c, nil
+}
+
+func validateConfig(config *devConfig, channel string) (bool, error) {
+	var resp struct {
+		Expired bool `json:"expired"`
+		Valid   bool `json:"valid"`
+	}
+	res, err := api.Get(context.Background(), channel, api.AuthService, "/validate?customer_id="+config.CustomerID, config.APIKey)
+	if err != nil {
+		return false, err
+	}
+	defer res.Body.Close()
+	if err := json.NewDecoder(res.Body).Decode(&resp); err != nil {
+		return false, err
+	}
+	if !resp.Expired {
+		return true, nil
+	}
+	if resp.Expired {
+		newToken, err := util.RefreshOAuth2Token(http.DefaultClient, channel, "pinpoint", config.RefreshKey)
+		if err != nil {
+			return false, err
+		}
+		config.APIKey = newToken // update the new token
+		return true, nil
+	}
+	if resp.Valid {
+		return false, fmt.Errorf("the apikey or refresh token is no longer valid")
+	}
+	return false, nil
 }
 
 // LoginCmd represents the login command

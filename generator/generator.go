@@ -1,7 +1,11 @@
 package generator
 
 import (
+	"bytes"
+	"go/format"
+	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/template"
@@ -47,6 +51,7 @@ type Info struct {
 	TitleCaseName string
 	LowerCaseName string
 	Date          string
+	GitTag        string
 }
 
 // Generate generates a new project
@@ -92,7 +97,7 @@ func Generate(path string, info Info) error {
 	info.TitleCaseName = strings.Title(info.Name)
 	info.LowerCaseName = strings.ToLower(info.Name)
 	info.Date = time.Now().String()
-
+	info.GitTag = gitTag
 	for _, name := range AssetNames() {
 		// trim off template/
 		thename := strings.Replace(name[9:], ".tmpl", "", -1)
@@ -125,11 +130,25 @@ func generate(path string, tmplfile string, info Info) error {
 	}
 	fn := filepath.Join(path, tmplfile)
 	os.MkdirAll(filepath.Dir(fn), 0700)
-	file, err := os.Create(fn)
-	if err != nil {
+	var tpl bytes.Buffer
+	if err := tmpl.Execute(&tpl, info); err != nil {
 		return err
 	}
-	defer file.Close()
-	return tmpl.Execute(file, info)
-
+	if strings.HasSuffix(tmplfile, ".go") {
+		b, err = format.Source(tpl.Bytes())
+		if err != nil {
+			return err
+		}
+		if err := ioutil.WriteFile(fn, b, 0644); err != nil {
+			return err
+		}
+		if err := exec.Command("goimports", "-w", fn).Run(); err != nil {
+			return err
+		}
+	} else {
+		if err := ioutil.WriteFile(fn, tpl.Bytes(), 0644); err != nil {
+			return err
+		}
+	}
+	return nil
 }

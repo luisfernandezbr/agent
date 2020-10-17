@@ -78,6 +78,7 @@ func (s *Subscriber) run() {
 		if err := s.cb(event, s.refType, s.location); err != nil {
 			log.Error(s.logger, "error from callback", "err", err)
 		}
+		event.Commit()
 	}
 }
 
@@ -109,7 +110,6 @@ func NewEventSubscriber(config Config, topics []string, filters *event.Subscript
 		APIKey:            config.APIKey,
 		DisableAutoCommit: true,
 		Channel:           config.Channel,
-		DisablePing:       true,
 		Filter:            filters,
 	})
 	if err != nil {

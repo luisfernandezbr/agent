@@ -2,7 +2,7 @@
 
 package cmd
 
-import "github.com/pinpt/agent.next/cmd/dev"
+import "github.com/pinpt/agent/v4/cmd/dev"
 
 func init() {
 	rootCmd.AddCommand(

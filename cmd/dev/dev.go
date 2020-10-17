@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"syscall"
 	"time"
 
@@ -18,7 +17,7 @@ import (
 
 func buildIntegration(logger log.Logger, distDir, integrationDir string) string {
 	integrationDir, _ = filepath.Abs(integrationDir)
-	integration := strings.Replace(filepath.Base(integrationDir), "agent.next.", "", -1)
+	integration := filepath.Base(integrationDir)
 	fp := filepath.Join(integrationDir, "integration.go")
 	if !fileutil.FileExists(fp) {
 		log.Fatal(logger, "couldn't find the integration at "+fp)
@@ -54,7 +53,7 @@ func createDevCommand(name string, cmdname string, short string, inputRequired b
 				log.Info(logger, "completed", "duration", time.Since(started).String())
 			}()
 
-			distDir := filepath.Join(os.TempDir(), "agent.next")
+			distDir := filepath.Join(os.TempDir(), "agent")
 			integrationFile := buildIntegration(logger, distDir, integrationDir)
 
 			channel, _ := cmd.Flags().GetString("channel")
@@ -69,6 +68,17 @@ func createDevCommand(name string, cmdname string, short string, inputRequired b
 				"--channel", channel,
 				"--log-level", "debug",
 			})
+			secret, _ := cmd.Flags().GetString("secret")
+			if secret == "" {
+				conf, err := loadDevConfig(channel)
+				if err == nil {
+					devargs = append(devargs, "--apikey", conf.APIKey)
+				} else if channel != "dev" {
+					log.Debug(logger, "unable to use apikey", "err", err)
+				}
+			} else {
+				devargs = append(devargs, "--secret", secret)
+			}
 			if inputRequired {
 				data, _ := cmd.Flags().GetString("input")
 				if data == "" {
@@ -129,11 +139,6 @@ var DevCmd = createDevCommand("dev", "dev-export", "run an integration in develo
 		devargs = append(devargs, "--webhook")
 	}
 
-	secret, _ := cmd.Flags().GetString("secret")
-	if secret != "" {
-		devargs = append(devargs, "--secret", secret)
-	}
-
 	consoleout, _ := cmd.Flags().GetBool("console-out")
 	if consoleout {
 		devargs = append(devargs, "--console-out")
@@ -155,12 +160,13 @@ var DevCmd = createDevCommand("dev", "dev-export", "run an integration in develo
 var webHookCmd = createDevCommand("webhook", "dev-webhook", "run an integration in development mode and feed it a webhook", true, func(cmd *cobra.Command, args []string) []string {
 	refID, _ := cmd.Flags().GetString("ref-id")
 	webhookURL, _ := cmd.Flags().GetString("webhook-url")
-	secret, _ := cmd.Flags().GetString("secret")
-	return append(args, "--ref-id", refID, "--webhook-url", webhookURL, "--secret", secret)
+	return append(args, "--ref-id", refID, "--webhook-url", webhookURL)
 })
 
 var mutationCmd = createDevCommand("mutation", "dev-mutation", "run an integration in development mode and feed it a mutation", true, func(cmd *cobra.Command, args []string) []string {
-	return args
+	customerID, _ := cmd.Flags().GetString("customer-id")
+	integrationInstanceID, _ := cmd.Flags().GetString("integration-instance-id")
+	return append(args, "--customer-id", customerID, "--integration-instance-id", integrationInstanceID)
 })
 
 func init() {
@@ -177,10 +183,14 @@ func init() {
 	DevCmd.Flags().String("replay", "", "replay all interactions from directory specified")
 	DevCmd.AddCommand(webHookCmd)
 	DevCmd.AddCommand(mutationCmd)
+	DevCmd.Flags().String("customer-id", "1234", "the customer id to use")
+	DevCmd.Flags().String("integration-instance-id", "1", "the integration instance id to use")
 	webHookCmd.Flags().StringArray("header", []string{}, "headers key/value pair such as a=b")
 	webHookCmd.Flags().String("input", "", "json body of a webhook payload, as a string or file")
 	webHookCmd.Flags().String("ref-id", "9999", "the ref_id value")
 	webHookCmd.Flags().String("webhook-url", "http://example.com/hook/123456", "the webhook url value")
 
 	mutationCmd.Flags().String("input", "", "json body of a mutation payload, as a string or file")
+	mutationCmd.Flags().String("customer-id", "1234", "the customer id to use")
+	mutationCmd.Flags().String("integration-instance-id", "1", "the integration instance id to use")
 }
