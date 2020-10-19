@@ -98,6 +98,11 @@ func (e *mutation) User() sdk.MutationUser {
 	return e.user
 }
 
+// Logger the logger object to use in the integration
+func (e *mutation) Logger() sdk.Logger {
+	return e.logger
+}
+
 // Config is details for the configuration
 type Config struct {
 	Ctx                   context.Context

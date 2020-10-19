@@ -15,4 +15,6 @@ type Export interface {
 	Pipe() Pipe
 	// Historical if true, the integration should perform a full historical export
 	Historical() bool
+	// Logger the logger object to use in the integration
+	Logger() Logger
 }

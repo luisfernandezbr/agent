@@ -18,4 +18,6 @@ type Validate interface {
 	Config() Config
 	// State is a customer specific state object for this integration and customer
 	State() State
+	// Logger the logger object to use in the integration
+	Logger() Logger
 }

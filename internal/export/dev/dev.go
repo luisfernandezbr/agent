@@ -79,6 +79,11 @@ func (e *export) Historical() bool {
 	return e.historical
 }
 
+// Logger the logger object to use in the integration
+func (e *export) Logger() sdk.Logger {
+	return e.logger
+}
+
 // New will return an sdk.Export
 func New(logger log.Logger, config sdk.Config, state sdk.State, jobID string, customerID string, integrationInstanceID string, refType string, historical bool, pipe sdk.Pipe) (sdk.Export, error) {
 	return &export{

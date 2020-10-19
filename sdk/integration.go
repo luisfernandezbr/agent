@@ -22,5 +22,5 @@ type Integration interface {
 	// AutoConfigure is called when a cloud integration has requested to be auto configured
 	AutoConfigure(autoconfig AutoConfigure) (*Config, error)
 	// Stop is called when the integration is shutting down for cleanup
-	Stop() error
+	Stop(logger Logger) error
 }

@@ -61,7 +61,6 @@ type Config struct {
 
 // Server is the event loop server portion of the agent
 type Server struct {
-	logger   log.Logger
 	config   Config
 	dbchange *Subscriber
 	webhook  *Subscriber
@@ -167,13 +166,13 @@ func (s *Server) fetchConfig(client graphql.Client, integrationInstanceID string
 
 type cleanupFunc func()
 
-func (s *Server) toInstance(integration *agent.IntegrationInstance) (*sdk.Instance, cleanupFunc, error) {
+func (s *Server) toInstance(logger sdk.Logger, integration *agent.IntegrationInstance) (*sdk.Instance, cleanupFunc, error) {
 	state, err := s.newState(integration.CustomerID, integration.ID)
 	if err != nil {
 		return nil, nil, err
 	}
 	dir := s.newTempDir("")
-	pipe := s.newPipe(s.logger, dir, integration.CustomerID, "", integration.ID)
+	pipe := s.newPipe(logger, dir, integration.CustomerID, "", integration.ID)
 	cleanup := func() {
 		pipe.Close()
 		os.RemoveAll(dir)
@@ -182,13 +181,13 @@ func (s *Server) toInstance(integration *agent.IntegrationInstance) (*sdk.Instan
 	if err != nil {
 		return nil, nil, err
 	}
-	instance := sdk.NewInstance(*config, state, pipe, integration.CustomerID, integration.RefType, integration.ID)
+	instance := sdk.NewInstance(*config, logger, state, pipe, integration.CustomerID, integration.RefType, integration.ID)
 	return instance, cleanup, nil
 }
 
-func (s *Server) handleAddIntegration(integration *agent.IntegrationInstance) error {
-	log.Info(s.logger, "running enroll integration", "id", integration.ID, "customer_id", integration.CustomerID)
-	instance, cleanup, err := s.toInstance(integration)
+func (s *Server) handleAddIntegration(logger sdk.Logger, integration *agent.IntegrationInstance) error {
+	log.Info(logger, "running enroll integration", "id", integration.ID)
+	instance, cleanup, err := s.toInstance(logger, integration)
 	if err != nil {
 		return err
 	}
@@ -199,13 +198,13 @@ func (s *Server) handleAddIntegration(integration *agent.IntegrationInstance) er
 	return nil
 }
 
-func (s *Server) handleRemoveIntegration(integration *agent.IntegrationInstance) error {
-	instance, cleanup, err := s.toInstance(integration)
+func (s *Server) handleRemoveIntegration(logger sdk.Logger, integration *agent.IntegrationInstance) error {
+	instance, cleanup, err := s.toInstance(logger, integration)
 	if err != nil {
 		return err
 	}
 	defer cleanup()
-	log.Info(s.logger, "running dismiss integration", "id", integration.ID, "customer_id", integration.CustomerID)
+	log.Info(logger, "running dismiss integration", "id", integration.ID, "customer_id", integration.CustomerID)
 	if err := s.config.Integration.Integration.Dismiss(*instance); err != nil {
 		return err
 	}
@@ -217,7 +216,7 @@ func (s *Server) handleExport(logger log.Logger, client graphql.Client, req agen
 		log.Error(logger, "received an export for an integration instance id that was nil, ignoring", "req", sdk.Stringify(req))
 		return nil
 	}
-	if err := s.handleEnroll(convertExportIntegrationInstance(req.Integration)); err != nil {
+	if err := s.handleEnroll(logger, convertExportIntegrationInstance(req.Integration)); err != nil {
 		return err
 	}
 	dir := s.newTempDir(req.JobID)
@@ -419,10 +418,10 @@ func makeEnrollCachekey(customerID string, integrationInstanceID string) string 
 	return "agent:" + customerID + ":" + integrationInstanceID
 }
 
-func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, location string) error {
+func (s *Server) onDBChange(logger sdk.Logger, evt event.SubscriptionEvent, refType string, location string) error {
 	if refType != s.config.Integration.Descriptor.RefType || location != s.location {
 		// skip db changes we're not targeting
-		log.Debug(s.logger, "skipping db change since we're not targeted", "need_location", s.location, "need_reftype", s.config.Integration.Descriptor.RefType, "location", location, "ref_type", refType)
+		log.Debug(logger, "skipping db change since we're not targeted", "need_location", s.location, "need_reftype", s.config.Integration.Descriptor.RefType, "location", location, "ref_type", refType)
 		return nil
 	}
 	ch, err := createDBChangeEvent(evt.Data)
@@ -445,7 +444,7 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 						val = 1
 					}
 				}
-				log.Debug(s.logger, "recieved db change for deleted integration", "id", integration.ID, "cachekey", cachekey, "val", val, "will_dismiss", val > 0)
+				log.Debug(logger, "recieved db change for deleted integration", "id", integration.ID, "cachekey", cachekey, "val", val, "will_dismiss", val > 0)
 				if val > 0 {
 					if integration.Location == agent.IntegrationInstanceLocationCloud {
 						// delete the integration cache key and then signal a removal
@@ -453,11 +452,11 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 					} else {
 						defer s.config.State.Delete(cachekey)
 					}
-					log.Info(s.logger, "an integration instance has been deleted", "id", integration.ID, "customer_id", integration.CustomerID)
-					if err := s.handleRemoveIntegration(integration); err != nil {
-						log.Error(s.logger, "error removing integration", "err", err, "id", integration.ID)
+					log.Info(logger, "an integration instance has been deleted", "id", integration.ID, "customer_id", integration.CustomerID)
+					if err := s.handleRemoveIntegration(logger, integration); err != nil {
+						log.Error(logger, "error removing integration", "err", err, "id", integration.ID)
 					}
-					log.Info(s.logger, "after removing the integration", "id", integration.ID, "customer_id", integration.CustomerID)
+					log.Info(logger, "after removing the integration", "id", integration.ID, "customer_id", integration.CustomerID)
 					// check to see if this is redis based state (will be nil) and if so, try and cleanup
 					if s.config.State == nil {
 						state, err := s.newState(integration.CustomerID, integration.ID)
@@ -466,18 +465,18 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 						}
 						// check to see if this deletable state and if so, we delete all the keys
 						if ds, ok := state.(deletableState); ok {
-							log.Info(s.logger, "cleaning up state", "id", integration.ID, "customer_id", integration.CustomerID)
+							log.Info(logger, "cleaning up state", "id", integration.ID, "customer_id", integration.CustomerID)
 							if err := ds.DeleteAll(); err != nil {
-								log.Error(s.logger, "error deleting the integration state", "err", err, "id", integration.ID)
+								log.Error(logger, "error deleting the integration state", "err", err, "id", integration.ID)
 							}
 						}
 					}
 					// go through and cleanup some of our other tables
 					gql, err := s.newGraphqlClient(integration.CustomerID)
 					if err != nil {
-						log.Error(s.logger, "error creating graphql client", "err", err)
+						log.Error(logger, "error creating graphql client", "err", err)
 					} else {
-						log.Info(s.logger, "cleaning up integration repo/project errors", "id", integration.ID, "customer_id", integration.CustomerID)
+						log.Info(logger, "cleaning up integration repo/project errors", "id", integration.ID, "customer_id", integration.CustomerID)
 						started := time.Now()
 						async := sdk.NewAsync(5)
 						var rq sourcecode.RepoErrorQuery
@@ -486,7 +485,7 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 								var edge = _edge
 								async.Do(func() error {
 									if err := sourcecode.ExecRepoErrorDeleteMutation(gql, edge.Node.ID); err != nil {
-										log.Error(s.logger, "error deleting the integration repo error model", "err", err, "integration_instance_id", integration.ID, "id", edge.Node.ID)
+										log.Error(logger, "error deleting the integration repo error model", "err", err, "integration_instance_id", integration.ID, "id", edge.Node.ID)
 									}
 									return nil
 								})
@@ -499,7 +498,7 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 								var edge = _edge
 								async.Do(func() error {
 									if err := work.ExecProjectErrorDeleteMutation(gql, edge.Node.ID); err != nil {
-										log.Error(s.logger, "error deleting the integration project error model", "err", err, "integration_instance_id", integration.ID, "id", edge.Node.ID)
+										log.Error(logger, "error deleting the integration project error model", "err", err, "integration_instance_id", integration.ID, "id", edge.Node.ID)
 									}
 									return nil
 								})
@@ -507,7 +506,7 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 							return true, nil
 						})
 						async.Wait()
-						log.Info(s.logger, "completed clean up of integration repo/project errors", "duration", time.Since(started), "id", integration.ID, "customer_id", integration.CustomerID)
+						log.Info(logger, "completed clean up of integration repo/project errors", "duration", time.Since(started), "id", integration.ID, "customer_id", integration.CustomerID)
 					}
 				}
 			} else if (ch.Action == Create || ch.Action == Update) &&
@@ -527,11 +526,11 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 				if err != nil {
 					return err
 				}
-				p := s.newPipe(s.logger, dir, customerID, jobID, integrationInstanceID)
+				p := s.newPipe(logger, dir, customerID, jobID, integrationInstanceID)
 				defer p.Close()
 				e, err := eventAPIautoconfig.New(eventAPIautoconfig.Config{
 					Ctx:                   s.config.Ctx,
-					Logger:                s.logger,
+					Logger:                logger,
 					Config:                config,
 					State:                 state,
 					CustomerID:            customerID,
@@ -542,14 +541,14 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 					Secret:                s.config.Secret,
 					APIKey:                s.config.APIKey,
 				})
-				log.Info(s.logger, "running auto configure")
+				log.Info(logger, "running auto configure")
 				newconfig, err := s.config.Integration.Integration.AutoConfigure(e)
 				if err != nil {
 					return fmt.Errorf("error running integration auto configure: %w", err)
 				}
-				log.Debug(s.logger, "flushing state")
+				log.Debug(logger, "flushing state")
 				if err := state.Flush(); err != nil {
-					log.Error(s.logger, "error flushing state", "err", err)
+					log.Error(logger, "error flushing state", "err", err)
 				}
 				gql, err := s.newGraphqlClient(integration.CustomerID)
 				if err != nil {
@@ -565,7 +564,7 @@ func (s *Server) onDBChange(evt event.SubscriptionEvent, refType string, locatio
 				if err := agent.ExecIntegrationInstanceSilentUpdateMutation(gql, integration.ID, input, false); err != nil {
 					return fmt.Errorf("error updating agent instance: %w", err)
 				}
-				log.Info(s.logger, "auto configure completed", "duration", time.Since(started), "customer_id", customerID)
+				log.Info(logger, "auto configure completed", "duration", time.Since(started), "customer_id", customerID)
 			}
 		}
 	}
@@ -579,7 +578,7 @@ func convertExportIntegrationInstance(submodel agent.ExportIntegration) *agent.I
 }
 
 // handleEnroll will call enroll if the integration is new or has been reconfigured
-func (s *Server) handleEnroll(integrationInstance *agent.IntegrationInstance) error {
+func (s *Server) handleEnroll(logger log.Logger, integrationInstance *agent.IntegrationInstance) error {
 	cachekey := makeEnrollCachekey(integrationInstance.CustomerID, integrationInstance.ID)
 	hashcode := calculateIntegrationHashCode(integrationInstance)
 	iscloud := integrationInstance.Location == agent.IntegrationInstanceLocationCloud
@@ -602,7 +601,7 @@ func (s *Server) handleEnroll(integrationInstance *agent.IntegrationInstance) er
 	if !install {
 		// check if its changed configuration
 		install = res != hashcode
-		log.Debug(s.logger, "comparing integration hashcode on integration change", "hashcode", hashcode, "res", res, "install", install, "id", integrationInstance.ID)
+		log.Debug(logger, "comparing integration hashcode on integration change", "hashcode", hashcode, "res", res, "install", install, "id", integrationInstance.ID)
 	}
 	if install {
 		// update our hash key and then signal an addition
@@ -615,8 +614,8 @@ func (s *Server) handleEnroll(integrationInstance *agent.IntegrationInstance) er
 				return fmt.Errorf("error setting the cache key (%s) on the install: %w", cachekey, err)
 			}
 		}
-		log.Info(s.logger, "an integration instance has been added", "id", integrationInstance.ID, "customer_id", integrationInstance.CustomerID, "cachekey", cachekey, "hashcode", hashcode)
-		if err := s.handleAddIntegration(integrationInstance); err != nil {
+		log.Info(logger, "an integration instance has been added", "id", integrationInstance.ID, "customer_id", integrationInstance.CustomerID, "cachekey", cachekey, "hashcode", hashcode)
+		if err := s.handleAddIntegration(logger, integrationInstance); err != nil {
 			return fmt.Errorf("error adding integration instance (%s): %w", integrationInstance.ID, err)
 		}
 	}
@@ -650,23 +649,23 @@ func toResponseErr(err error) *string {
 }
 
 // eventPublish will publish a model on the subscription channel
-func (s *Server) eventPublish(ch *event.SubscriptionChannel, model datamodel.Model, headers map[string]string) {
+func (s *Server) eventPublish(logger sdk.Logger, ch *event.SubscriptionChannel, model datamodel.Model, headers map[string]string) {
 	// publish on another thread because we're inside s.event's cosumer loop
 	go func() {
-		log.Debug(s.logger, "publishing an event", "model", model, "headers", headers)
+		log.Debug(logger, "publishing an event", "model", model, "headers", headers)
 		ts := time.Now()
 		if err := ch.Publish(event.PublishEvent{
 			Object:  model,
 			Headers: headers,
-			Logger:  s.logger,
+			Logger:  logger,
 		}); err != nil {
-			log.Error(s.logger, "error publishing %s: %w", model.GetModelName(), err)
+			log.Error(logger, "error publishing %s: %w", model.GetModelName(), err)
 		}
-		log.Debug(s.logger, "publishing an event (sent)", "model", model, "headers", headers, "duration", time.Since(ts))
+		log.Debug(logger, "publishing an event (sent)", "model", model, "headers", headers, "duration", time.Since(ts))
 	}()
 }
 
-func (s *Server) onValidate(req agent.ValidateRequest) (*string, error) {
+func (s *Server) onValidate(logger sdk.Logger, req agent.ValidateRequest) (*string, error) {
 	cfg, err := newConfig(&req.Config)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing config: %w", err)
@@ -687,7 +686,7 @@ func (s *Server) onValidate(req agent.ValidateRequest) (*string, error) {
 	}
 	resp, err := s.config.Integration.Integration.Validate(eventAPIvalidate.NewValidate(
 		*cfg,
-		s.logger,
+		logger,
 		req.RefType,
 		req.CustomerID,
 		*req.IntegrationInstanceID,
@@ -709,8 +708,8 @@ func (s *Server) onValidate(req agent.ValidateRequest) (*string, error) {
 }
 
 // onOauth1 fetches the token and returns a requestToken and requestSecret
-func (s *Server) onOauth1(req agent.Oauth1Request) (string, string, error) {
-	log.Debug(s.logger, "on OAuth1 request", "req", sdk.Stringify(req))
+func (s *Server) onOauth1(logger sdk.Logger, req agent.Oauth1Request) (string, string, error) {
+	log.Debug(logger, "on OAuth1 request", "req", sdk.Stringify(req))
 	key, err := util.ParsePrivateKey(req.PrivateKey)
 	if err != nil {
 		return "", "", err
@@ -739,8 +738,8 @@ func (s *Server) onOauth1(req agent.Oauth1Request) (string, string, error) {
 }
 
 // onOauth1Identity fetches the oauth1 identity of a user
-func (s *Server) onOauth1Identity(req agent.Oauth1UserIdentityRequest) (*sdk.OAuth1Identity, error) {
-	log.Debug(s.logger, "on OAuth1 identity request", "req", sdk.Stringify(req))
+func (s *Server) onOauth1Identity(logger sdk.Logger, req agent.Oauth1UserIdentityRequest) (*sdk.OAuth1Identity, error) {
+	log.Debug(logger, "on OAuth1 identity request", "req", sdk.Stringify(req))
 	key, err := util.ParsePrivateKey(req.PrivateKey)
 	if err != nil {
 		return nil, err
@@ -752,7 +751,7 @@ func (s *Server) onOauth1Identity(req agent.Oauth1UserIdentityRequest) (*sdk.OAu
 	return nil, fmt.Errorf("error fulfilling the oauth1 identity request because the integration doesn't support it")
 }
 
-func (s *Server) makeExportStat(integrationInstanceID, customerID, jobID string) {
+func (s *Server) makeExportStat(logger sdk.Logger, integrationInstanceID, customerID, jobID string) {
 	if client, err := s.newGraphqlClient(customerID); err == nil {
 		id := agent.NewExportStatID(integrationInstanceID)
 		err := agent.ExecExportStatSilentUpdateMutation(client, id, graphql.Variables{
@@ -761,21 +760,21 @@ func (s *Server) makeExportStat(integrationInstanceID, customerID, jobID string)
 			agent.ExportStatModelCreatedDateColumn:           agent.ExportStatCreatedDate(datetime.NewDateNow()),
 		}, true)
 		if err != nil {
-			log.Error(s.logger, "error creating liveness record", "err", err)
+			log.Error(logger, "error creating liveness record", "err", err)
 		} else {
-			log.Debug(s.logger, "created export liveness record")
+			log.Debug(logger, "created export liveness record")
 		}
 	} else {
-		log.Error(s.logger, "error creating client for liveness", "err", err)
+		log.Error(logger, "error creating client for liveness", "err", err)
 	}
 }
 
-func (s *Server) startExportLiveness(export agent.Export) {
+func (s *Server) startExportLiveness(logger sdk.Logger, export agent.Export) {
 	s.ticker = time.NewTicker(time.Minute * 3)
-	s.makeExportStat(*export.IntegrationInstanceID, export.CustomerID, export.JobID)
+	s.makeExportStat(logger, *export.IntegrationInstanceID, export.CustomerID, export.JobID)
 	go func(integrationInstanceID, customerID, jobID string) {
 		for range s.ticker.C {
-			s.makeExportStat(integrationInstanceID, customerID, jobID)
+			s.makeExportStat(logger, integrationInstanceID, customerID, jobID)
 		}
 	}(*export.IntegrationInstanceID, export.CustomerID, export.JobID)
 }
@@ -784,14 +783,13 @@ func (s *Server) stopExportLiveness() {
 	s.ticker.Stop()
 }
 
-func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location string) error {
-	logger := s.logger
+func (s *Server) onEvent(logger sdk.Logger, evt event.SubscriptionEvent, refType string, location string) error {
 	var temp struct {
 		CustomerID string `json:"customer_id"`
 	}
 	if err := json.Unmarshal([]byte(evt.Data), &temp); err != nil {
 		// this should never ever happen, but just in case
-		log.Debug(s.logger, "could not get customer id")
+		log.Debug(logger, "could not get customer id")
 	} else {
 		logger = log.With(logger, "customer_id", temp.CustomerID, "ref_type", refType)
 	}
@@ -805,7 +803,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			// so it will hang forever.
 			return fmt.Errorf("critical error parsing validation request: %w", err)
 		}
-		result, err := s.onValidate(req)
+		result, err := s.onValidate(logger, req)
 		res := &agent.ValidateResponse{
 			CustomerID: req.CustomerID,
 			Error:      toResponseErr(err),
@@ -822,7 +820,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 		if req.EnrollmentID != nil {
 			headers["enrollment_id"] = *req.EnrollmentID
 		}
-		s.eventPublish(s.validate.ch, res, headers)
+		s.eventPublish(logger, s.validate.ch, res, headers)
 		if err != nil {
 			log.Error(logger, "sent validation response with error", "result", result, "err", err.Error(), "headers", headers)
 		} else {
@@ -836,7 +834,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			// so it will hang forever.
 			return fmt.Errorf("critical error parsing oauth1 request: %w", err)
 		}
-		token, secret, err := s.onOauth1(req)
+		token, secret, err := s.onOauth1(logger, req)
 		res := &agent.Oauth1Response{
 			CustomerID: req.CustomerID,
 			Error:      toResponseErr(err),
@@ -854,7 +852,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 		if req.EnrollmentID != nil {
 			headers["enrollment_id"] = *req.EnrollmentID
 		}
-		s.eventPublish(s.validate.ch, res, headers)
+		s.eventPublish(logger, s.validate.ch, res, headers)
 		if err != nil {
 			log.Error(logger, "sent oauth1 response with error", "err", err.Error(), "headers", headers)
 		} else {
@@ -868,7 +866,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 			// so it will hang forever.
 			return fmt.Errorf("critical error parsing oauth1 identity request: %w", err)
 		}
-		identity, err := s.onOauth1Identity(req)
+		identity, err := s.onOauth1Identity(logger, req)
 		var errmsg *string
 		if err != nil {
 			errmsg = sdk.StringPointer(err.Error())
@@ -901,7 +899,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 		if req.EnrollmentID != nil {
 			headers["enrollment_id"] = *req.EnrollmentID
 		}
-		s.eventPublish(s.validate.ch, res, headers)
+		s.eventPublish(logger, s.validate.ch, res, headers)
 		if err != nil {
 			log.Error(logger, "sent oauth1 identity response with error", "err", err.Error(), "headers", headers)
 		} else {
@@ -943,7 +941,7 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 		if err := agent.ExecIntegrationInstanceSilentUpdateMutation(cl, instanceID, vars, false); err != nil {
 			log.Error(logger, "error updating agent integration", "err", err, "id", instanceID)
 		}
-		s.startExportLiveness(req)
+		s.startExportLiveness(logger, req)
 		defer s.stopExportLiveness()
 		var errmessage *string
 		if err := s.handleExport(logger, cl, req); err != nil {
@@ -982,10 +980,10 @@ func (s *Server) onEvent(evt event.SubscriptionEvent, refType string, location s
 	return nil
 }
 
-func (s *Server) onWebhook(evt event.SubscriptionEvent, refType string, location string) error {
-	log.Debug(s.logger, "received webhook event", "evt", evt)
+func (s *Server) onWebhook(logger sdk.Logger, evt event.SubscriptionEvent, refType string, location string) error {
+	log.Debug(logger, "received webhook event", "evt", evt)
 	customerID := evt.Headers["customer_id"]
-	logger := log.With(s.logger, "customer_id", customerID)
+	logger = log.With(logger, "customer_id", customerID)
 	if customerID == "" {
 		return errors.New("webhook missing customer id")
 	}
@@ -997,7 +995,7 @@ func (s *Server) onWebhook(evt event.SubscriptionEvent, refType string, location
 	case web.HookModelName.String():
 		var wh web.Hook
 		if err := json.Unmarshal([]byte(evt.Data), &wh); err != nil {
-			log.Fatal(s.logger, "error parsing webhook", "err", err)
+			log.Fatal(logger, "error parsing webhook", "err", err)
 		}
 		wehbookURL := evt.Headers["webhook_url"]
 		if wehbookURL == "" {
@@ -1031,10 +1029,10 @@ func (s *Server) onWebhook(evt event.SubscriptionEvent, refType string, location
 	return nil
 }
 
-func (s *Server) onMutation(evt event.SubscriptionEvent, refType string, location string) error {
-	log.Debug(s.logger, "received mutation event", "evt", evt)
+func (s *Server) onMutation(logger sdk.Logger, evt event.SubscriptionEvent, refType string, location string) error {
+	log.Debug(logger, "received mutation event", "evt", evt)
 	customerID := evt.Headers["customer_id"]
-	logger := log.With(s.logger, "customer_id", customerID)
+	logger = log.With(logger, "customer_id", customerID)
 	switch evt.Model {
 	case agent.MutationModelName.String():
 		var m agent.Mutation
@@ -1079,7 +1077,7 @@ func (s *Server) onMutation(evt event.SubscriptionEvent, refType string, locatio
 			resp.EntityID = mr.EntityID
 			resp.RefType = m.RefType
 		}
-		s.eventPublish(s.mutation.ch, &resp, map[string]string{
+		s.eventPublish(logger, s.mutation.ch, &resp, map[string]string{
 			"ref_type":                m.RefType,
 			"ref_id":                  m.RefID,
 			"integration_instance_id": *m.IntegrationInstanceID,
@@ -1097,7 +1095,6 @@ func New(config Config) (*Server, error) {
 	}
 	server := &Server{
 		config:   config,
-		logger:   log.With(config.Logger, "pkg", "server"),
 		location: location.String(),
 	}
 	var err error

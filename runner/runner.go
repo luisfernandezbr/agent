@@ -172,6 +172,9 @@ func Main(integration sdk.Integration, args ...string) {
 			done := make(chan bool, 1)
 			shutdown := make(chan bool)
 			pos.OnExit(func(_ int) {
+				if err := integration.Stop(logger); err != nil {
+					log.Fatal(logger, "error stopping integration", "err", err)
+				}
 				log.Info(logger, "shutting down")
 				done <- true
 				<-shutdown
@@ -281,13 +284,17 @@ func Main(integration sdk.Integration, args ...string) {
 			}
 			defer pipe.Close()
 			historical, _ := cmd.Flags().GetBool("historical")
-			exp, err := devexport.New(logger, intconfig, stateobj, "9999", customerID, integrationInstanceID, descriptor.RefType, historical, pipe)
+			_logger := sdk.LogWith(logger, "customer_id", customerID)
+			exp, err := devexport.New(_logger, intconfig, stateobj, "9999", customerID, integrationInstanceID, descriptor.RefType, historical, pipe)
 			if err != nil {
-				log.Fatal(logger, "export failed", "err", err)
+				log.Fatal(_logger, "export failed", "err", err)
 			}
 			// TODO(robin): use context
 			_, cancel := context.WithCancel(context.Background())
 			pos.OnExit(func(_ int) {
+				if err := integration.Stop(logger); err != nil {
+					log.Fatal(logger, "error stopping integration", "err", err)
+				}
 				log.Info(logger, "shutting down")
 				cancel()
 				go func() {
@@ -394,6 +401,9 @@ func Main(integration sdk.Integration, args ...string) {
 			// TODO(robin): use context
 			_, cancel := context.WithCancel(context.Background())
 			pos.OnExit(func(_ int) {
+				if err := integration.Stop(logger); err != nil {
+					log.Fatal(logger, "error stopping integration", "err", err)
+				}
 				log.Info(logger, "shutting down")
 				cancel()
 				go func() {
@@ -492,9 +502,9 @@ func Main(integration sdk.Integration, args ...string) {
 			if err != nil {
 				log.Fatal(logger, "error creating mutation payload", "err", err)
 			}
-
+			_logger := sdk.LogWith(logger, "customer_id", customerID)
 			mutation := devmutation.New(
-				logger,
+				_logger,
 				intconfig,
 				stateobj,
 				customerID,
@@ -511,7 +521,10 @@ func Main(integration sdk.Integration, args ...string) {
 			// TODO(robin): use context
 			_, cancel := context.WithCancel(context.Background())
 			pos.OnExit(func(_ int) {
-				log.Info(logger, "shutting down")
+				if err := integration.Stop(logger); err != nil {
+					log.Fatal(logger, "error stopping integration", "err", err)
+				}
+				log.Info(_logger, "shutting down")
 				cancel()
 				go func() {
 					time.Sleep(time.Second)

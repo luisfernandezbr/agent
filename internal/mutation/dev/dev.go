@@ -95,6 +95,11 @@ func (e *mutation) User() sdk.MutationUser {
 	return e.user
 }
 
+// Logger the logger object to use in the integration
+func (e *mutation) Logger() sdk.Logger {
+	return e.logger
+}
+
 // New will return an sdk.mutation
 func New(
 	logger log.Logger,
