@@ -50,4 +50,8 @@ type WebHookManager interface {
 	Errored(customerID string, integrationInstanceID string, refType string, refID string, scope WebHookScope, err error)
 	// HookURL will return the webhook url
 	HookURL(customerID string, integrationInstanceID string, refType string, refID string, scope WebHookScope) (string, error)
+	// CreateSharedWebhook creates a webhook that multiplexes the inbound data to any integration instance with access to the given scope. This is useful for integrations like github
+	// where many people may have access to the same canonnical repo but all of them installing a webhook for the same data would be redundant. Using a shared webhook pinpoint
+	// will route an inbound webhook for this url to all integration instances with the same refType and refID exported.
+	CreateSharedWebhook(customerID string, integrationInstanceID string, refType string, refID string, scope WebHookScope) (string, error)
 }

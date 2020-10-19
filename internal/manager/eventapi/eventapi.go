@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	gohttp "net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -216,6 +217,29 @@ func (m *eventAPIManager) Create(customerID string, integrationInstanceID string
 		return url, err
 	}
 	return "", fmt.Errorf("failed to create webhook url: %w", err)
+}
+
+// CreateSharedWebhook creates a webhook that multiplexes the inbound data to any integration with access to the given repo. This is useful for integrations like github
+// where many people may have access to the same canonnical repo but all of them installing a webhook for the same data would be redundant. Using a shared webhook pinpoint
+// will route an inbound webhook for this url to all integration instances with the same refType and refID exported.
+func (m *eventAPIManager) CreateSharedWebhook(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope) (string, error) {
+	if !m.webhookEnabled {
+		return "", nil
+	}
+	if scope != sdk.WebHookScopeProject && scope != sdk.WebHookScopeRepo {
+		return "", fmt.Errorf("shared webhook scope %s not supported", scope)
+	}
+	if m.selfManaged {
+		return "", fmt.Errorf("self managed agents cannot create shared webhooks")
+	}
+	theurl := sdk.JoinURL(
+		api.BackendURL(api.WebhookService, m.channel),
+		"/shared",
+		string(scope),
+		refType,
+		url.PathEscape(refID),
+	)
+	return theurl, nil
 }
 
 // Delete will remove the webhook from the entity based on scope

@@ -71,6 +71,10 @@ func (m *devManager) Create(customerID string, integrationInstanceID string, ref
 	return "", fmt.Errorf("cannot create a webhook in dev mode")
 }
 
+func (m *devManager) CreateSharedWebhook(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope) (string, error) {
+	return "", fmt.Errorf("cannot create a shared webhook in dev mode")
+}
+
 func (m *devManager) Delete(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope) error {
 	return fmt.Errorf("cannot create a webhook in dev mode")
 }
