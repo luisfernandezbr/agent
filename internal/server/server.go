@@ -1062,6 +1062,7 @@ func (s *Server) onMutation(evt event.SubscriptionEvent, refType string, locatio
 		resp.CustomerID = m.CustomerID
 		resp.IntegrationInstanceID = m.IntegrationInstanceID
 		resp.Error = errmessage
+		resp.SessionID = m.SessionID
 		resp.Success = errmessage == nil
 		if mr == nil {
 			resp.RefID = m.RefID
@@ -1082,6 +1083,7 @@ func (s *Server) onMutation(evt event.SubscriptionEvent, refType string, locatio
 			"ref_type":                m.RefType,
 			"ref_id":                  m.RefID,
 			"integration_instance_id": *m.IntegrationInstanceID,
+			"session_id":              m.SessionID,
 		})
 	}
 	return nil
