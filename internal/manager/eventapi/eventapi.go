@@ -242,6 +242,10 @@ func (m *eventAPIManager) CreateSharedWebhook(customerID string, integrationInst
 	return theurl, nil
 }
 
+func (m *eventAPIManager) IsPinpointWebhook(url string) bool {
+	return strings.Contains(url, api.BackendURL(api.WebhookService, m.channel)) || strings.Contains(url, api.BackendURL(api.EventService, m.channel))
+}
+
 // Delete will remove the webhook from the entity based on scope
 func (m *eventAPIManager) Delete(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope) error {
 	dbid := m.webhookCacheKey(customerID, integrationInstanceID, refType, refID, scope)

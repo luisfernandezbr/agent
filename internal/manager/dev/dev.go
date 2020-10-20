@@ -79,6 +79,10 @@ func (m *devManager) Delete(customerID string, integrationInstanceID string, ref
 	return fmt.Errorf("cannot create a webhook in dev mode")
 }
 
+func (m *devManager) IsPinpointWebhook(url string) bool {
+	return false
+}
+
 func (m *devManager) Exists(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope) bool {
 	return false
 }
