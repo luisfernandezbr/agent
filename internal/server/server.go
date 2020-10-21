@@ -526,6 +526,7 @@ func (s *Server) onDBChange(logger sdk.Logger, evt event.SubscriptionEvent, refT
 				if err != nil {
 					return err
 				}
+				logger := detailLogger(logger, customerID, &integrationInstanceID)
 				p := s.newPipe(logger, dir, customerID, jobID, integrationInstanceID)
 				defer p.Close()
 				e, err := eventAPIautoconfig.New(eventAPIautoconfig.Config{
@@ -646,6 +647,10 @@ func toResponseErr(err error) *string {
 	var str string
 	str = err.Error()
 	return &str
+}
+
+func detailLogger(logger log.Logger, customerID string, integrationInstanceID *string) log.Logger {
+	return log.With(logger, "customer_id", customerID, "integration_instance_id", pstrings.Value(integrationInstanceID))
 }
 
 // eventPublish will publish a model on the subscription channel
@@ -784,15 +789,7 @@ func (s *Server) stopExportLiveness() {
 }
 
 func (s *Server) onEvent(logger sdk.Logger, evt event.SubscriptionEvent, refType string, location string) error {
-	var temp struct {
-		CustomerID string `json:"customer_id"`
-	}
-	if err := json.Unmarshal([]byte(evt.Data), &temp); err != nil {
-		// this should never ever happen, but just in case
-		log.Debug(logger, "could not get customer id")
-	} else {
-		logger = log.With(logger, "customer_id", temp.CustomerID, "ref_type", refType)
-	}
+	logger = log.With(logger, "ref_type", refType)
 	log.Debug(logger, "received event", "evt", evt, "refType", refType, "location", location)
 	switch evt.Model {
 	case agent.ValidateRequestModelName.String():
@@ -803,6 +800,7 @@ func (s *Server) onEvent(logger sdk.Logger, evt event.SubscriptionEvent, refType
 			// so it will hang forever.
 			return fmt.Errorf("critical error parsing validation request: %w", err)
 		}
+		logger = detailLogger(logger, req.CustomerID, req.IntegrationInstanceID)
 		result, err := s.onValidate(logger, req)
 		res := &agent.ValidateResponse{
 			CustomerID: req.CustomerID,
@@ -834,6 +832,7 @@ func (s *Server) onEvent(logger sdk.Logger, evt event.SubscriptionEvent, refType
 			// so it will hang forever.
 			return fmt.Errorf("critical error parsing oauth1 request: %w", err)
 		}
+		logger = detailLogger(logger, req.CustomerID, req.IntegrationInstanceID)
 		token, secret, err := s.onOauth1(logger, req)
 		res := &agent.Oauth1Response{
 			CustomerID: req.CustomerID,
@@ -866,6 +865,7 @@ func (s *Server) onEvent(logger sdk.Logger, evt event.SubscriptionEvent, refType
 			// so it will hang forever.
 			return fmt.Errorf("critical error parsing oauth1 identity request: %w", err)
 		}
+		logger = detailLogger(logger, req.CustomerID, req.IntegrationInstanceID)
 		identity, err := s.onOauth1Identity(logger, req)
 		var errmsg *string
 		if err != nil {
@@ -910,6 +910,7 @@ func (s *Server) onEvent(logger sdk.Logger, evt event.SubscriptionEvent, refType
 		if err := json.Unmarshal([]byte(evt.Data), &req); err != nil {
 			log.Fatal(logger, "error parsing export event", "err", err)
 		}
+		logger = detailLogger(logger, req.CustomerID, req.IntegrationInstanceID)
 		if req.Integration.Location.String() != location {
 			log.Info(logger, "skipping export request, location of integration does not match agent location", "integration", req.Integration.Location.String(), "agent", location)
 			break
@@ -983,7 +984,6 @@ func (s *Server) onEvent(logger sdk.Logger, evt event.SubscriptionEvent, refType
 func (s *Server) onWebhook(logger sdk.Logger, evt event.SubscriptionEvent, refType string, location string) error {
 	log.Debug(logger, "received webhook event", "evt", evt)
 	customerID := evt.Headers["customer_id"]
-	logger = log.With(logger, "customer_id", customerID)
 	if customerID == "" {
 		return errors.New("webhook missing customer id")
 	}
@@ -991,6 +991,7 @@ func (s *Server) onWebhook(logger sdk.Logger, evt event.SubscriptionEvent, refTy
 	if integrationInstanceID == "" {
 		return errors.New("webhook missing integration id")
 	}
+	logger = detailLogger(logger, customerID, &integrationInstanceID)
 	switch evt.Model {
 	case web.HookModelName.String():
 		var wh web.Hook
@@ -1032,7 +1033,14 @@ func (s *Server) onWebhook(logger sdk.Logger, evt event.SubscriptionEvent, refTy
 func (s *Server) onMutation(logger sdk.Logger, evt event.SubscriptionEvent, refType string, location string) error {
 	log.Debug(logger, "received mutation event", "evt", evt)
 	customerID := evt.Headers["customer_id"]
-	logger = log.With(logger, "customer_id", customerID)
+	if customerID == "" {
+		return errors.New("webhook missing customer id")
+	}
+	integrationInstanceID := evt.Headers["integration_instance_id"]
+	if integrationInstanceID == "" {
+		return errors.New("webhook missing integration id")
+	}
+	logger = detailLogger(logger, customerID, &integrationInstanceID)
 	switch evt.Model {
 	case agent.MutationModelName.String():
 		var m agent.Mutation
