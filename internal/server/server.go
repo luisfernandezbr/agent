@@ -650,7 +650,10 @@ func toResponseErr(err error) *string {
 }
 
 func detailLogger(logger log.Logger, customerID string, integrationInstanceID *string) log.Logger {
-	return log.With(logger, "customer_id", customerID, "integration_instance_id", pstrings.Value(integrationInstanceID))
+	if integrationInstanceID != nil {
+		return log.With(logger, "customer_id", customerID, "integration_instance_id", *integrationInstanceID)
+	}
+	return log.With(logger, "customer_id", customerID)
 }
 
 // eventPublish will publish a model on the subscription channel
