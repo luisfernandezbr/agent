@@ -25,6 +25,7 @@ import (
 	"github.com/pinpt/go-common/v10/hash"
 	"github.com/pinpt/go-common/v10/httpdefaults"
 	"github.com/pinpt/go-common/v10/log"
+	pos "github.com/pinpt/go-common/v10/os"
 	"github.com/pinpt/integration-sdk/agent"
 	"github.com/pinpt/integration-sdk/sourcecode"
 	"github.com/pinpt/integration-sdk/work"
@@ -315,6 +316,11 @@ func (m *eventAPIManager) Exists(customerID string, integrationInstanceID string
 		}
 	}
 	return false
+}
+
+// Secret returns a secret to be used for validating webhooks
+func (m *eventAPIManager) Secret() string {
+	return pos.Getenv("PP_WEBHOOK_SECRET", "pinpoint")
 }
 
 // HookURL will return the webhook url

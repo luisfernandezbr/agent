@@ -58,4 +58,6 @@ type WebHookManager interface {
 	CreateSharedWebhook(customerID string, integrationInstanceID string, refType string, refID string, scope WebHookScope) (string, error)
 	// IsPinpointWebhook will determine if a webhook url is one from the webhook manager
 	IsPinpointWebhook(url string) bool
+	// Secret will return a secret that can be used for registering and verifying webhooks
+	Secret() string
 }

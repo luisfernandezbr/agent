@@ -87,6 +87,8 @@ func (m *devManager) Exists(customerID string, integrationInstanceID string, ref
 	return false
 }
 
+func (m *devManager) Secret() string { return "pinpoint" }
+
 // HookURL will return the webhook url
 func (m *devManager) HookURL(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope) (string, error) {
 	return "", fmt.Errorf("no webhook in dev mode")
