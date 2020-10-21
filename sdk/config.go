@@ -126,6 +126,7 @@ type Config struct {
 	Exclusions      *matchList        `json:"exclusions,omitempty"`
 	Accounts        *ConfigAccounts   `json:"accounts,omitempty"`
 	Scope           *IntegrationScope `json:"scope,omitempty"`
+	Logger          Logger
 	kv              map[string]interface{}
 }
 

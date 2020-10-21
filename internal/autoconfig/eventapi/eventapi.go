@@ -62,6 +62,11 @@ func (e *autoconfig) Pipe() sdk.Pipe {
 	return e.pipe
 }
 
+// Logger the logger object to use in the integration
+func (e *autoconfig) Logger() sdk.Logger {
+	return e.logger
+}
+
 func (e *autoconfig) createGraphql() gql.Client {
 	url := api.BackendURL(api.GraphService, e.channel)
 	client, err := gql.NewClient(e.customerID, "", e.secret, url)

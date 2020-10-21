@@ -9,6 +9,7 @@ import (
 // if this gets complicated and needs a pipe or something make a dev/eventapi implementation
 type validate struct {
 	config                sdk.Config
+	logger                sdk.Logger
 	integrationInstanceID string
 	customerID            string
 	refType               string
@@ -44,12 +45,18 @@ func (v *validate) Resumed() error {
 	return nil
 }
 
+// Logger the logger object to use in the integration
+func (e *validate) Logger() sdk.Logger {
+	return e.logger
+}
+
 // NewValidate will return a validate
-func NewValidate(config sdk.Config, refType string, customerID string, integrationInstanceID string) sdk.Validate {
+func NewValidate(config sdk.Config, logger sdk.Logger, refType string, customerID string, integrationInstanceID string) sdk.Validate {
 	return &validate{
 		customerID:            customerID,
 		refType:               refType,
 		integrationInstanceID: integrationInstanceID,
 		config:                config,
+		logger:                logger,
 	}
 }

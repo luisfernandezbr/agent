@@ -6,7 +6,6 @@ import (
 
 // {{ .TitleCaseName }}Integration is an integration for {{ .TitleCaseName }}
 type {{ .TitleCaseName }}Integration struct {
-	logger  sdk.Logger
 	config  sdk.Config
 	manager sdk.Manager
 	refType string
@@ -16,7 +15,6 @@ var _ sdk.Integration = (*{{ .TitleCaseName }}Integration)(nil)
 
 // Start is called when the integration is starting up
 func (g *{{ .TitleCaseName }}Integration) Start(logger sdk.Logger, config sdk.Config, manager sdk.Manager) error {
-	g.logger = sdk.LogWith(logger, "pkg", "{{ .LowerCaseName }}")
 	g.config = config
 	g.manager = manager
 	g.refType = "{{ .LowerCaseName }}"
@@ -24,40 +22,45 @@ func (g *{{ .TitleCaseName }}Integration) Start(logger sdk.Logger, config sdk.Co
 	return nil
 }
 
+// Stop is called when the integration is shutting down for cleanup
+func (g *{{ .TitleCaseName }}Integration) Stop(logger sdk.Logger) error {
+	sdk.LogInfo(logger, "stopping")
+	return nil
+}
+
+
 // Enroll is called when a new integration instance is added
 func (g *{{ .TitleCaseName }}Integration) Enroll(instance sdk.Instance) error {
-	sdk.LogInfo(g.logger, "enroll not implemented")
+	logger := instance.Logger()
+	sdk.LogInfo(logger, "enroll not implemented")
 	return nil
 }
 
 // Dismiss is called when an existing integration instance is removed
 func (g *{{ .TitleCaseName }}Integration) Dismiss(instance sdk.Instance) error {
-	sdk.LogInfo(g.logger, "dismiss not implemented")
+	logger := instance.Logger()
+	sdk.LogInfo(logger, "dismiss not implemented")
 	return nil
 }
 
 // WebHook is called when a webhook is received on behalf of the integration
 func (g *{{ .TitleCaseName }}Integration) WebHook(webhook sdk.WebHook) error {
-	sdk.LogInfo(g.logger, "webhook not implemented")
+	logger := webhook.Logger()
+	sdk.LogInfo(logger, "webhook not implemented")
 	return nil
 }
 
 // Mutation is called when a mutation request is received on behalf of the integration
 func (g *{{ .TitleCaseName }}Integration) Mutation(mutation sdk.Mutation) (*sdk.MutationResponse, error) {
+	logger := mutation.Logger()
 	return nil, nil
-}
-
-// Stop is called when the integration is shutting down for cleanup
-func (g *{{ .TitleCaseName }}Integration) Stop() error {
-	sdk.LogInfo(g.logger, "stopping")
-	return nil
 }
 
 // Export is called to tell the integration to run an export
 func (g *{{ .TitleCaseName }}Integration) Export(export sdk.Export) error {
-	logger := sdk.LogWith(g.logger, "customer_id", export.CustomerID())
+	logger := export.Logger()
+	
 	started := time.Now()
-
 	sdk.LogInfo(logger, "export started")
 
 	// Pipe must be called to begin an export and receive a pipe for sending data
@@ -89,6 +92,7 @@ func (g *{{ .TitleCaseName }}Integration) Export(export sdk.Export) error {
 
 // AutoConfigure is called when a cloud integration has requested to be auto configured
 func (g *{{ .TitleCaseName }}Integration) AutoConfigure(autoconfig sdk.AutoConfigure) (*sdk.Config, error) {
+	logger := autoconfig.Logger()
 	return nil, nil
 }
 
@@ -97,5 +101,6 @@ func (g *{{ .TitleCaseName }}Integration) AutoConfigure(autoconfig sdk.AutoConfi
 // source system. The result and the error will both be delivered to the App.
 // Returning a nil error is considered a successful validation.
 func (g *{{ .TitleCaseName }}Integration)Validate(validate sdk.Validate) (result map[string]interface{}, err error) {
+	logger := validate.Logger()
 	return nil, nil
 }

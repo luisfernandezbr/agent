@@ -60,6 +60,8 @@ type Mutation interface {
 	Payload() interface{}
 	// User is the user that is requesting the mutation and any authorization details that might be required
 	User() MutationUser
+	// Logger the logger object to use in the integration
+	Logger() Logger
 }
 
 // MutationResponse data

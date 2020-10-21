@@ -35,6 +35,8 @@ type WebHook interface {
 	Headers() map[string]string
 	// Scope is the registered webhook scope
 	Scope() WebHookScope
+	// Logger the logger object to use in the integration
+	Logger() Logger
 }
 
 // WebHookManager is the manager for dealing with WebHooks
