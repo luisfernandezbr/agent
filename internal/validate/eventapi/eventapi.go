@@ -95,5 +95,6 @@ func NewValidate(config sdk.Config, logger log.Logger, refType string, customerI
 		config:                config,
 		client:                client,
 		state:                 state,
+		logger:                logger,
 	}
 }
