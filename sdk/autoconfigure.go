@@ -9,4 +9,6 @@ type AutoConfigure interface {
 	State() State
 	// Pipe should be called to get the pipe for streaming data back to pinpoint
 	Pipe() Pipe
+	// Logger the logger object to use in the integration
+	Logger() Logger
 }
