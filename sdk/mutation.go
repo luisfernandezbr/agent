@@ -123,13 +123,13 @@ type WorkIssueCreateMutation struct {
 	AssigneeRefID *string    `json:"assignee_ref_id,omitempty"` // AssigneeRefID is for setting the assignee of the issue to a ref_id
 	Priority      *NameRefID `json:"priority,omitempty"`        // Priority is for setting the priority of the issue
 	Type          *NameRefID `json:"type,omitempty"`            // Type is for setting the issue type of the issue
-	ProjectRefID  string     `json:"project_ref_id"`            // ProjectID is the id to the issue project as a ref_id
+	ParentRefID   *string    `json:"parent_ref_id,omitempty"`   // ParentRefID is for setting the parent issue as a ref_id
 	Epic          *NameRefID `json:"epic,omitempty"`            // Epic is for setting an epic for the issue
 	Labels        []string   `json:"labels,omitempty"`          // Labels is for setting the labels for an issue
 
 	// NOTE(robin): the above fields are for backwards compatibility, using MutationFields is the future 🚀
-	ParentRefID *string              `json:"parent_ref_id,omitempty"` // ParentRefID is for setting the parent issue as a ref_id
-	Fields      []MutationFieldValue `json:"fields"`
+	ProjectRefID string               `json:"project_ref_id"` // ProjectID is the id to the issue project as a ref_id
+	Fields       []MutationFieldValue `json:"fields"`
 }
 
 // MutationFieldValue represents the value for the field, as defined in the project capabilities
