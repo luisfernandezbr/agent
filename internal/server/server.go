@@ -1034,22 +1034,15 @@ func (s *Server) onWebhook(logger sdk.Logger, evt event.SubscriptionEvent, refTy
 }
 
 func (s *Server) onMutation(logger sdk.Logger, evt event.SubscriptionEvent, refType string, location string) error {
+	logger = detailLogger(logger, evt.Headers["customer_id"], pstrings.Pointer(evt.Headers["integration_instance_id"]))
 	log.Debug(logger, "received mutation event", "evt", evt)
-	customerID := evt.Headers["customer_id"]
-	if customerID == "" {
-		return errors.New("webhook missing customer id")
-	}
-	integrationInstanceID := evt.Headers["integration_instance_id"]
-	if integrationInstanceID == "" {
-		return errors.New("webhook missing integration id")
-	}
-	logger = detailLogger(logger, customerID, &integrationInstanceID)
 	switch evt.Model {
 	case agent.MutationModelName.String():
 		var m agent.Mutation
 		if err := json.Unmarshal([]byte(evt.Data), &m); err != nil {
 			log.Fatal(logger, "error parsing muation", "err", err)
 		}
+		logger = detailLogger(logger, m.CustomerID, m.IntegrationInstanceID)
 		if m.IntegrationInstanceID == nil {
 			log.Error(logger, "mutation event is missing integration instance id, skipping")
 			break

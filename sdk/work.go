@@ -228,6 +228,9 @@ const WorkProjectCapabilityIssueMutationFieldsTypeEpic = work.ProjectCapabilityI
 // WorkProjectCapabilityIssueMutationFieldsTypeWorkSprint is the enumeration value for Sprint
 const WorkProjectCapabilityIssueMutationFieldsTypeWorkSprint = work.ProjectCapabilityIssueMutationFieldsTypeWorkSprint
 
+// WorkProjectCapabilityIssueMutationFieldsTypeWorkIssue is the enumeration value for work_issue
+const WorkProjectCapabilityIssueMutationFieldsTypeWorkIssue = work.ProjectCapabilityIssueMutationFieldsTypeWorkIssue
+
 // NewWorkProjectID will return the work project id
 func NewWorkProjectID(customerID string, refID string, refType string) string {
 	return work.NewProjectID(customerID, refID, refType)
