@@ -173,7 +173,7 @@ func (m MutationFieldValue) AsString() (string, error) {
 		if err := json.Unmarshal(m.Value, &str); err != nil {
 			return "", fmt.Errorf("error decoding mutation field %s into string: %w", m.RefID, err)
 		}
-		return string(m.Value), nil
+		return str, nil
 	}
 	return "", fmt.Errorf("type %s is not a string", m.Type.String())
 }
