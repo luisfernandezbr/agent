@@ -139,6 +139,11 @@ func (e *export) Historical() bool {
 	return e.historical
 }
 
+// Logger the logger object to use in the integration
+func (e *export) Logger() sdk.Logger {
+	return e.logger
+}
+
 // Config is details for the configuration
 type Config struct {
 	Ctx                   context.Context

@@ -8,6 +8,7 @@ type Instance struct {
 	integrationInstanceID string
 	refType               string
 	pipe                  Pipe
+	logger                Logger
 }
 
 // Config is a customer specific config object for this integration and customer
@@ -40,8 +41,13 @@ func (i *Instance) RefType() string {
 	return i.refType
 }
 
+// Logger the logger object to use in the integration
+func (i *Instance) Logger() Logger {
+	return i.logger
+}
+
 // NewInstance returns a new instance of the integration
-func NewInstance(config Config, state State, pipe Pipe, customerID string, refType string, integrationInstanceID string) *Instance {
+func NewInstance(config Config, logger Logger, state State, pipe Pipe, customerID string, refType string, integrationInstanceID string) *Instance {
 	return &Instance{
 		config:                config,
 		state:                 state,
@@ -49,5 +55,6 @@ func NewInstance(config Config, state State, pipe Pipe, customerID string, refTy
 		customerID:            customerID,
 		refType:               refType,
 		integrationInstanceID: integrationInstanceID,
+		logger:                logger,
 	}
 }

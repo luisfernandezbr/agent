@@ -44,6 +44,11 @@ func (v *validate) RefType() string {
 	return v.refType
 }
 
+// Logger the logger object to use in the integration
+func (e *validate) Logger() sdk.Logger {
+	return e.logger
+}
+
 // Paused must be called when the integration is paused for any reason such as rate limiting
 func (v *validate) Paused(resetAt time.Time) error {
 	v.mu.Lock()
@@ -90,5 +95,6 @@ func NewValidate(config sdk.Config, logger log.Logger, refType string, customerI
 		config:                config,
 		client:                client,
 		state:                 state,
+		logger:                logger,
 	}
 }

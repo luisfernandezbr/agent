@@ -34,6 +34,7 @@ type devConfig struct {
 	Expires          time.Time `json:"expires"`
 	Channel          string    `json:"channel"`
 	PublisherRefType string    `json:"publisher_ref_type"`
+	Logger           sdk.Logger
 }
 
 func (c *devConfig) expired() bool {

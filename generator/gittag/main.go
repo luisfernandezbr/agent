@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -26,12 +27,20 @@ func main() {
 		os.Exit(1)
 	}
 	currenttag := tags[len(tags)-2] // last item is an empty space
+	parts := strings.Split(currenttag, ".")
+	// need to add 1 to the tag since there will be a release after generating these files
+	last, err := strconv.Atoi(parts[len(parts)-1])
+	if err != nil {
+		fmt.Println("ERROR", err)
+		os.Exit(1)
+	}
+	parts[len(parts)-1] = fmt.Sprint(last + 1)
 	fn := filepath.Join(cwd, "generator", "gittag.go")
 	os.Remove(fn)
 
 	content := fmt.Sprintf(`
 		package generator
-		const gitTag = "%s"`, currenttag,
+		const gitTag = "%s"`, strings.Join(parts, "."),
 	)
 
 	formatted, err := format.Source([]byte(content))

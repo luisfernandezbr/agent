@@ -101,6 +101,11 @@ func (e *webhook) Scope() sdk.WebHookScope {
 	return e.scope
 }
 
+// Logger the logger object to use in the integration
+func (e *webhook) Logger() sdk.Logger {
+	return e.logger
+}
+
 // Config is details for the configuration
 type Config struct {
 	Ctx                   context.Context

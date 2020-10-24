@@ -62,6 +62,11 @@ func (e *autoconfig) Resumed() error {
 	return nil
 }
 
+// Logger the logger object to use in the integration
+func (e *autoconfig) Logger() sdk.Logger {
+	return e.logger
+}
+
 // Config is details for the configuration
 type Config struct {
 	Ctx                   context.Context

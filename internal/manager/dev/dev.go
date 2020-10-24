@@ -71,13 +71,23 @@ func (m *devManager) Create(customerID string, integrationInstanceID string, ref
 	return "", fmt.Errorf("cannot create a webhook in dev mode")
 }
 
+func (m *devManager) CreateSharedWebhook(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope) (string, error) {
+	return "", fmt.Errorf("cannot create a shared webhook in dev mode")
+}
+
 func (m *devManager) Delete(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope) error {
 	return fmt.Errorf("cannot create a webhook in dev mode")
+}
+
+func (m *devManager) IsPinpointWebhook(url string) bool {
+	return false
 }
 
 func (m *devManager) Exists(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope) bool {
 	return false
 }
+
+func (m *devManager) Secret() string { return "pinpoint" }
 
 // HookURL will return the webhook url
 func (m *devManager) HookURL(customerID string, integrationInstanceID string, refType string, refID string, scope sdk.WebHookScope) (string, error) {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pinpt/agent/v4/sdk"
 	"github.com/pinpt/go-common/v10/datamodel"
 	"github.com/pinpt/go-common/v10/event"
 	"github.com/pinpt/go-common/v10/log"
@@ -75,7 +76,7 @@ type Subscriber struct {
 
 func (s *Subscriber) run() {
 	for event := range s.ch.Channel() {
-		if err := s.cb(event, s.refType, s.location); err != nil {
+		if err := s.cb(s.logger, event, s.refType, s.location); err != nil {
 			log.Error(s.logger, "error from callback", "err", err)
 		}
 		event.Commit()
@@ -88,7 +89,7 @@ func (s *Subscriber) Close() error {
 }
 
 // SubscriberCallback is the callback for processing events
-type SubscriberCallback func(event event.SubscriptionEvent, refType string, location string) error
+type SubscriberCallback func(logger sdk.Logger, event event.SubscriptionEvent, refType string, location string) error
 
 // NewDBChangeSubscriber will return a db change subscriber
 func NewDBChangeSubscriber(config Config, location agent.ExportIntegrationLocation, refType string, callback SubscriberCallback) (*Subscriber, error) {

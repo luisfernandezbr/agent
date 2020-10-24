@@ -95,6 +95,11 @@ func (e *webhook) Scope() sdk.WebHookScope {
 	return e.scope
 }
 
+// Logger the logger object to use in the integration
+func (e *webhook) Logger() sdk.Logger {
+	return e.logger
+}
+
 // New will return an sdk.WebHook
 func New(
 	logger log.Logger,
