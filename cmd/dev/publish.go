@@ -59,11 +59,14 @@ var PublishCmd = &cobra.Command{
 		logger := log.NewCommandLogger(cmd)
 		defer logger.Close()
 		channel, _ := cmd.Flags().GetString("channel")
+		chunkSize, _ := cmd.Flags().GetInt64("chunk")
+
 		tmpdir, err := ioutil.TempDir("", "")
 		if err != nil {
 			log.Fatal(logger, "error creating temp dir", "err", err)
 		}
 		defer os.RemoveAll(tmpdir)
+
 		c, err := loadDevConfig(channel)
 		if err != nil {
 			log.Fatal(logger, "error opening developer config", "err", err)
@@ -78,6 +81,7 @@ var PublishCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(logger, "unable to parse private key in config")
 		}
+
 		log.Info(logger, "building package")
 		cm := exec.Command(os.Args[0], "package", integrationDir, "--dir", tmpdir, "--channel", channel)
 		cm.Stdout = os.Stdout
@@ -94,148 +98,17 @@ var PublishCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(logger, "error getting signature for bundle", "err", err)
 		}
-		// of, err := os.Open(bundle)
-		// if err != nil {
-		// 	log.Fatal(logger, "error opening bundle", "err", err)
-		// }
-		// defer of.Close()
 
-		// stat, _ := os.Stat(bundle)
-		// ctx, cancel := context.WithCancel(context.Background())
-		// defer cancel()
-
-		file, err := os.Open(bundle)
-		if err != nil {
-			log.Fatal(logger, "error opening bundle", "err", err)
-		}
-		fi, _ := file.Stat()
-
-		//buffer for storing multipart data
-		byteBuf := &bytes.Buffer{}
-
-		//part: parameters
-		mpWriter := multipart.NewWriter(byteBuf)
-		// for key, value := range params {
-		// 	_ = mpWriter.WriteField(key, value)
-		// }
-
-		//part: file
-		_, err = mpWriter.CreateFormFile("file", fi.Name())
-		if err != nil {
-			panic(err)
-		}
-		contentType := mpWriter.FormDataContentType()
-
-		nmulti := byteBuf.Len()
-		multi := make([]byte, nmulti)
-		_, err = byteBuf.Read(multi)
-		if err != nil {
-			panic(err)
-		}
-
-		//part: latest boundary
-		//when multipart closed, latest boundary is added
-		err = mpWriter.Close()
-		if err != nil {
-			panic(err)
-		}
-		nboundary := byteBuf.Len()
-		lastBoundary := make([]byte, nboundary)
-		_, err = byteBuf.Read(lastBoundary)
-		if err != nil {
-			panic(err)
-		}
-
-		chunkSize, _ := cmd.Flags().GetInt64("chunk")
-
-		//calculate content length
-		totalSize := int64(nmulti) + fi.Size() + int64(nboundary)
-
-		//use pipe to pass request
-		rd, wr := io.Pipe()
-
-		renderer := renderers.NewInteractiveRenderer(os.Stdout, nil)
-		go renderer.StartDrawing()
-		progressLog := echelon.NewLogger(echelon.InfoLevel, renderer)
-
-		// totalSize
-		go func() {
-			//write multipart
-			_, err = wr.Write(multi)
-			if err != nil {
-				panic(err)
-			}
-
-			scoped := progressLog.Scoped("Uploading bundle")
-
-			//write file
-			buf := make([]byte, chunkSize)
-			inc := 0
-			lastProgress := 0
-			for {
-				n, err := file.Read(buf)
-				if err != nil {
-					if err == io.EOF {
-						break
-					}
-					scoped.Finish(false)
-					progressLog.Finish(false)
-					sdk.LogError(logger, "error publishing1", "err", err)
-					panic(err)
-				}
-				inc += len(buf[:n])
-				progress := int(math.Round(float64(inc) / float64(totalSize) * 100))
-				if progress != lastProgress {
-					scoped.Infof("Progress %s/%s %d%%", pnum.ToBytesSize(int64(inc)), pnum.ToBytesSize(totalSize), progress)
-				}
-				lastProgress = progress
-
-				_, err = wr.Write(buf[:n])
-				if err != nil {
-					scoped.Finish(false)
-					progressLog.Finish(false)
-					sdk.LogError(logger, "error publishing2", "err", err)
-					panic(err)
-				}
-			}
-			//write boundary
-			progress := int(math.Round(float64(inc) / float64(totalSize) * 100))
-			scoped.Infof("Progress %s/%s %d%%", pnum.ToBytesSize(int64(inc)), pnum.ToBytesSize(totalSize), progress)
-			_, err = wr.Write(lastBoundary)
-			if err != nil {
-				scoped.Finish(false)
-				progressLog.Finish(false)
-				sdk.LogError(logger, "error publishing3", "err", err)
-				panic(err)
-			}
-			if err := wr.Close(); err != nil {
-				scoped.Finish(false)
-				progressLog.Finish(false)
-				sdk.LogError(logger, "error publishing4", "err", err)
-				panic(err)
-			}
-
-			// fmt.Println("One")
-			scoped.Finish(true)
-			// fmt.Println("Two")
-			progressLog.Finish(true)
-			renderer.StopDrawing()
-			// fmt.Println("Three")
-		}()
-
-		// fin
+		rd, nopts, fiSize := uploadPogress(logger, bundle, chunkSize)
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		opts := []api.WithOption{
-			api.WithContentType(contentType),
 			api.WithHeader("x-pinpt-signature", signature),
-			api.WithHeader("x-file-length", strconv.FormatInt(fi.Size(), 10)),
-			func(req *http.Request) error {
-				req.ContentLength = totalSize
-				return nil
-			},
 		}
+
+		opts = append(opts, nopts...)
+
 		apikey, _ := cmd.Flags().GetString("apikey")
 		secret, _ := cmd.Flags().GetString("secret")
 		if secret != "" {
@@ -257,7 +130,7 @@ var PublishCmd = &cobra.Command{
 		}
 		version := getBuildCommitForIntegration(integrationDir)
 		basepath := fmt.Sprintf("publish2/%s/%s/%s", c.PublisherRefType, descriptor.RefType, version)
-		log.Info(logger, "uploading", "size", pnum.ToBytesSize(fi.Size()))
+		log.Info(logger, "uploading", "size", pnum.ToBytesSize(fiSize))
 		resp, err := api.Put(ctx, channel, api.RegistryService, basepath, apikey, rd, opts...)
 		if err != nil || resp.StatusCode != http.StatusAccepted {
 			var buf []byte
@@ -276,4 +149,128 @@ func init() {
 	PublishCmd.Flags().String("secret", "", "internal shared secret")
 	PublishCmd.Flags().Int64("chunk", 800, "chunk size")
 	PublishCmd.Flags().MarkHidden("secret")
+}
+
+func uploadPogress(logger sdk.Logger, bundle string, chunkSize int64) (io.Reader, []api.WithOption, int64) {
+
+	file, err := os.Open(bundle)
+	if err != nil {
+		log.Fatal(logger, "error opening bundle", "err", err)
+	}
+	fi, _ := file.Stat()
+
+	//buffer for storing multipart data
+	byteBuf := &bytes.Buffer{}
+
+	//part: parameters
+	mpWriter := multipart.NewWriter(byteBuf)
+
+	_, err = mpWriter.CreateFormFile("file", fi.Name())
+	if err != nil {
+		panic(err)
+	}
+
+	contentType := mpWriter.FormDataContentType()
+
+	nmulti := byteBuf.Len()
+	multi := make([]byte, nmulti)
+	_, err = byteBuf.Read(multi)
+	if err != nil {
+		panic(err)
+	}
+
+	//part: latest boundary
+	//when multipart closed, latest boundary is added
+	err = mpWriter.Close()
+	if err != nil {
+		panic(err)
+	}
+	nboundary := byteBuf.Len()
+	lastBoundary := make([]byte, nboundary)
+	_, err = byteBuf.Read(lastBoundary)
+	if err != nil {
+		panic(err)
+	}
+
+	//calculate content length
+	totalSize := int64(nmulti) + fi.Size() + int64(nboundary)
+
+	rd, wr := io.Pipe()
+
+	renderer := renderers.NewInteractiveRenderer(os.Stdout, nil)
+	go renderer.StartDrawing()
+	progressLog := echelon.NewLogger(echelon.InfoLevel, renderer)
+
+	go func() {
+
+		//write multipart
+		_, err = wr.Write(multi)
+		if err != nil {
+			panic(err)
+		}
+
+		scoped := progressLog.Scoped("Uploading bundle")
+
+		//write file
+		buf := make([]byte, chunkSize)
+		inc := 0
+		lastProgress := 0
+		for {
+			n, err := file.Read(buf)
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				scoped.Finish(false)
+				progressLog.Finish(false)
+				sdk.LogError(logger, "error publishing1", "err", err)
+				panic(err)
+			}
+			inc += len(buf[:n])
+			progress := int(math.Round(float64(inc) / float64(totalSize) * 100))
+			if progress != lastProgress {
+				scoped.Infof("Progress %s/%s %d%%", pnum.ToBytesSize(int64(inc)), pnum.ToBytesSize(totalSize), progress)
+			}
+			lastProgress = progress
+
+			_, err = wr.Write(buf[:n])
+			if err != nil {
+				scoped.Finish(false)
+				progressLog.Finish(false)
+				sdk.LogError(logger, "error publishing2", "err", err)
+				panic(err)
+			}
+		}
+		//write boundary
+		progress := int(math.Round(float64(inc) / float64(totalSize) * 100))
+		scoped.Infof("Progress %s/%s %d%%", pnum.ToBytesSize(int64(inc)), pnum.ToBytesSize(totalSize), progress)
+		_, err = wr.Write(lastBoundary)
+		if err != nil {
+			scoped.Finish(false)
+			progressLog.Finish(false)
+			sdk.LogError(logger, "error publishing3", "err", err)
+			panic(err)
+		}
+		if err := wr.Close(); err != nil {
+			scoped.Finish(false)
+			progressLog.Finish(false)
+			sdk.LogError(logger, "error publishing4", "err", err)
+			panic(err)
+		}
+
+		scoped.Finish(true)
+		progressLog.Finish(true)
+		renderer.StopDrawing()
+	}()
+
+	opts := []api.WithOption{
+		api.WithContentType(contentType),
+		api.WithHeader("x-file-length", strconv.FormatInt(fi.Size(), 10)),
+		func(req *http.Request) error {
+			req.ContentLength = totalSize
+			return nil
+		},
+	}
+
+	return rd, opts, fi.Size()
 }
