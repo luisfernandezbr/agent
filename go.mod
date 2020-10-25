@@ -12,6 +12,7 @@ require (
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/jhaynie/go-vcr/v2 v2.0.2
 	github.com/jhaynie/oauth1 v1.0.1
+	github.com/jteeuwen/go-bindata v3.0.7+incompatible // indirect
 	github.com/mailru/easyjson v0.7.1
 	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible

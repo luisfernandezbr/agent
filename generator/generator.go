@@ -34,6 +34,10 @@ const (
 	IntegrationTypeCalendar IntegrationType = "Calendar"
 	// IntegrationTypeCodeQuality type code quality
 	IntegrationTypeCodeQuality IntegrationType = "Code Quality"
+	// IntegrationTypeCICD type CI/CD
+	IntegrationTypeCICD IntegrationType = "CI/CD"
+	// IntegrationTypeSecurity type security
+	IntegrationTypeSecurity IntegrationType = "Security"
 )
 
 // Info needed info to generate the integration
@@ -91,6 +95,8 @@ func Generate(path string, info Info) error {
 				codequality.MetricModelName,
 				codequality.ProjectModelName,
 			)
+		case IntegrationTypeCICD:
+		case IntegrationTypeSecurity:
 		}
 	}
 

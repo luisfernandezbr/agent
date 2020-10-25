@@ -18,7 +18,7 @@ func (g *{{ .TitleCaseName }}Integration) Start(logger sdk.Logger, config sdk.Co
 	g.config = config
 	g.manager = manager
 	g.refType = "{{ .LowerCaseName }}"
-	sdk.LogInfo(g.logger, "starting")
+	sdk.LogInfo(logger, "starting")
 	return nil
 }
 
@@ -53,6 +53,7 @@ func (g *{{ .TitleCaseName }}Integration) WebHook(webhook sdk.WebHook) error {
 // Mutation is called when a mutation request is received on behalf of the integration
 func (g *{{ .TitleCaseName }}Integration) Mutation(mutation sdk.Mutation) (*sdk.MutationResponse, error) {
 	logger := mutation.Logger()
+	_ = logger
 	return nil, nil
 }
 
@@ -93,6 +94,7 @@ func (g *{{ .TitleCaseName }}Integration) Export(export sdk.Export) error {
 // AutoConfigure is called when a cloud integration has requested to be auto configured
 func (g *{{ .TitleCaseName }}Integration) AutoConfigure(autoconfig sdk.AutoConfigure) (*sdk.Config, error) {
 	logger := autoconfig.Logger()
+	_ = logger
 	return nil, nil
 }
 
@@ -102,5 +104,6 @@ func (g *{{ .TitleCaseName }}Integration) AutoConfigure(autoconfig sdk.AutoConfi
 // Returning a nil error is considered a successful validation.
 func (g *{{ .TitleCaseName }}Integration)Validate(validate sdk.Validate) (result map[string]interface{}, err error) {
 	logger := validate.Logger()
+	_ = logger
 	return nil, nil
 }
