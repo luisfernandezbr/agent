@@ -21,6 +21,9 @@ type CICDBuildEnvironment = cicd.BuildEnvironment
 // CICDBuildStatus is the build status
 type CICDBuildStatus = cicd.BuildStatus
 
+// CICDBuildStatusCreated is the enumeration value for created
+const CICDBuildStatusCreated = cicd.BuildStatusCreated
+
 // CICDBuildStatusRunning is the enumeration value for running
 const CICDBuildStatusRunning = cicd.BuildStatusRunning
 
@@ -83,6 +86,9 @@ const CICDDeploymentEnvironmentTest = cicd.DeploymentEnvironmentTest
 
 // CICDDeploymentEnvironmentOther is the enumeration value for other
 const CICDDeploymentEnvironmentOther = cicd.DeploymentEnvironmentOther
+
+// CICDDeploymentStatusCreated is the enumeration value for created
+const CICDDeploymentStatusCreated = cicd.DeploymentStatusCreated
 
 // CICDDeploymentStatusRunning is the enumeration value for running
 const CICDDeploymentStatusRunning = cicd.DeploymentStatusRunning
