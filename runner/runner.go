@@ -83,6 +83,8 @@ func Main(integration sdk.Integration, args ...string) {
 			if cfg == "" && secret == "" {
 				log.Fatal(logger, "missing --config")
 			}
+			slackChannel, _ := cmd.Flags().GetString("slack-channel")
+			slackToken, _ := cmd.Flags().GetString("slack-token")
 			intconfig := getIntegrationConfig(cmd)
 			var state sdk.State
 			var uuid, apikey, enrollmentID string
@@ -204,6 +206,8 @@ func Main(integration sdk.Integration, args ...string) {
 				GroupID:      groupid,
 				SelfManaged:  selfManaged,
 				EnrollmentID: enrollmentID,
+				SlackChannel: slackChannel,
+				SlackToken:   slackToken,
 			}
 
 			server, err := server.New(serverConfig)
@@ -540,6 +544,8 @@ func Main(integration sdk.Integration, args ...string) {
 	// server command
 	log.RegisterFlags(serverCmd)
 	serverCmd.Flags().String("config", "", "the config file location")
+	serverCmd.Flags().String("slack-token", pos.Getenv("PP_SLACK_TOKEN", ""), "the slack token needed to send error messages to slack")
+	serverCmd.Flags().String("slack-channel", pos.Getenv("PP_SLACK_CHANNEL", "agentv4"), "the slack channel where error messages will be sent")
 	serverCmd.PersistentFlags().StringArray("set", []string{}, "set a config value from the command line")
 	serverCmd.PersistentFlags().String("secret", pos.Getenv("PP_AUTH_SHARED_SECRET", ""), "the secret which is only useful when running in the cloud")
 	serverCmd.PersistentFlags().String("channel", pos.Getenv("PP_CHANNEL", ""), "the channel configuration")

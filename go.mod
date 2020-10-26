@@ -14,6 +14,7 @@ require (
 	github.com/jhaynie/oauth1 v1.0.1
 	github.com/mailru/easyjson v0.7.1
 	github.com/mattn/go-colorable v0.1.7 // indirect
+	github.com/nlopes/slack v0.6.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pinpt/go-common/v10 v10.0.31
 	github.com/pinpt/httpclient v0.0.0-20200627153820-d374c2f15648 // indirect

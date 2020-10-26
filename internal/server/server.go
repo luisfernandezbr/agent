@@ -22,6 +22,7 @@ import (
 	eventAPIvalidate "github.com/pinpt/agent/v4/internal/validate/eventapi"
 	eventAPIwebhook "github.com/pinpt/agent/v4/internal/webhook/eventapi"
 	"github.com/pinpt/agent/v4/sdk"
+	"github.com/pinpt/agent/v4/support/slack"
 	"github.com/pinpt/go-common/v10/api"
 	"github.com/pinpt/go-common/v10/datamodel"
 	"github.com/pinpt/go-common/v10/datetime"
@@ -57,6 +58,8 @@ type Config struct {
 	SelfManaged  bool
 	APIKey       string
 	EnrollmentID string
+	SlackToken   string
+	SlackChannel string
 }
 
 // Server is the event loop server portion of the agent
@@ -69,6 +72,7 @@ type Server struct {
 	export   *Subscriber
 	location string
 	ticker   *time.Ticker
+	slack    slack.Client
 }
 
 var _ io.Closer = (*Server)(nil)
@@ -193,6 +197,9 @@ func (s *Server) handleAddIntegration(logger sdk.Logger, integration *agent.Inte
 	}
 	defer cleanup()
 	if err := s.config.Integration.Integration.Enroll(*instance); err != nil {
+		if err := s.slack.SendMessage("error enrolling integration", "instance_id", instance.IntegrationInstanceID(), "customer_id", instance.CustomerID(), "error", err.Error()); err != nil {
+			log.Error(logger, "error sending message to slack")
+		}
 		return err
 	}
 	return nil
@@ -206,6 +213,9 @@ func (s *Server) handleRemoveIntegration(logger sdk.Logger, integration *agent.I
 	defer cleanup()
 	log.Info(logger, "running dismiss integration", "id", integration.ID, "customer_id", integration.CustomerID)
 	if err := s.config.Integration.Integration.Dismiss(*instance); err != nil {
+		if err := s.slack.SendMessage("error dismissing integration", "instance_id", instance.IntegrationInstanceID(), "customer_id", instance.CustomerID(), "error", err.Error()); err != nil {
+			log.Error(logger, "error sending message to slack")
+		}
 		return err
 	}
 	return nil
@@ -267,6 +277,9 @@ func (s *Server) handleExport(logger log.Logger, client graphql.Client, req agen
 	var errmsg *string
 	if eerr != nil {
 		errmsg = pstrings.Pointer(eerr.Error())
+		if err := s.slack.SendMessage("export error", "customer_id", req.CustomerID, "job_id", req.JobID, "instance_id", req.Integration.IntegrationID, "error", eerr.Error()); err != nil {
+			log.Error(logger, "error sending message to slack")
+		}
 	}
 	completeEvent := &agent.ExportComplete{
 		CustomerID:            req.CustomerID,
@@ -333,6 +346,9 @@ func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integra
 	})
 	log.Info(logger, "running webhook")
 	if err := s.config.Integration.Integration.WebHook(e); err != nil {
+		if err := s.slack.SendMessage("error running integration webhook", "customer_id", customerID, "instance_id", integrationInstanceID, "error", err.Error()); err != nil {
+			log.Error(logger, "error sending message to slack")
+		}
 		return fmt.Errorf("error running integration webhook: %w", err)
 	}
 	log.Debug(logger, "flushing state")
@@ -390,6 +406,9 @@ func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integr
 	log.Info(logger, "running mutation", "id", mutation.ID, "customer_id", customerID, "ref_id", data.RefID)
 	mr, err := s.config.Integration.Integration.Mutation(e)
 	if err != nil {
+		if err := s.slack.SendMessage("error running integration mutation", "customer_id", customerID, "instance_id", integrationInstanceID, "error", err.Error()); err != nil {
+			log.Error(logger, "error sending message to slack")
+		}
 		return nil, fmt.Errorf("error running integration mutation: %w", err)
 	}
 	if err := state.Flush(); err != nil {
@@ -1097,11 +1116,16 @@ func New(config Config) (*Server, error) {
 	if !config.SelfManaged {
 		location = agent.ExportIntegrationLocationCloud
 	}
+	slackClient, err := slack.New(config.SlackToken, config.SlackChannel)
+	if err != nil {
+		log.Error(config.Logger, "error creating slack client. Will continue without it", "err", err)
+
+	}
 	server := &Server{
 		config:   config,
 		location: location.String(),
+		slack:    slackClient,
 	}
-	var err error
 	server.dbchange, err = NewDBChangeSubscriber(config, location, config.Integration.Descriptor.RefType, server.onDBChange)
 	if err != nil {
 		return nil, err
