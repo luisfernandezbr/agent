@@ -12,13 +12,12 @@ require (
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/jhaynie/go-vcr/v2 v2.0.2
 	github.com/jhaynie/oauth1 v1.0.1
-	github.com/jteeuwen/go-bindata v3.0.7+incompatible // indirect
 	github.com/mailru/easyjson v0.7.1
 	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible
-	github.com/pinpt/go-common/v10 v10.0.29
+	github.com/pinpt/go-common/v10 v10.0.31
 	github.com/pinpt/httpclient v0.0.0-20200627153820-d374c2f15648 // indirect
-	github.com/pinpt/integration-sdk v0.0.1246
+	github.com/pinpt/integration-sdk v0.0.1257
 	github.com/pkg/browser v0.0.0-20180916011732-0a3d74bf9ce4
 	github.com/russross/blackfriday/v2 v2.0.1
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
