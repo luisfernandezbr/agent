@@ -129,7 +129,7 @@ type WorkIssueCreateMutation struct {
 
 	// NOTE(robin): the above fields are for backwards compatibility, using MutationFields is the future 🚀
 	ProjectRefID string               `json:"project_ref_id"` // ProjectID is the id to the issue project as a ref_id // DEPRECATED in favor of Project
-	Project      *NameRefID           `json:"project"`        // ProjectPath is the full path to the project
+	Project      NameRefID            `json:"project"`        // Project contains ref_id and name of the project
 	Fields       []MutationFieldValue `json:"fields"`
 }
 
