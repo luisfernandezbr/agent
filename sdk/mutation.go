@@ -146,6 +146,7 @@ func (m MutationFieldValue) AsNameRefID() (*NameRefID, error) {
 	if m.Type == WorkProjectCapabilityIssueMutationFieldsTypeWorkIssuePriority ||
 		m.Type == WorkProjectCapabilityIssueMutationFieldsTypeWorkIssueType ||
 		m.Type == WorkProjectCapabilityIssueMutationFieldsTypeEpic ||
+		m.Type == WorkProjectCapabilityIssueMutationFieldsTypeStringArray ||
 		m.Type == WorkProjectCapabilityIssueMutationFieldsTypeWorkSprint ||
 		m.Type == WorkProjectCapabilityIssueMutationFieldsTypeUser {
 		var nri NameRefID
