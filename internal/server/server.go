@@ -797,7 +797,7 @@ func (s *Server) makeExportStat(logger sdk.Logger, integrationInstanceID, custom
 }
 
 func (s *Server) startExportLiveness(logger sdk.Logger, export agent.Export) {
-	s.ticker = time.NewTicker(time.Minute * 3)
+	s.ticker = time.NewTicker(time.Minute * 1)
 	s.makeExportStat(logger, *export.IntegrationInstanceID, export.CustomerID, export.JobID)
 	go func(integrationInstanceID, customerID, jobID string) {
 		for range s.ticker.C {
