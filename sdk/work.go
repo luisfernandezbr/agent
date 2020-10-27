@@ -231,6 +231,9 @@ const WorkProjectCapabilityIssueMutationFieldsTypeWorkSprint = work.ProjectCapab
 // WorkProjectCapabilityIssueMutationFieldsTypeWorkIssue is the enumeration value for work_issue
 const WorkProjectCapabilityIssueMutationFieldsTypeWorkIssue = work.ProjectCapabilityIssueMutationFieldsTypeWorkIssue
 
+// WorkProjectCapabilityIssueMutationFieldsTypeDate is common date object value
+const WorkProjectCapabilityIssueMutationFieldsTypeDate = work.ProjectCapabilityIssueMutationFieldsTypeDate
+
 // NewWorkProjectID will return the work project id
 func NewWorkProjectID(customerID string, refID string, refType string) string {
 	return work.NewProjectID(customerID, refID, refType)
