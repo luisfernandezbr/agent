@@ -167,7 +167,7 @@ func (m MutationFieldValue) AsDate() (*Date, error) {
 		}
 		return &date, nil
 	}
-	return nil, fmt.Errorf("type %s is not a AsDate", m.Type.String())
+	return nil, fmt.Errorf("type %s is not a Date", m.Type.String())
 }
 
 // AsNumber will return m's value as an int if it's type is WorkProjectCapabilityIssueMutationFieldsTypeNumber.
