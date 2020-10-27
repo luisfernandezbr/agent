@@ -885,7 +885,7 @@ var runCmd = &cobra.Command{
 						if err != nil {
 							if currentCmd != nil && currentCmd.ProcessState != nil {
 								if currentCmd.ProcessState.ExitCode() != 0 {
-									log.Fatal(logger, "integration has exited", "restarted", restarted, "code", currentCmd.ProcessState.ExitCode())
+									log.Error(logger, "integration has exited", "restarted", restarted, "code", currentCmd.ProcessState.ExitCode())
 								}
 							}
 							log.Info(logger, "pausing", "duration", time.Second*time.Duration(restarted))
