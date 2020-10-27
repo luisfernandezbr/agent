@@ -477,7 +477,7 @@ func Main(integration sdk.Integration, args ...string) {
 			datastr, _ := cmd.Flags().GetString("input")
 			data := make(map[string]interface{})
 			if err := json.Unmarshal([]byte(datastr), &data); err != nil {
-				log.Fatal(logger, "unable to decode mutation paylaod", "err", err)
+				log.Fatal(logger, "unable to decode mutation payload", "err", err)
 			}
 
 			var id string

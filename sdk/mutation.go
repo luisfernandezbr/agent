@@ -128,7 +128,8 @@ type WorkIssueCreateMutation struct {
 	Labels        []string   `json:"labels,omitempty"`          // Labels is for setting the labels for an issue
 
 	// NOTE(robin): the above fields are for backwards compatibility, using MutationFields is the future 🚀
-	ProjectRefID string               `json:"project_ref_id"` // ProjectID is the id to the issue project as a ref_id
+	ProjectRefID string               `json:"project_ref_id"` // ProjectID is the id to the issue project as a ref_id // DEPRECATED in favor of Project
+	Project      NameRefID            `json:"project"`        // Project contains ref_id and name of the project
 	Fields       []MutationFieldValue `json:"fields"`
 }
 
