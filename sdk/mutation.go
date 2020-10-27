@@ -158,6 +158,18 @@ func (m MutationFieldValue) AsNameRefID() (*NameRefID, error) {
 	return nil, fmt.Errorf("type %s is not a NameRefID", m.Type.String())
 }
 
+// AsDate will return common date object
+func (m MutationFieldValue) AsDate() (*Date, error) {
+	if m.Type == WorkProjectCapabilityIssueMutationFieldsTypeDate {
+		var date Date
+		if err := json.Unmarshal(m.Value, &date); err != nil {
+			return nil, fmt.Errorf("error decoding mutation field %s into AsDate: %w", m.RefID, err)
+		}
+		return &date, nil
+	}
+	return nil, fmt.Errorf("type %s is not a AsDate", m.Type.String())
+}
+
 // AsNumber will return m's value as an int if it's type is WorkProjectCapabilityIssueMutationFieldsTypeNumber.
 func (m MutationFieldValue) AsNumber() (int, error) {
 	if m.Type == WorkProjectCapabilityIssueMutationFieldsTypeNumber {
