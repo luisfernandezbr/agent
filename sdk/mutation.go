@@ -128,7 +128,8 @@ type WorkIssueCreateMutation struct {
 	Labels        []string   `json:"labels,omitempty"`          // Labels is for setting the labels for an issue
 
 	// NOTE(robin): the above fields are for backwards compatibility, using MutationFields is the future 🚀
-	ProjectRefID string               `json:"project_ref_id"` // ProjectID is the id to the issue project as a ref_id
+	ProjectRefID string               `json:"project_ref_id"` // ProjectID is the id to the issue project as a ref_id // DEPRECATED in favor of Project
+	Project      NameRefID            `json:"project"`        // Project contains ref_id and name of the project
 	Fields       []MutationFieldValue `json:"fields"`
 }
 
@@ -145,6 +146,7 @@ func (m MutationFieldValue) AsNameRefID() (*NameRefID, error) {
 	if m.Type == WorkProjectCapabilityIssueMutationFieldsTypeWorkIssuePriority ||
 		m.Type == WorkProjectCapabilityIssueMutationFieldsTypeWorkIssueType ||
 		m.Type == WorkProjectCapabilityIssueMutationFieldsTypeEpic ||
+		m.Type == WorkProjectCapabilityIssueMutationFieldsTypeStringArray ||
 		m.Type == WorkProjectCapabilityIssueMutationFieldsTypeWorkSprint ||
 		m.Type == WorkProjectCapabilityIssueMutationFieldsTypeUser {
 		var nri NameRefID
@@ -154,6 +156,18 @@ func (m MutationFieldValue) AsNameRefID() (*NameRefID, error) {
 		return &nri, nil
 	}
 	return nil, fmt.Errorf("type %s is not a NameRefID", m.Type.String())
+}
+
+// AsDate will return common date object
+func (m MutationFieldValue) AsDate() (*Date, error) {
+	if m.Type == WorkProjectCapabilityIssueMutationFieldsTypeDate {
+		var date Date
+		if err := json.Unmarshal(m.Value, &date); err != nil {
+			return nil, fmt.Errorf("error decoding mutation field %s into AsDate: %w", m.RefID, err)
+		}
+		return &date, nil
+	}
+	return nil, fmt.Errorf("type %s is not a Date", m.Type.String())
 }
 
 // AsNumber will return m's value as an int if it's type is WorkProjectCapabilityIssueMutationFieldsTypeNumber.
@@ -173,7 +187,7 @@ func (m MutationFieldValue) AsString() (string, error) {
 		if err := json.Unmarshal(m.Value, &str); err != nil {
 			return "", fmt.Errorf("error decoding mutation field %s into string: %w", m.RefID, err)
 		}
-		return string(m.Value), nil
+		return str, nil
 	}
 	return "", fmt.Errorf("type %s is not a string", m.Type.String())
 }
