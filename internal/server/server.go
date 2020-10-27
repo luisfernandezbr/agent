@@ -1110,6 +1110,12 @@ func (s *Server) onMutation(logger sdk.Logger, evt event.SubscriptionEvent, refT
 	return nil
 }
 
+type noOpSlackClient struct{}
+
+func (n noOpSlackClient) SendMessage(msg string, args ...interface{}) error {
+	return nil
+}
+
 // New returns a new server instance
 func New(config Config) (*Server, error) {
 	location := agent.ExportIntegrationLocationPrivate
@@ -1118,8 +1124,8 @@ func New(config Config) (*Server, error) {
 	}
 	slackClient, err := slack.New(config.SlackToken, config.SlackChannel)
 	if err != nil {
-		log.Error(config.Logger, "error creating slack client. Will continue without it", "err", err)
-
+		log.Warn(config.Logger, "error creating slack client. Will continue without it", "err", err)
+		slackClient = &noOpSlackClient{}
 	}
 	server := &Server{
 		config:   config,
