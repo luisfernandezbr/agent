@@ -99,7 +99,10 @@ var PublishCmd = &cobra.Command{
 			log.Fatal(logger, "error getting signature for bundle", "err", err)
 		}
 
-		rd, nopts, fiSize := uploadPogress(logger, bundle, chunkSize)
+		rd, nopts, fiSize, err, errs := uploadPogress(logger, bundle, chunkSize)
+		if err != nil {
+			log.Fatal(logger, "error on upload", "err", err)
+		}
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -132,6 +135,9 @@ var PublishCmd = &cobra.Command{
 		basepath := fmt.Sprintf("publish2/%s/%s/%s", c.PublisherRefType, descriptor.RefType, version)
 		log.Info(logger, "uploading", "size", pnum.ToBytesSize(fiSize))
 		resp, err := api.Put(ctx, channel, api.RegistryService, basepath, apikey, rd, opts...)
+		if err := <-errs; err != nil {
+			log.Warn(logger, "error on upload", "err", err)
+		}
 		if err != nil || resp.StatusCode != http.StatusAccepted {
 			var buf []byte
 			if resp != nil {
@@ -151,11 +157,13 @@ func init() {
 	PublishCmd.Flags().MarkHidden("secret")
 }
 
-func uploadPogress(logger sdk.Logger, bundle string, chunkSize int64) (io.Reader, []api.WithOption, int64) {
+func uploadPogress(logger sdk.Logger, bundle string, chunkSize int64) (io.Reader, []api.WithOption, int64, error, chan error) {
+
+	errs := make(chan error, 1)
 
 	file, err := os.Open(bundle)
 	if err != nil {
-		log.Fatal(logger, "error opening bundle", "err", err)
+		return nil, nil, 0, fmt.Errorf("error opening bundle %s", err), errs
 	}
 	fi, _ := file.Stat()
 
@@ -167,7 +175,7 @@ func uploadPogress(logger sdk.Logger, bundle string, chunkSize int64) (io.Reader
 
 	_, err = mpWriter.CreateFormFile("file", fi.Name())
 	if err != nil {
-		panic(err)
+		return nil, nil, 0, fmt.Errorf("error creating form file %s", err), errs
 	}
 
 	contentType := mpWriter.FormDataContentType()
@@ -176,20 +184,20 @@ func uploadPogress(logger sdk.Logger, bundle string, chunkSize int64) (io.Reader
 	multi := make([]byte, nmulti)
 	_, err = byteBuf.Read(multi)
 	if err != nil {
-		panic(err)
+		return nil, nil, 0, fmt.Errorf("error reading from buffer %s", err), errs
 	}
 
 	//part: latest boundary
 	//when multipart closed, latest boundary is added
 	err = mpWriter.Close()
 	if err != nil {
-		panic(err)
+		return nil, nil, 0, fmt.Errorf("error closing writter %s", err), errs
 	}
 	nboundary := byteBuf.Len()
 	lastBoundary := make([]byte, nboundary)
 	_, err = byteBuf.Read(lastBoundary)
 	if err != nil {
-		panic(err)
+		return nil, nil, 0, fmt.Errorf("error reading last boundary %s", err), errs
 	}
 
 	//calculate content length
@@ -206,7 +214,8 @@ func uploadPogress(logger sdk.Logger, bundle string, chunkSize int64) (io.Reader
 		//write multipart
 		_, err = wr.Write(multi)
 		if err != nil {
-			panic(err)
+			errs <- fmt.Errorf("error writting multipart %s", err)
+			return
 		}
 
 		scoped := progressLog.Scoped("Uploading bundle")
@@ -223,8 +232,8 @@ func uploadPogress(logger sdk.Logger, bundle string, chunkSize int64) (io.Reader
 				}
 				scoped.Finish(false)
 				progressLog.Finish(false)
-				sdk.LogError(logger, "error publishing1", "err", err)
-				panic(err)
+				errs <- fmt.Errorf("error reading buffer %s", err)
+				return
 			}
 			inc += len(buf[:n])
 			progress := int(math.Round(float64(inc) / float64(totalSize) * 100))
@@ -237,8 +246,8 @@ func uploadPogress(logger sdk.Logger, bundle string, chunkSize int64) (io.Reader
 			if err != nil {
 				scoped.Finish(false)
 				progressLog.Finish(false)
-				sdk.LogError(logger, "error publishing2", "err", err)
-				panic(err)
+				errs <- fmt.Errorf("error reading buffer chunk %s", err)
+				return
 			}
 		}
 		//write boundary
@@ -248,19 +257,21 @@ func uploadPogress(logger sdk.Logger, bundle string, chunkSize int64) (io.Reader
 		if err != nil {
 			scoped.Finish(false)
 			progressLog.Finish(false)
-			sdk.LogError(logger, "error publishing3", "err", err)
-			panic(err)
+			errs <- fmt.Errorf("error writting last boundary %s", err)
+			return
 		}
 		if err := wr.Close(); err != nil {
 			scoped.Finish(false)
 			progressLog.Finish(false)
-			sdk.LogError(logger, "error publishing4", "err", err)
-			panic(err)
+			errs <- fmt.Errorf("error closing writter %s", err)
+			return
 		}
 
 		scoped.Finish(true)
 		progressLog.Finish(true)
 		renderer.StopDrawing()
+
+		errs <- nil
 	}()
 
 	opts := []api.WithOption{
@@ -272,5 +283,5 @@ func uploadPogress(logger sdk.Logger, bundle string, chunkSize int64) (io.Reader
 		},
 	}
 
-	return rd, opts, fi.Size()
+	return rd, opts, fi.Size(), nil, errs
 }
