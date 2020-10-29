@@ -158,14 +158,27 @@ func newConfig(configstr *string) (*sdk.Config, error) {
 
 // fetchConfig will get the config from pinpoint, should only be used for webhooks and mutations
 func (s *Server) fetchConfig(client graphql.Client, integrationInstanceID string) (*sdk.Config, error) {
-	integration, err := agent.FindIntegrationInstance(client, integrationInstanceID)
+	var first int64 = 1
+	integrationRes, err := agent.FindIntegrationInstances(client, &agent.IntegrationInstanceQueryInput{
+		First: &first,
+		Query: &agent.IntegrationInstanceQuery{
+			Filters: []string{
+				"_id = ?",
+				"active = ?",
+			},
+			Params: []interface{}{
+				integrationInstanceID,
+				true,
+			},
+		},
+	})
 	if err != nil {
 		return nil, fmt.Errorf("error finding integration instance: %w", err)
 	}
-	if integration == nil {
+	if len(integrationRes.Edges) == 0 {
 		return nil, nil
 	}
-	return newConfig(integration.Config)
+	return newConfig(integrationRes.Edges[0].Node.Config)
 }
 
 type cleanupFunc func()
