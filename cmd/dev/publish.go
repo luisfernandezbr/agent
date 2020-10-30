@@ -1,6 +1,7 @@
 package dev
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/rand"
@@ -8,12 +9,18 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"math"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 
+	"github.com/cirruslabs/echelon"
+	"github.com/cirruslabs/echelon/renderers"
 	"github.com/pinpt/agent/v4/internal/util"
 	"github.com/pinpt/agent/v4/sdk"
 	"github.com/pinpt/go-common/v10/api"
@@ -52,11 +59,14 @@ var PublishCmd = &cobra.Command{
 		logger := log.NewCommandLogger(cmd)
 		defer logger.Close()
 		channel, _ := cmd.Flags().GetString("channel")
+		chunkSize, _ := cmd.Flags().GetInt64("chunk")
+
 		tmpdir, err := ioutil.TempDir("", "")
 		if err != nil {
 			log.Fatal(logger, "error creating temp dir", "err", err)
 		}
 		defer os.RemoveAll(tmpdir)
+
 		c, err := loadDevConfig(channel)
 		if err != nil {
 			log.Fatal(logger, "error opening developer config", "err", err)
@@ -71,6 +81,7 @@ var PublishCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(logger, "unable to parse private key in config")
 		}
+
 		log.Info(logger, "building package")
 		cm := exec.Command(os.Args[0], "package", integrationDir, "--dir", tmpdir, "--channel", channel)
 		cm.Stdout = os.Stdout
@@ -87,22 +98,20 @@ var PublishCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(logger, "error getting signature for bundle", "err", err)
 		}
-		of, err := os.Open(bundle)
+
+		rd, nopts, fiSize, err, errs := uploadPogress(logger, bundle, chunkSize)
 		if err != nil {
-			log.Fatal(logger, "error opening bundle", "err", err)
+			log.Fatal(logger, "error on upload", "err", err)
 		}
-		defer of.Close()
-		stat, _ := os.Stat(bundle)
+
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		opts := []api.WithOption{
-			api.WithContentType("application/zip"),
 			api.WithHeader("x-pinpt-signature", signature),
-			func(req *http.Request) error {
-				req.ContentLength = stat.Size()
-				return nil
-			},
 		}
+
+		opts = append(opts, nopts...)
+
 		apikey, _ := cmd.Flags().GetString("apikey")
 		secret, _ := cmd.Flags().GetString("secret")
 		if secret != "" {
@@ -123,9 +132,12 @@ var PublishCmd = &cobra.Command{
 			log.Fatal(logger, "error loading descriptor", "err", err, "file", descriptorFn)
 		}
 		version := getBuildCommitForIntegration(integrationDir)
-		basepath := fmt.Sprintf("publish/%s/%s/%s", c.PublisherRefType, descriptor.RefType, version)
-		log.Info(logger, "uploading", "size", pnum.ToBytesSize(stat.Size()))
-		resp, err := api.Put(ctx, channel, api.RegistryService, basepath, apikey, of, opts...)
+		basepath := fmt.Sprintf("publish2/%s/%s/%s", c.PublisherRefType, descriptor.RefType, version)
+		log.Info(logger, "uploading", "size", pnum.ToBytesSize(fiSize))
+		resp, err := api.Put(ctx, channel, api.RegistryService, basepath, apikey, rd, opts...)
+		if err := <-errs; err != nil {
+			log.Warn(logger, "error on upload", "err", err)
+		}
 		if err != nil || resp.StatusCode != http.StatusAccepted {
 			var buf []byte
 			if resp != nil {
@@ -141,5 +153,135 @@ func init() {
 	PublishCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "stable"), "the channel which can be set")
 	PublishCmd.Flags().String("apikey", "", "api key")
 	PublishCmd.Flags().String("secret", "", "internal shared secret")
+	PublishCmd.Flags().Int64("chunk", 800, "chunk size")
 	PublishCmd.Flags().MarkHidden("secret")
+}
+
+func uploadPogress(logger sdk.Logger, bundle string, chunkSize int64) (io.Reader, []api.WithOption, int64, error, chan error) {
+
+	errs := make(chan error, 1)
+
+	file, err := os.Open(bundle)
+	if err != nil {
+		return nil, nil, 0, fmt.Errorf("error opening bundle %s", err), errs
+	}
+	fi, _ := file.Stat()
+
+	//buffer for storing multipart data
+	byteBuf := &bytes.Buffer{}
+
+	//part: parameters
+	mpWriter := multipart.NewWriter(byteBuf)
+
+	_, err = mpWriter.CreateFormFile("file", fi.Name())
+	if err != nil {
+		return nil, nil, 0, fmt.Errorf("error creating form file %s", err), errs
+	}
+
+	contentType := mpWriter.FormDataContentType()
+
+	nmulti := byteBuf.Len()
+	multi := make([]byte, nmulti)
+	_, err = byteBuf.Read(multi)
+	if err != nil {
+		return nil, nil, 0, fmt.Errorf("error reading from buffer %s", err), errs
+	}
+
+	//part: latest boundary
+	//when multipart closed, latest boundary is added
+	err = mpWriter.Close()
+	if err != nil {
+		return nil, nil, 0, fmt.Errorf("error closing writter %s", err), errs
+	}
+	nboundary := byteBuf.Len()
+	lastBoundary := make([]byte, nboundary)
+	_, err = byteBuf.Read(lastBoundary)
+	if err != nil {
+		return nil, nil, 0, fmt.Errorf("error reading last boundary %s", err), errs
+	}
+
+	//calculate content length
+	totalSize := int64(nmulti) + fi.Size() + int64(nboundary)
+
+	rd, wr := io.Pipe()
+
+	renderer := renderers.NewInteractiveRenderer(os.Stdout, nil)
+	go renderer.StartDrawing()
+	progressLog := echelon.NewLogger(echelon.InfoLevel, renderer)
+
+	go func() {
+
+		//write multipart
+		_, err = wr.Write(multi)
+		if err != nil {
+			errs <- fmt.Errorf("error writting multipart %s", err)
+			return
+		}
+
+		scoped := progressLog.Scoped("Uploading bundle")
+
+		//write file
+		buf := make([]byte, chunkSize)
+		inc := 0
+		lastProgress := 0
+		for {
+			n, err := file.Read(buf)
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				scoped.Finish(false)
+				progressLog.Finish(false)
+				errs <- fmt.Errorf("error reading buffer %s", err)
+				return
+			}
+			inc += len(buf[:n])
+			progress := int(math.Round(float64(inc) / float64(totalSize) * 100))
+			if progress != lastProgress {
+				scoped.Infof("Progress %s/%s %d%%", pnum.ToBytesSize(int64(inc)), pnum.ToBytesSize(totalSize), progress)
+			}
+			lastProgress = progress
+
+			_, err = wr.Write(buf[:n])
+			if err != nil {
+				scoped.Finish(false)
+				progressLog.Finish(false)
+				errs <- fmt.Errorf("error reading buffer chunk %s", err)
+				return
+			}
+		}
+		//write boundary
+		progress := int(math.Round(float64(inc) / float64(totalSize) * 100))
+		scoped.Infof("Progress %s/%s %d%%", pnum.ToBytesSize(int64(inc)), pnum.ToBytesSize(totalSize), progress)
+		_, err = wr.Write(lastBoundary)
+		if err != nil {
+			scoped.Finish(false)
+			progressLog.Finish(false)
+			errs <- fmt.Errorf("error writting last boundary %s", err)
+			return
+		}
+		if err := wr.Close(); err != nil {
+			scoped.Finish(false)
+			progressLog.Finish(false)
+			errs <- fmt.Errorf("error closing writter %s", err)
+			return
+		}
+
+		scoped.Finish(true)
+		progressLog.Finish(true)
+		renderer.StopDrawing()
+
+		errs <- nil
+	}()
+
+	opts := []api.WithOption{
+		api.WithContentType(contentType),
+		api.WithHeader("x-file-length", strconv.FormatInt(fi.Size(), 10)),
+		func(req *http.Request) error {
+			req.ContentLength = totalSize
+			return nil
+		},
+	}
+
+	return rd, opts, fi.Size(), nil, errs
 }

@@ -6,6 +6,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.0.7
 	github.com/JohannesKaufmann/html-to-markdown v1.0.0
 	github.com/andybalholm/cascadia v1.2.0 // indirect
+	github.com/cirruslabs/echelon v1.3.0
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/fatih/color v1.9.0
 	github.com/go-redis/redis/v8 v8.1.3
