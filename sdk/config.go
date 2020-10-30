@@ -222,7 +222,7 @@ func NewConfig(kv map[string]interface{}) Config {
 	if strval, ok := kv["accounts"].(string); ok {
 		var accounts ConfigAccounts
 		if err := json.Unmarshal([]byte(strval), &accounts); err != nil {
-			panic(fmt.Errorf("error parsing basic_auth: %w", err))
+			panic(fmt.Errorf("error parsing accounts: %w", err))
 		}
 		c.Accounts = &accounts
 	}
