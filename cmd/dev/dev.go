@@ -154,6 +154,13 @@ var DevCmd = createDevCommand("dev", "dev-export", "run an integration in develo
 		replay, _ = filepath.Abs(replay)
 		devargs = append(devargs, "--replay", replay)
 	}
+
+	customerID, _ := cmd.Flags().GetString("customer-id")
+	devargs = append(devargs, "--customer-id", customerID)
+
+	integrationInstanceID, _ := cmd.Flags().GetString("integration-instance-id")
+	devargs = append(devargs, "--customer-id", integrationInstanceID)
+
 	return devargs
 })
 
