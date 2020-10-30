@@ -159,7 +159,7 @@ var DevCmd = createDevCommand("dev", "dev-export", "run an integration in develo
 	devargs = append(devargs, "--customer-id", customerID)
 
 	integrationInstanceID, _ := cmd.Flags().GetString("integration-instance-id")
-	devargs = append(devargs, "--customer-id", integrationInstanceID)
+	devargs = append(devargs, "--integration-instance-id", integrationInstanceID)
 
 	return devargs
 })
