@@ -52,8 +52,8 @@ func getIntegrationConfig(cmd *cobra.Command) sdk.Config {
 	if len(setargs) > 0 {
 		kv = make(map[string]interface{})
 		for _, setarg := range setargs {
-			tok := strings.Split(setarg, "=")
-			kv[tok[0]] = tok[1]
+			ind := strings.Index(setarg, "=")
+			kv[setarg[:ind]] = setarg[ind+1:]
 		}
 	}
 	return sdk.NewConfig(kv)
