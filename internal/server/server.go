@@ -1166,7 +1166,7 @@ func New(config Config) (*Server, error) {
 		log.Warn(config.Logger, "error creating slack client. Will continue without it", "err", err)
 		slackClient = &noOpSlackClient{}
 	} else {
-		defer slackClient.SendMessage("🎉 integration published", "ref_type", config.Integration.Descriptor.RefType, "sha", config.Integration.Descriptor.BuildCommitSHA)
+		defer slackClient.SendMessage("🎉 *"+config.Integration.Descriptor.RefType+"* integration published", "sha", config.Integration.Descriptor.BuildCommitSHA)
 	}
 	server := &Server{
 		config:   config,
