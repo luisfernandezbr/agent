@@ -84,6 +84,9 @@ func Main(integration sdk.Integration, args ...string) {
 				log.Fatal(logger, "missing --config")
 			}
 			slackChannel, _ := cmd.Flags().GetString("slack-channel")
+			if !strings.HasSuffix(slackChannel, channel) {
+				slackChannel += "-" + channel
+			}
 			slackToken, _ := cmd.Flags().GetString("slack-token")
 			intconfig := getIntegrationConfig(cmd)
 			var state sdk.State

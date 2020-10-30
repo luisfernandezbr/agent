@@ -210,7 +210,7 @@ func (s *Server) handleAddIntegration(logger sdk.Logger, integration *agent.Inte
 	}
 	defer cleanup()
 	if err := s.config.Integration.Integration.Enroll(*instance); err != nil {
-		if err := s.slack.SendMessage("channel: `"+s.config.Channel+"`. error enrolling integration",
+		if err := s.slack.SendMessage("⚠️ error enrolling integration",
 			"instance_id", instance.IntegrationInstanceID(),
 			"customer_id", instance.CustomerID(),
 			"ref_type", instance.RefType(),
@@ -231,7 +231,7 @@ func (s *Server) handleRemoveIntegration(logger sdk.Logger, integration *agent.I
 	defer cleanup()
 	log.Info(logger, "running dismiss integration", "id", integration.ID, "customer_id", integration.CustomerID)
 	if err := s.config.Integration.Integration.Dismiss(*instance); err != nil {
-		if err := s.slack.SendMessage("channel: `"+s.config.Channel+"`. error dismissing integration",
+		if err := s.slack.SendMessage("⚠️ error dismissing integration",
 			"instance_id", instance.IntegrationInstanceID(),
 			"customer_id", instance.CustomerID(),
 			"ref_type", instance.RefType(),
@@ -300,7 +300,7 @@ func (s *Server) handleExport(logger log.Logger, client graphql.Client, req agen
 	var errmsg *string
 	if eerr != nil {
 		errmsg = pstrings.Pointer(eerr.Error())
-		if err := s.slack.SendMessage("channel: `"+s.config.Channel+"`. export error",
+		if err := s.slack.SendMessage("⚠️ export error",
 			"customer_id", req.CustomerID,
 			"instance_id", req.Integration.IntegrationID,
 			"ref_type", req.Integration.RefType,
@@ -375,7 +375,7 @@ func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integra
 	})
 	log.Info(logger, "running webhook")
 	if err := s.config.Integration.Integration.WebHook(e); err != nil {
-		if err := s.slack.SendMessage("channel: `"+s.config.Channel+"`. error running integration webhook",
+		if err := s.slack.SendMessage("⚠️ error running integration webhook",
 			"customer_id", customerID,
 			"instance_id", integrationInstanceID,
 			"ref_type", s.config.Integration.Descriptor.RefType,
@@ -440,7 +440,7 @@ func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integr
 	log.Info(logger, "running mutation", "id", mutation.ID, "customer_id", customerID, "ref_id", data.RefID)
 	mr, err := s.config.Integration.Integration.Mutation(e)
 	if err != nil {
-		if err := s.slack.SendMessage("channel: `"+s.config.Channel+"`. error running integration mutation",
+		if err := s.slack.SendMessage("⚠️ error running integration mutation",
 			"customer_id", customerID,
 			"instance_id", integrationInstanceID,
 			"ref_type", refType,
@@ -1165,6 +1165,8 @@ func New(config Config) (*Server, error) {
 	if err != nil {
 		log.Warn(config.Logger, "error creating slack client. Will continue without it", "err", err)
 		slackClient = &noOpSlackClient{}
+	} else {
+		defer slackClient.SendMessage("🎉 integration published", "ref_type", config.Integration.Descriptor.RefType, "sha", config.Integration.Descriptor.BuildCommitSHA)
 	}
 	server := &Server{
 		config:   config,

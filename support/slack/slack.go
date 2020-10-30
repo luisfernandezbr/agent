@@ -51,7 +51,7 @@ func New(slackToken string, slackChannel string) (Client, error) {
 		}
 	}
 	if slackChannelID == "" {
-		return nil, fmt.Errorf("ERROR error getting channel id from slack")
+		return nil, fmt.Errorf("error finding slack channel %s", slackChannel)
 	}
 	return &client{
 		slackChannelID: slackChannelID,
@@ -89,7 +89,7 @@ func (c *client) SendMessage(msg string, args ...interface{}) error {
 	// needed scopes: chat:write
 	if _, _, err := c.slackClient.PostMessageContext(context.Background(),
 		c.slackChannelID,
-		slack.MsgOptionText("⚠️"+msg+" ```"+cnt+"```", false),
+		slack.MsgOptionText(msg+" ```"+cnt+"```", false),
 		slack.MsgOptionAsUser(false),
 	); err != nil {
 		return err
