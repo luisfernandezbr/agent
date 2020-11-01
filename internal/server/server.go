@@ -102,6 +102,62 @@ func (s *Server) Close() error {
 	return nil
 }
 
+func (s *Server) sendSlackMessage(logger sdk.Logger, action string, customerID string, instanceID string, refType string, rerr error, args ...interface{}) {
+
+	errFunc := func(err error) {
+		log.Error(logger, "error sending message to slack", "err", err)
+	}
+
+	args = append(args, "customer_id", customerID)
+	args = append(args, "instance_id", instanceID)
+	args = append(args, "ref_type", refType)
+
+	if rerr != nil {
+		args = append(args, "error", rerr.Error())
+	}
+
+	state, err := s.newState(customerID, instanceID)
+	if err != nil {
+		errFunc(err)
+		return
+	}
+	var errorMessage string
+	exists, err := state.Get("error-message-"+action, &errorMessage)
+	if err != nil {
+		errFunc(err)
+		return
+	}
+
+	if exists {
+		// there was an error before, but there isn't one now, let's celebrate it's fixed!
+		if rerr == nil {
+			if err := state.Delete("error-message-" + action); err != nil {
+				errFunc(err)
+				return
+			}
+			if err := s.slack.SendMessage("🎉  *"+refType+"* the previous "+action+" error has been fixed!", args...); err != nil {
+				errFunc(err)
+				return
+			}
+			return
+		}
+		if rerr.Error() == errorMessage {
+			// don't send it again
+			return
+		}
+	}
+	if rerr == nil {
+		return
+	}
+	if err := state.Set("error-message-"+action, rerr.Error()); err != nil {
+		errFunc(err)
+		return
+	}
+	if err := s.slack.SendMessage("⚠️ *"+refType+"* error running "+action, args...); err != nil {
+		errFunc(err)
+	}
+}
+
 func (s *Server) customerSpecificStateKey(customerID string, integrationInstanceID string) string {
 	return customerID + ":" + s.config.Integration.Descriptor.RefType + ":" + integrationInstanceID
 }
@@ -209,15 +265,9 @@ func (s *Server) handleAddIntegration(logger sdk.Logger, integration *agent.Inte
 		return err
 	}
 	defer cleanup()
-	if err := s.config.Integration.Integration.Enroll(*instance); err != nil {
-		if err := s.slack.SendMessage("⚠️ error enrolling integration",
-			"instance_id", instance.IntegrationInstanceID(),
-			"customer_id", instance.CustomerID(),
-			"ref_type", instance.RefType(),
-			"error", err.Error(),
-		); err != nil {
-			log.Error(logger, "error sending message to slack")
-		}
+	err = s.config.Integration.Integration.Enroll(*instance)
+	s.sendSlackMessage(logger, "enroll", instance.CustomerID(), instance.IntegrationInstanceID(), instance.RefType(), err)
+	if err != nil {
 		return err
 	}
 	return nil
@@ -230,15 +280,9 @@ func (s *Server) handleRemoveIntegration(logger sdk.Logger, integration *agent.I
 	}
 	defer cleanup()
 	log.Info(logger, "running dismiss integration", "id", integration.ID, "customer_id", integration.CustomerID)
-	if err := s.config.Integration.Integration.Dismiss(*instance); err != nil {
-		if err := s.slack.SendMessage("⚠️ error dismissing integration",
-			"instance_id", instance.IntegrationInstanceID(),
-			"customer_id", instance.CustomerID(),
-			"ref_type", instance.RefType(),
-			"error", err.Error(),
-		); err != nil {
-			log.Error(logger, "error sending message to slack")
-		}
+	err = s.config.Integration.Integration.Dismiss(*instance)
+	s.sendSlackMessage(logger, "dismiss", instance.CustomerID(), instance.IntegrationInstanceID(), instance.RefType(), err)
+	if err != nil {
 		return err
 	}
 	return nil
@@ -297,18 +341,12 @@ func (s *Server) handleExport(logger log.Logger, client graphql.Client, req agen
 	if err := state.Flush(); err != nil {
 		log.Error(logger, "error flushing state", "err", err)
 	}
+	s.sendSlackMessage(logger, "export", req.CustomerID, req.Integration.IntegrationID, req.Integration.RefType, eerr,
+		"job_id", req.JobID,
+	)
 	var errmsg *string
 	if eerr != nil {
 		errmsg = pstrings.Pointer(eerr.Error())
-		if err := s.slack.SendMessage("⚠️ export error",
-			"customer_id", req.CustomerID,
-			"instance_id", req.Integration.IntegrationID,
-			"ref_type", req.Integration.RefType,
-			"job_id", req.JobID,
-			"error", eerr.Error(),
-		); err != nil {
-			log.Error(logger, "error sending message to slack")
-		}
 	}
 	completeEvent := &agent.ExportComplete{
 		CustomerID:            req.CustomerID,
@@ -374,15 +412,9 @@ func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integra
 		WebHookURL:            webhookURL,
 	})
 	log.Info(logger, "running webhook")
-	if err := s.config.Integration.Integration.WebHook(e); err != nil {
-		if err := s.slack.SendMessage("⚠️ error running integration webhook",
-			"customer_id", customerID,
-			"instance_id", integrationInstanceID,
-			"ref_type", s.config.Integration.Descriptor.RefType,
-			"error", err.Error(),
-		); err != nil {
-			log.Error(logger, "error sending message to slack")
-		}
+	err = s.config.Integration.Integration.WebHook(e)
+	s.sendSlackMessage(logger, "webhook", customerID, integrationInstanceID, s.config.Integration.Descriptor.RefType, err)
+	if err != nil {
 		return fmt.Errorf("error running integration webhook: %w", err)
 	}
 	log.Debug(logger, "flushing state")
@@ -439,15 +471,8 @@ func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integr
 	})
 	log.Info(logger, "running mutation", "id", mutation.ID, "customer_id", customerID, "ref_id", data.RefID)
 	mr, err := s.config.Integration.Integration.Mutation(e)
+	s.sendSlackMessage(logger, "mutation", customerID, integrationInstanceID, refType, err)
 	if err != nil {
-		if err := s.slack.SendMessage("⚠️ error running integration mutation",
-			"customer_id", customerID,
-			"instance_id", integrationInstanceID,
-			"ref_type", refType,
-			"error", err.Error(),
-		); err != nil {
-			log.Error(logger, "error sending message to slack")
-		}
 		return nil, fmt.Errorf("error running integration mutation: %w", err)
 	}
 	if err := state.Flush(); err != nil {
@@ -1234,6 +1259,7 @@ func New(config Config) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error starting mutation subscriber: %w", err)
 	}
-	err = slackClient.SendMessage("🎉 *"+config.Integration.Descriptor.RefType+"* integration published", "sha", config.Integration.Descriptor.BuildCommitSHA)
-	return server, err
+	// commenting for now, this will need to be in registry instead of here
+	// err = slackClient.SendMessage("🎉 *"+config.Integration.Descriptor.RefType+"* integration published", "sha", config.Integration.Descriptor.BuildCommitSHA)
+	return server, nil
 }
