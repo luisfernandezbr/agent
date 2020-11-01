@@ -22,7 +22,6 @@ import (
 	eventAPIvalidate "github.com/pinpt/agent/v4/internal/validate/eventapi"
 	eventAPIwebhook "github.com/pinpt/agent/v4/internal/webhook/eventapi"
 	"github.com/pinpt/agent/v4/sdk"
-	"github.com/pinpt/agent/v4/support/slack"
 	"github.com/pinpt/go-common/v10/api"
 	"github.com/pinpt/go-common/v10/datamodel"
 	"github.com/pinpt/go-common/v10/datetime"
@@ -30,6 +29,7 @@ import (
 	"github.com/pinpt/go-common/v10/graphql"
 	"github.com/pinpt/go-common/v10/hash"
 	"github.com/pinpt/go-common/v10/log"
+	"github.com/pinpt/go-common/v10/slack"
 	pstrings "github.com/pinpt/go-common/v10/strings"
 	"github.com/pinpt/integration-sdk/agent"
 	"github.com/pinpt/integration-sdk/sourcecode"
@@ -100,62 +100,6 @@ func (s *Server) Close() error {
 		s.mutation = nil
 	}
 	return nil
-}
-
-func (s *Server) sendSlackMessage(logger sdk.Logger, action string, customerID string, instanceID string, refType string, rerr error, args ...interface{}) {
-
-	errFunc := func(err error) {
-		log.Error(logger, "error sending message to slack", "err", err)
-	}
-
-	args = append(args, "customer_id", customerID)
-	args = append(args, "instance_id", instanceID)
-	args = append(args, "ref_type", refType)
-
-	if rerr != nil {
-		args = append(args, "error", rerr.Error())
-	}
-
-	state, err := s.newState(customerID, instanceID)
-	if err != nil {
-		errFunc(err)
-		return
-	}
-	var errorMessage string
-	exists, err := state.Get("error-message-"+action, &errorMessage)
-	if err != nil {
-		errFunc(err)
-		return
-	}
-
-	if exists {
-		// there was an error before, but there isn't one now, let's celebrate it's fixed!
-		if rerr == nil {
-			if err := state.Delete("error-message-" + action); err != nil {
-				errFunc(err)
-				return
-			}
-			if err := s.slack.SendMessage("🎉  *"+refType+"* the previous "+action+" error has been fixed!", args...); err != nil {
-				errFunc(err)
-				return
-			}
-			return
-		}
-		if rerr.Error() == errorMessage {
-			// don't send it again
-			return
-		}
-	}
-	if rerr == nil {
-		return
-	}
-	if err := state.Set("error-message-"+action, rerr.Error()); err != nil {
-		errFunc(err)
-		return
-	}
-	if err := s.slack.SendMessage("⚠️ *"+refType+"* error running "+action, args...); err != nil {
-		errFunc(err)
-	}
 }
 
 func (s *Server) customerSpecificStateKey(customerID string, integrationInstanceID string) string {
@@ -1176,7 +1120,7 @@ func (s *Server) onMutation(logger sdk.Logger, evt event.SubscriptionEvent, refT
 
 type noOpSlackClient struct{}
 
-func (n noOpSlackClient) SendMessage(msg string, args ...interface{}) error {
+func (n noOpSlackClient) SendMessage(msg string) error {
 	return nil
 }
 
