@@ -788,13 +788,15 @@ var runCmd = &cobra.Command{
 		var currentCmd *exec.Cmd
 		var restarted int
 
-		pos.OnExit(func(_ int) {
-			stoppedLock.Lock()
-			stopped = true
-			stoppedLock.Unlock()
-			done <- true
-			<-finished
-		})
+		if selfManaged {
+			pos.OnExit(func(_ int) {
+				stoppedLock.Lock()
+				stopped = true
+				stoppedLock.Unlock()
+				done <- true
+				<-finished
+			})
+		}
 
 		integrationBinary := filepath.Join(dir, integration)
 		previousIntegrationBinary := filepath.Join(dir, "old-"+integration)
