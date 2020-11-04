@@ -713,7 +713,7 @@ var runCmd = &cobra.Command{
 			log.Fatal(logger, "error getting dir absolute path", "err", err)
 		}
 
-		var apikey string
+		var selfManaged bool
 		var ch *event.SubscriptionChannel
 		var cmdargs []string
 		if secret != "" {
@@ -741,9 +741,10 @@ var runCmd = &cobra.Command{
 			})
 			cmdargs = append(cmdargs, "--secret="+secret, "--channel="+channel)
 		} else {
+			selfManaged = true
 			log.Debug(logger, "creating external subscription")
 			cfg, config := loadConfig(cmd, logger, channel)
-			apikey = config.APIKey
+			apikey := config.APIKey
 			if channel == "" {
 				channel = config.Channel
 			}
@@ -885,7 +886,13 @@ var runCmd = &cobra.Command{
 						if err != nil {
 							if currentCmd != nil && currentCmd.ProcessState != nil {
 								if currentCmd.ProcessState.ExitCode() != 0 {
-									log.Error(logger, "integration has exited", "restarted", restarted, "code", currentCmd.ProcessState.ExitCode(), "err", err)
+									if !selfManaged {
+										// in cloud we should just end the process
+										log.Fatal(logger, "integration has exited", "restarted", restarted, "code", currentCmd.ProcessState.ExitCode(), "err", err)
+									} else {
+										log.Error(logger, "integration has exited", "restarted", restarted, "code", currentCmd.ProcessState.ExitCode(), "err", err)
+									}
+
 								}
 							}
 							log.Info(logger, "pausing", "duration", time.Second*time.Duration(restarted))
