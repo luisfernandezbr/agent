@@ -85,7 +85,7 @@ func createDevCommand(name string, cmdname string, short string, inputRequired b
 					log.Fatal(logger, "--input is required")
 				}
 				if fileutil.FileExists(data) {
-					log.Info(logger, "loading webhook from file", "file", data)
+					log.Info(logger, "loading from file", "file", data, "cmd", cmdname)
 					buf, err := ioutil.ReadFile(data)
 					if err != nil {
 						log.Fatal(logger, "error reading data file", "err", err)
