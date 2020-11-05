@@ -27,7 +27,6 @@ import (
 	"github.com/pinpt/go-common/v10/graphql"
 	pjson "github.com/pinpt/go-common/v10/json"
 	"github.com/pinpt/go-common/v10/log"
-	"github.com/pinpt/go-common/v10/metrics"
 	pos "github.com/pinpt/go-common/v10/os"
 	pstrings "github.com/pinpt/go-common/v10/strings"
 	"github.com/pinpt/integration-sdk/agent"
@@ -714,11 +713,6 @@ var runCmd = &cobra.Command{
 			log.Fatal(logger, "error getting dir absolute path", "err", err)
 		}
 
-		runMetrics, _ := cmd.Flags().GetBool("metrics")
-		if runMetrics {
-			metrics.StartServer(ctx, logger, "8080")
-		}
-
 		var apikey string
 		var ch *event.SubscriptionChannel
 		var cmdargs []string
@@ -932,7 +926,6 @@ func init() {
 	runCmd.Flags().String("start-file", "", "the start file to write once running")
 	runCmd.Flags().MarkHidden("secret")
 	runCmd.Flags().MarkHidden("start-file")
-	runCmd.Flags().Bool("metrics", pos.Getenv("PP_CHANNEL", "dev") != "dev", "turn on metrics endpoint at /metrics")
 
 	rootCmd.AddCommand(enrollAgentCmd)
 	enrollAgentCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", ""), "the channel which can be set")
