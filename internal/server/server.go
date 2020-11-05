@@ -797,7 +797,7 @@ func (s *Server) makeExportStat(logger sdk.Logger, integrationInstanceID, custom
 		if err != nil {
 			log.Error(logger, "error creating liveness record", "err", err)
 		} else {
-			log.Debug(logger, "created export liveness record")
+			log.Debug(logger, "created export liveness record", "job_id", jobID)
 		}
 	} else {
 		log.Error(logger, "error creating client for liveness", "err", err)
