@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/pinpt/agent/v4/sdk"
 	"github.com/pinpt/go-common/v10/datamodel"
 	"github.com/pinpt/go-common/v10/event"
 	"github.com/pinpt/go-common/v10/log"
+	"github.com/pinpt/go-common/v10/metrics"
 	isdk "github.com/pinpt/integration-sdk"
 	"github.com/pinpt/integration-sdk/agent"
 )
@@ -67,17 +69,24 @@ func createDBChangeEvent(data string) (*DbChangeEvent, error) {
 
 // Subscriber is a convenience wrapper around a subscription channel
 type Subscriber struct {
-	ch       *event.SubscriptionChannel
-	cb       SubscriberCallback
-	logger   log.Logger
-	location string
-	refType  string
+	ch                  *event.SubscriptionChannel
+	cb                  SubscriberCallback
+	logger              log.Logger
+	location            string
+	refType             string
+	metricServiceName   string
+	metricOperationName string
 }
 
 func (s *Subscriber) run() {
 	for event := range s.ch.Channel() {
+		ts := time.Now()
 		if err := s.cb(s.logger, event, s.refType, s.location); err != nil {
+			metrics.RequestsTotal.WithLabelValues(s.metricServiceName, s.metricOperationName, "500").Inc()
 			log.Error(s.logger, "error from callback", "err", err)
+		} else {
+			metrics.RequestsTotal.WithLabelValues(s.metricServiceName, s.metricOperationName, "200").Inc()
+			metrics.RequestDurationMilliseconds.WithLabelValues(s.metricServiceName, s.metricOperationName).Observe(float64(time.Since(ts).Milliseconds()))
 		}
 		event.Commit()
 	}
@@ -92,12 +101,12 @@ func (s *Subscriber) Close() error {
 type SubscriberCallback func(logger sdk.Logger, event event.SubscriptionEvent, refType string, location string) error
 
 // NewDBChangeSubscriber will return a db change subscriber
-func NewDBChangeSubscriber(config Config, location agent.ExportIntegrationLocation, refType string, callback SubscriberCallback) (*Subscriber, error) {
-	return NewEventSubscriber(config, []string{"ops.db.Change"}, createDBChangeSubscriptionFilter(refType, location), location, callback)
+func NewDBChangeSubscriber(config Config, location agent.ExportIntegrationLocation, refType string, callback SubscriberCallback, metricServiceName, metricOperationName string) (*Subscriber, error) {
+	return NewEventSubscriber(config, []string{"ops.db.Change"}, createDBChangeSubscriptionFilter(refType, location), location, callback, metricServiceName, metricOperationName)
 }
 
 // NewEventSubscriber will return an event subscriber
-func NewEventSubscriber(config Config, topics []string, filters *event.SubscriptionFilter, location agent.ExportIntegrationLocation, callback SubscriberCallback) (*Subscriber, error) {
+func NewEventSubscriber(config Config, topics []string, filters *event.SubscriptionFilter, location agent.ExportIntegrationLocation, callback SubscriberCallback, metricServiceName, metricOperationName string) (*Subscriber, error) {
 	httpheaders := map[string]string{}
 	if config.Secret != "" {
 		httpheaders["x-api-key"] = config.Secret
@@ -117,11 +126,13 @@ func NewEventSubscriber(config Config, topics []string, filters *event.Subscript
 		return nil, err
 	}
 	s := &Subscriber{
-		ch:       ch,
-		cb:       callback,
-		logger:   config.Logger,
-		location: location.String(),
-		refType:  config.Integration.Descriptor.RefType,
+		ch:                  ch,
+		cb:                  callback,
+		logger:              config.Logger,
+		location:            location.String(),
+		refType:             config.Integration.Descriptor.RefType,
+		metricServiceName:   metricServiceName,
+		metricOperationName: metricOperationName,
 	}
 	ch.WaitForReady()
 	go s.run()

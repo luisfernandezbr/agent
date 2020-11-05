@@ -1140,7 +1140,7 @@ func New(config Config) (*Server, error) {
 		location: location.String(),
 		slack:    slackClient,
 	}
-	server.dbchange, err = NewDBChangeSubscriber(config, location, config.Integration.Descriptor.RefType, server.onDBChange)
+	server.dbchange, err = NewDBChangeSubscriber(config, location, config.Integration.Descriptor.RefType, server.onDBChange, config.Integration.Descriptor.RefType, "integration")
 	if err != nil {
 		return nil, err
 	}
@@ -1161,7 +1161,10 @@ func New(config Config) (*Server, error) {
 			ObjectExpr: exportObjectExpr,
 		},
 		location,
-		server.onEvent)
+		server.onEvent,
+		config.Integration.Descriptor.RefType,
+		"export",
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -1176,7 +1179,10 @@ func New(config Config) (*Server, error) {
 			ObjectExpr: validateObjectExpr,
 		},
 		location,
-		server.onEvent)
+		server.onEvent,
+		config.Integration.Descriptor.RefType,
+		"validate",
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -1188,7 +1194,10 @@ func New(config Config) (*Server, error) {
 			ObjectExpr: fmt.Sprintf(`system:"%s"`, config.Integration.Descriptor.RefType),
 		},
 		location,
-		server.onWebhook)
+		server.onWebhook,
+		config.Integration.Descriptor.RefType,
+		"webhook",
+	)
 	if err != nil {
 		return nil, fmt.Errorf("error starting webhook subscriber: %w", err)
 	}
@@ -1199,7 +1208,10 @@ func New(config Config) (*Server, error) {
 			HeaderExpr: fmt.Sprintf(`ref_type:"%s" AND location:"%s"`, config.Integration.Descriptor.RefType, location.String()),
 		},
 		location,
-		server.onMutation)
+		server.onMutation,
+		config.Integration.Descriptor.RefType,
+		"mutation",
+	)
 	if err != nil {
 		return nil, fmt.Errorf("error starting mutation subscriber: %w", err)
 	}
