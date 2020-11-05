@@ -23,6 +23,7 @@ import (
 	"github.com/pinpt/go-common/v10/fileutil"
 	pjson "github.com/pinpt/go-common/v10/json"
 	"github.com/pinpt/go-common/v10/log"
+	"github.com/pinpt/go-common/v10/metrics"
 	pos "github.com/pinpt/go-common/v10/os"
 	"github.com/spf13/cobra"
 )
@@ -86,6 +87,10 @@ func Main(integration sdk.Integration, args ...string) {
 			slackChannel, _ := cmd.Flags().GetString("slack-channel")
 			if !strings.HasSuffix(slackChannel, channel) {
 				slackChannel += "-" + channel
+			}
+			runMetrics, _ := cmd.Flags().GetBool("metrics")
+			if runMetrics {
+				metrics.StartServer(ctx, logger, "8080")
 			}
 			slackToken, _ := cmd.Flags().GetString("slack-token")
 			intconfig := getIntegrationConfig(cmd)
@@ -557,6 +562,7 @@ func Main(integration sdk.Integration, args ...string) {
 	serverCmd.PersistentFlags().Int("redisDB", 15, "the redis db")
 	serverCmd.PersistentFlags().String("groupid", "", "override the group id")
 	serverCmd.PersistentFlags().String("start-file", "", "file to touch when the server is started")
+	serverCmd.Flags().Bool("metrics", pos.Getenv("PP_CHANNEL", "dev") != "dev", "turn on metrics endpoint at /metrics")
 	serverCmd.Flags().MarkHidden("groupid")
 	serverCmd.Flags().MarkHidden("start-file")
 	serverCmd.AddCommand(devExportCmd)
