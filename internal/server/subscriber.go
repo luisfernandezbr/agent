@@ -81,13 +81,15 @@ type Subscriber struct {
 func (s *Subscriber) run() {
 	for event := range s.ch.Channel() {
 		ts := time.Now()
+		responseCode := "200"
 		if err := s.cb(s.logger, event, s.refType, s.location); err != nil {
-			metrics.RequestsTotal.WithLabelValues(s.metricServiceName, s.metricOperationName, "500").Inc()
+			responseCode = "500"
+
 			log.Error(s.logger, "error from callback", "err", err)
-		} else {
-			metrics.RequestsTotal.WithLabelValues(s.metricServiceName, s.metricOperationName, "200").Inc()
-			metrics.RequestDurationMilliseconds.WithLabelValues(s.metricServiceName, s.metricOperationName).Observe(float64(time.Since(ts).Milliseconds()))
 		}
+		metrics.RequestsTotal.WithLabelValues(s.metricServiceName, s.metricOperationName, responseCode).Inc()
+		metrics.RequestDurationMilliseconds.WithLabelValues(s.metricServiceName, s.metricOperationName, responseCode).Observe(float64(time.Since(ts).Milliseconds()))
+
 		event.Commit()
 	}
 }
