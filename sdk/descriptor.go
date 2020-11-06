@@ -10,14 +10,15 @@ import (
 
 // Descriptor is metadata about what the integration supports
 type Descriptor struct {
-	Name           string       `json:"name" yaml:"name"`
-	RefType        string       `json:"ref_type" yaml:"ref_type"`
-	Description    string       `json:"description" yaml:"description"`
-	AvatarURL      string       `json:"avatar_url" yaml:"avatar_url"`
-	Capabilities   []string     `json:"capabilities" yaml:"capabilities"`
-	Installation   Installation `json:"installation" yaml:"installation"`
-	BuildDate      time.Time    `json:"-" yaml:"-"`
-	BuildCommitSHA string       `json:"-" yaml:"-"`
+	Name           string              `json:"name" yaml:"name"`
+	RefType        string              `json:"ref_type" yaml:"ref_type"`
+	Description    string              `json:"description" yaml:"description"`
+	AvatarURL      string              `json:"avatar_url" yaml:"avatar_url"`
+	Capabilities   []string            `json:"capabilities" yaml:"capabilities"`
+	Installation   Installation        `json:"installation" yaml:"installation"`
+	UserScope      DescriptorUserScope `json:"user_scope" yaml:"user_scope"`
+	BuildDate      time.Time           `json:"-" yaml:"-"`
+	BuildCommitSHA string              `json:"-" yaml:"-"`
 }
 
 // InstallationMode is the type of installation
@@ -56,6 +57,17 @@ type InstallationConfig struct {
 	Capabilities  []string            `json:"capabilities,omitempty" yaml:"capabilities"`
 	Authorization []AuthorizationType `json:"authorizations" yaml:"authorizations"`
 }
+
+// DescriptorUserScope indicates how users should scoped by pinpoint internally
+type DescriptorUserScope string
+
+// these should mirror github.com/pinpt/integration-sdk/agent -> IntegrationCapabilityUserLinkingScope
+var (
+	// GlobalUserScope means that users are universal accross customers/accounts
+	GlobalUserScope DescriptorUserScope = "global"
+	// IntegrationInstanceUserScope means that users are scoped per integration installation.
+	IntegrationInstanceUserScope DescriptorUserScope = "integration_instance"
+)
 
 // LoadDescriptor will load a descriptor from an integration
 func LoadDescriptor(descriptorBuf, build, commit string) (*Descriptor, error) {
