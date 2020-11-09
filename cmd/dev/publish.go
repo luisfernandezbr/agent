@@ -132,7 +132,7 @@ var PublishCmd = &cobra.Command{
 			log.Fatal(logger, "error loading descriptor", "err", err, "file", descriptorFn)
 		}
 		version := getBuildCommitForIntegration(integrationDir)
-		basepath := fmt.Sprintf("publish2/%s/%s/%s", c.PublisherRefType, descriptor.RefType, version)
+		basepath := fmt.Sprintf("publish/%s/%s/%s", c.PublisherRefType, descriptor.RefType, version)
 		log.Info(logger, "uploading", "size", pnum.ToBytesSize(fiSize))
 		resp, err := api.Put(ctx, channel, api.RegistryService, basepath, apikey, rd, opts...)
 		if err := <-errs; err != nil {
