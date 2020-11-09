@@ -99,7 +99,7 @@ var PublishCmd = &cobra.Command{
 			log.Fatal(logger, "error getting signature for bundle", "err", err)
 		}
 
-		rd, nopts, fiSize, err, errs := uploadPogress(logger, bundle, chunkSize)
+		rd, nopts, fiSize, errs, err := uploadPogress(logger, bundle, chunkSize)
 		if err != nil {
 			log.Fatal(logger, "error on upload", "err", err)
 		}
@@ -149,21 +149,13 @@ var PublishCmd = &cobra.Command{
 	},
 }
 
-func init() {
-	PublishCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "stable"), "the channel which can be set")
-	PublishCmd.Flags().String("apikey", "", "api key")
-	PublishCmd.Flags().String("secret", "", "internal shared secret")
-	PublishCmd.Flags().Int64("chunk", 800, "chunk size")
-	PublishCmd.Flags().MarkHidden("secret")
-}
-
-func uploadPogress(logger sdk.Logger, bundle string, chunkSize int64) (io.Reader, []api.WithOption, int64, error, chan error) {
+func uploadPogress(logger sdk.Logger, bundle string, chunkSize int64) (io.Reader, []api.WithOption, int64, chan error, error) {
 
 	errs := make(chan error, 1)
 
 	file, err := os.Open(bundle)
 	if err != nil {
-		return nil, nil, 0, fmt.Errorf("error opening bundle %s", err), errs
+		return nil, nil, 0, errs, fmt.Errorf("error opening bundle %s", err)
 	}
 	fi, _ := file.Stat()
 
@@ -175,7 +167,7 @@ func uploadPogress(logger sdk.Logger, bundle string, chunkSize int64) (io.Reader
 
 	_, err = mpWriter.CreateFormFile("file", fi.Name())
 	if err != nil {
-		return nil, nil, 0, fmt.Errorf("error creating form file %s", err), errs
+		return nil, nil, 0, errs, fmt.Errorf("error creating form file %s", err)
 	}
 
 	contentType := mpWriter.FormDataContentType()
@@ -184,20 +176,20 @@ func uploadPogress(logger sdk.Logger, bundle string, chunkSize int64) (io.Reader
 	multi := make([]byte, nmulti)
 	_, err = byteBuf.Read(multi)
 	if err != nil {
-		return nil, nil, 0, fmt.Errorf("error reading from buffer %s", err), errs
+		return nil, nil, 0, errs, fmt.Errorf("error reading from buffer %s", err)
 	}
 
 	//part: latest boundary
 	//when multipart closed, latest boundary is added
 	err = mpWriter.Close()
 	if err != nil {
-		return nil, nil, 0, fmt.Errorf("error closing writter %s", err), errs
+		return nil, nil, 0, errs, fmt.Errorf("error closing writter %s", err)
 	}
 	nboundary := byteBuf.Len()
 	lastBoundary := make([]byte, nboundary)
 	_, err = byteBuf.Read(lastBoundary)
 	if err != nil {
-		return nil, nil, 0, fmt.Errorf("error reading last boundary %s", err), errs
+		return nil, nil, 0, errs, fmt.Errorf("error reading last boundary %s", err)
 	}
 
 	//calculate content length
@@ -283,5 +275,13 @@ func uploadPogress(logger sdk.Logger, bundle string, chunkSize int64) (io.Reader
 		},
 	}
 
-	return rd, opts, fi.Size(), nil, errs
+	return rd, opts, fi.Size(), errs, nil
+}
+
+func init() {
+	PublishCmd.Flags().String("channel", pos.Getenv("PP_CHANNEL", "stable"), "the channel which can be set")
+	PublishCmd.Flags().String("apikey", "", "api key")
+	PublishCmd.Flags().String("secret", "", "internal shared secret")
+	PublishCmd.Flags().Int64("chunk", 800, "chunk size")
+	PublishCmd.Flags().MarkHidden("secret")
 }
