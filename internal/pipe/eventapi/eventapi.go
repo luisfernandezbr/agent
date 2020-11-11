@@ -187,7 +187,7 @@ func (p *eventAPIPipe) send(model string, f *wrapperFile) error {
 		RefType:               p.reftype,
 		RefID:                 p.uuid,
 		JobID:                 p.jobid,
-		IntegrationInstanceID: &p.integrationInstanceID,
+		IntegrationInstanceID: p.integrationInstanceID,
 		Objects:               pjson.Stringify(map[string]string{model: base64.StdEncoding.EncodeToString(buf)}),
 	}
 	headers := map[string]string{
