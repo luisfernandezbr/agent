@@ -199,7 +199,7 @@ func (p *eventAPIPipe) send(model string, f *wrapperFile) error {
 		headers["jobid"] = p.jobid
 	}
 	if p.fastlane {
-		headers["fastlane"] = fmt.Sprintf("%v", p.fastlane)
+		headers["fastlane"] = "true"
 	}
 	evt := event.PublishEvent{
 		Logger:  p.logger,
