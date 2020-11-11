@@ -63,6 +63,7 @@ type eventAPIPipe struct {
 	cancel                context.CancelFunc
 	dir                   string
 	closed                bool
+	fastlane              bool
 	mu                    sync.Mutex
 	files                 map[string]*wrapperFile
 	customerID            string
@@ -186,7 +187,7 @@ func (p *eventAPIPipe) send(model string, f *wrapperFile) error {
 		RefType:               p.reftype,
 		RefID:                 p.uuid,
 		JobID:                 p.jobid,
-		IntegrationInstanceID: &p.integrationInstanceID,
+		IntegrationInstanceID: p.integrationInstanceID,
 		Objects:               pjson.Stringify(map[string]string{model: base64.StdEncoding.EncodeToString(buf)}),
 	}
 	headers := map[string]string{
@@ -196,6 +197,9 @@ func (p *eventAPIPipe) send(model string, f *wrapperFile) error {
 	}
 	if p.jobid != "" {
 		headers["jobid"] = p.jobid
+	}
+	if p.fastlane {
+		headers["fastlane"] = "true"
 	}
 	evt := event.PublishEvent{
 		Logger:  p.logger,
@@ -277,6 +281,7 @@ type Config struct {
 	APIKey                string
 	Secret                string
 	Stats                 sdk.Stats
+	Fastlane              bool
 }
 
 // New will create a new eventapi pipe
@@ -302,6 +307,7 @@ func New(config Config) sdk.Pipe {
 		cancel:                cancel,
 		started:               time.Now(),
 		stats:                 config.Stats,
+		fastlane:              config.Fastlane,
 	}
 	go p.run()
 	return p

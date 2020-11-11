@@ -1,12 +1,7 @@
 name: Go
 
 on:
-  push:
-    branches:
-      - master
-    tags:
-      - "v*"
-  pull_request:
+  push
 
 env:
   IMAGE_NAME: agent
@@ -51,39 +46,16 @@ jobs:
           docker tag $IMAGE_NAME $IMAGE_ID:${{ github.sha }}
           docker push $IMAGE_ID:${{ github.sha }}
 
-  tag-docker:
-    name: Tag Docker
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push'
-    needs:
-      - build-docker
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Login to Github CR
-        run: echo "${{ secrets.PP_GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u pinpointbot --password-stdin
-
-      - name: Pull Image
-        run: docker pull docker.pkg.github.com/pinpt/agent/$IMAGE_NAME:${{ github.sha }}
-
-      - name: Push image
-        run: |
-          IMAGE_ID=docker.pkg.github.com/pinpt/agent/$IMAGE_NAME          
-
-          echo ${{ github.ref }}
-
-          # Strip git ref prefix from version
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          echo REF=${{ github.ref }}
+          echo VERSION=$VERSION
 
-          # Strip "v" prefix from tag name
-          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
-
-          if [ "$VERSION" != "master" ]; then
+          if [ "$VERSION" == "master" ]; then
             echo pushing $IMAGE_ID:$VERSION
             docker tag $IMAGE_ID:${{ github.sha }} $IMAGE_ID:$VERSION
             docker push $IMAGE_ID:$VERSION
-          fi
 
-          echo pushing $IMAGE_ID:latest
-          docker tag $IMAGE_ID:${{ github.sha }} $IMAGE_ID:latest
-          docker push $IMAGE_ID:latest
+            echo pushing $IMAGE_ID:latest
+            docker tag $IMAGE_ID:${{ github.sha }} $IMAGE_ID:latest
+            docker push $IMAGE_ID:latest
+          fi

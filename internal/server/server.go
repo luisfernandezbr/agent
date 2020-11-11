@@ -119,7 +119,8 @@ func (s *Server) newState(customerID string, integrationInstanceID string) (sdk.
 	return state, nil
 }
 
-func (s *Server) newPipe(logger sdk.Logger, dir string, customerID string, jobID string, integrationInstanceID string) sdk.Pipe {
+// newPipe makes a new pipe, fastlane should ONLY be set on end-user impacting routes (like mutation but NOT export)
+func (s *Server) newPipe(logger sdk.Logger, dir string, customerID string, jobID string, integrationInstanceID string, fastlane bool) sdk.Pipe {
 	var p sdk.Pipe
 	p = pipe.New(pipe.Config{
 		Ctx:                   s.config.Ctx,
@@ -133,6 +134,7 @@ func (s *Server) newPipe(logger sdk.Logger, dir string, customerID string, jobID
 		APIKey:                s.config.APIKey,
 		Secret:                s.config.Secret,
 		RefType:               s.config.Integration.Descriptor.RefType,
+		Fastlane:              fastlane,
 	})
 	return p
 }
@@ -189,7 +191,7 @@ func (s *Server) toInstance(logger sdk.Logger, integration *agent.IntegrationIns
 		return nil, nil, err
 	}
 	dir := s.newTempDir("")
-	pipe := s.newPipe(logger, dir, integration.CustomerID, "", integration.ID)
+	pipe := s.newPipe(logger, dir, integration.CustomerID, "", integration.ID, false)
 	cleanup := func() {
 		pipe.Close()
 		os.RemoveAll(dir)
@@ -257,7 +259,7 @@ func (s *Server) handleExport(logger log.Logger, client graphql.Client, req agen
 	if err != nil {
 		return err
 	}
-	p := s.newPipe(logger, dir, req.CustomerID, req.JobID, integration.ID)
+	p := s.newPipe(logger, dir, req.CustomerID, req.JobID, integration.ID, false)
 	defer p.Close()
 	e, err := eventAPIexport.New(eventAPIexport.Config{
 		Ctx:                   s.config.Ctx,
@@ -339,7 +341,7 @@ func (s *Server) handleWebhook(logger log.Logger, client graphql.Client, integra
 	if err != nil {
 		return err
 	}
-	p := s.newPipe(logger, dir, customerID, jobID, integrationInstanceID)
+	p := s.newPipe(logger, dir, customerID, jobID, integrationInstanceID, true)
 	defer p.Close()
 	e := eventAPIwebhook.New(eventAPIwebhook.Config{
 		Ctx:                   s.config.Ctx,
@@ -395,7 +397,7 @@ func (s *Server) handleMutation(logger log.Logger, client graphql.Client, integr
 	if err != nil {
 		return nil, err
 	}
-	p := s.newPipe(logger, dir, customerID, jobID, integrationInstanceID)
+	p := s.newPipe(logger, dir, customerID, jobID, integrationInstanceID, false)
 	defer p.Close()
 	e := eventAPImutation.New(eventAPImutation.Config{
 		Ctx:                   s.config.Ctx,
@@ -554,7 +556,7 @@ func (s *Server) onDBChange(logger sdk.Logger, evt event.SubscriptionEvent, refT
 					return err
 				}
 				logger := detailLogger(logger, customerID, &integrationInstanceID)
-				p := s.newPipe(logger, dir, customerID, jobID, integrationInstanceID)
+				p := s.newPipe(logger, dir, customerID, jobID, integrationInstanceID, false)
 				defer p.Close()
 				e, err := eventAPIautoconfig.New(eventAPIautoconfig.Config{
 					Ctx:                   s.config.Ctx,
@@ -1215,7 +1217,5 @@ func New(config Config) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error starting mutation subscriber: %w", err)
 	}
-	// commenting for now, this will need to be in registry instead of here
-	// err = slackClient.SendMessage("🎉 *"+config.Integration.Descriptor.RefType+"* integration published", "sha", config.Integration.Descriptor.BuildCommitSHA)
 	return server, nil
 }
